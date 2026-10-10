@@ -198,7 +198,7 @@ function sample(){
 }
 
 let S;
-let cfg={gistId:"",token:"",fileName:GIST_FILE_DEFAULT};
+let cfg={gistId:"1647bd9e840333f548aee22d9471cd22",token:"",fileName:GIST_FILE_DEFAULT};
 let meta={lastSync:0,lastError:"",lastOk:false};
 let syncBusy=false;
 let pushTimer=null;
@@ -218,7 +218,7 @@ function normState(p){
 }
 
 function loadCfg(){
-  try{const c=JSON.parse(localStorage.getItem(CFG_KEY)||"null");if(c)cfg={gistId:c.gistId||"",token:c.token||"",fileName:c.fileName||GIST_FILE_DEFAULT}}catch(e){}
+  try{const c=JSON.parse(localStorage.getItem(CFG_KEY)||"null");if(c)cfg={gistId:c.gistId||"1647bd9e840333f548aee22d9471cd22",token:c.token||"",fileName:c.fileName||GIST_FILE_DEFAULT};else cfg={gistId:"1647bd9e840333f548aee22d9471cd22",token:"",fileName:GIST_FILE_DEFAULT}}catch(e){}
   try{const m=JSON.parse(localStorage.getItem(META_KEY)||"null");if(m)meta={lastSync:m.lastSync||0,lastError:m.lastError||"",lastOk:!!m.lastOk}}catch(e){}
 }
 function saveCfg(){localStorage.setItem(CFG_KEY,JSON.stringify(cfg));localStorage.setItem(META_KEY,JSON.stringify(meta));updateSyncDot()}
