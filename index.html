@@ -72,7 +72,7 @@ h1.title{text-align:center;font-size:1.45rem;font-weight:800;color:var(--navy);m
 @media(min-width:540px){.mwrap{align-items:center}}
 .modal{width:100%;max-width:420px;background:#fff;border-radius:16px;padding:20px;max-height:90vh;overflow:auto}
 .modal h3{color:var(--navy);margin-bottom:6px}
-.mdesc{color:var(--muted);font-size:.88rem;margin-bottom:14px}
+.mdesc{color:var(--muted);font-size:.88rem;margin-bottom:14px;white-space:pre-line;word-break:break-all}
 .field{margin-bottom:12px}
 .field label{display:block;font-size:.8rem;color:var(--muted);margin-bottom:4px}
 .field input{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:#f8f9fb;font-size:.95rem}
@@ -85,6 +85,7 @@ h1.title{text-align:center;font-size:1.45rem;font-weight:800;color:var(--navy);m
 .btn:disabled{opacity:.45;cursor:not-allowed}
 .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translate(-50%,80px);background:#1f2937;color:#fff;padding:9px 18px;border-radius:99px;font-size:.88rem;opacity:0;transition:.3s;z-index:100;pointer-events:none;max-width:90vw}
 .toast.show{transform:translate(-50%,0);opacity:1}
+.share-mode .topbar{justify-content:flex-end}
 .hidden{display:none!important}
 :focus-visible{outline:2px solid var(--navy);outline-offset:2px}
 </style>
@@ -111,8 +112,11 @@ h1.title{text-align:center;font-size:1.45rem;font-weight:800;color:var(--navy);m
 </div>
 
 <div class="menu" id="menu" role="menu">
-  <button type="button" data-m="sync">同步设置</button>
-  <button type="button" data-m="syncNow">立即同步</button>
+  <button type="button" data-m="share" class="owner-only">分享此清单</button>
+  <button type="button" data-m="sync" class="owner-only">同步设置</button>
+  <button type="button" data-m="shareRefresh" class="share-only hidden">刷新</button>
+  <button type="button" data-m="shareForget" class="share-only hidden">退出（忘记口令）</button>
+  <button type="button" data-m="syncNow" class="owner-only">立即同步</button>
   <button type="button" data-m="uncheck">全部取消勾选</button>
   <button type="button" data-m="clear">清除已完成</button>
   <button type="button" data-m="export">导出当前 JSON</button>
@@ -145,7 +149,7 @@ h1.title{text-align:center;font-size:1.45rem;font-weight:800;color:var(--navy);m
     <p class="mdesc">用一个 GitHub Gist 在手机与电脑间同步全部清单。Token 只保存在本浏览器。</p>
     <div class="field">
       <label for="gistId">Gist ID 或链接</label>
-      <input id="gistId" autocomplete="off" placeholder="例如 abc123… 或 https://gist.github.com/…/abc123" />
+      <input id="gistId" autocomplete="off" placeholder="1647bd9e840333f548aee22d9471cd22（粘贴后保存才生效）" />
     </div>
     <div class="field">
       <label for="gistToken">GitHub PAT（需 gist 权限；写入必填）</label>
@@ -162,6 +166,15 @@ h1.title{text-align:center;font-size:1.45rem;font-weight:800;color:var(--navy);m
       <button type="button" class="btn btn-p" id="syncSave">保存</button>
     </div>
   </div>
+</div>
+
+<div class="mwrap" id="mPass" role="dialog" aria-modal="true">
+  <form class="modal" id="passForm" autocomplete="off">
+    <h3>共享清单</h3>
+    <p class="mdesc" id="passMsg">请输入分享口令</p>
+    <div class="field"><label for="passInput">口令</label><input id="passInput" type="password" inputmode="text" autocomplete="current-password" /></div>
+    <div class="macts"><button type="submit" class="btn btn-p">进入</button></div>
+  </form>
 </div>
 
 <input type="file" id="file" accept="application/json,.json" class="hidden" />
@@ -198,14 +211,14 @@ function sample(){
 }
 
 let S;
-let cfg={gistId:"1647bd9e840333f548aee22d9471cd22",token:"",fileName:GIST_FILE_DEFAULT};
+let cfg={gistId:"",token:"",fileName:GIST_FILE_DEFAULT};
 let meta={lastSync:0,lastError:"",lastOk:false};
 let syncBusy=false;
 let pushTimer=null;
 let suppressPush=false;
 
-function normItem(it){return{id:it.id||uid(),text:String(it.text||""),qty:String(it.qty||""),tag:String(it.tag||""),note:String(it.note||""),checked:!!it.checked,createdAt:it.createdAt||Date.now()}}
-function normList(l){return{id:l.id||uid(),name:l.name||"导入清单",updatedAt:Number(l.updatedAt)||0,
+function normItem(it){return{id:it.id||uid(),text:String(it.text||""),qty:String(it.qty||""),tag:String(it.tag||""),note:String(it.note||""),checked:!!it.checked,u:Number(it.u)||0,createdAt:it.createdAt||Date.now()}}
+function normList(l){return{id:l.id||uid(),name:l.name||"导入清单",updatedAt:Number(l.updatedAt)||0,share:l.share&&l.share.id?l.share:undefined,
   groups:(Array.isArray(l.groups)?l.groups:[]).map((g,gi)=>({id:g.id||uid(),name:g.name||"分组",color:g.color||COLORS[gi%COLORS.length],items:(Array.isArray(g.items)?g.items:[]).map(normItem)}))}}
 function normState(p){
   if(!p||!Array.isArray(p.lists))return null;
@@ -214,11 +227,11 @@ function normState(p){
   let active=p.activeListId;
   if(!lists.some(l=>l.id===active))active=lists[0].id;
   const maxList=lists.reduce((m,l)=>Math.max(m,l.updatedAt||0),0);
-  return{version:2,updatedAt:Number(p.updatedAt)||maxList||Date.now(),activeListId:active,lists};
+  return{version:2,updatedAt:Number(p.updatedAt)||maxList||Date.now(),activeListId:active,lists,sharesGistId:p.sharesGistId||undefined};
 }
 
 function loadCfg(){
-  try{const c=JSON.parse(localStorage.getItem(CFG_KEY)||"null");if(c)cfg={gistId:c.gistId||"1647bd9e840333f548aee22d9471cd22",token:c.token||"",fileName:c.fileName||GIST_FILE_DEFAULT};else cfg={gistId:"1647bd9e840333f548aee22d9471cd22",token:"",fileName:GIST_FILE_DEFAULT}}catch(e){}
+  try{const c=JSON.parse(localStorage.getItem(CFG_KEY)||"null");if(c&&(c.gistId||c.token||c.fileName))cfg={gistId:c.gistId||"",token:c.token||"",fileName:c.fileName||GIST_FILE_DEFAULT}}catch(e){}
   try{const m=JSON.parse(localStorage.getItem(META_KEY)||"null");if(m)meta={lastSync:m.lastSync||0,lastError:m.lastError||"",lastOk:!!m.lastOk}}catch(e){}
 }
 function saveCfg(){localStorage.setItem(CFG_KEY,JSON.stringify(cfg));localStorage.setItem(META_KEY,JSON.stringify(meta));updateSyncDot()}
@@ -356,7 +369,7 @@ function mergeStates(local,remote){
   const updatedAt=Math.max(local.updatedAt||0,remote.updatedAt||0);
   // detect if any list content differs from local-only
   if(lists.length!==local.lists.length)changed=true;
-  const state={version:2,updatedAt,activeListId:finalActive,lists};
+  const state={version:2,updatedAt,activeListId:finalActive,lists,sharesGistId:remote.sharesGistId||local.sharesGistId};
   return{state,changed,source:remoteNewer&&changed?"remote":"merged"};
 }
 
@@ -374,6 +387,7 @@ async function syncPullMerge(opts){
     suppressPush=false;
     meta.lastSync=Date.now();meta.lastError="";meta.lastOk=true;saveCfg();
     if(!quiet)toast(changed?"已从 Gist 合并":"已与 Gist 一致");
+    await syncShares();
     // if local had newer bits, push back
     if(cfg.token&&remote&&(S.updatedAt>(remote.updatedAt||0)||changed)){
       await gistPushLocal();
@@ -397,6 +411,7 @@ async function syncPushNow(opts){
   if(!cfg.token){if(!quiet)toast("只读模式：填写 Token 后才能上传");return}
   syncBusy=true;updateSyncDot();
   try{
+    await syncShares();
     await gistPushLocal();
     meta.lastSync=Date.now();meta.lastError="";meta.lastOk=true;saveCfg();
     if(!quiet)toast("已上传到 Gist");
@@ -480,7 +495,7 @@ function render(){
 $("main").addEventListener("click",e=>{
   const btn=e.target.closest(".item");if(!btn)return;
   const l=cur(),g=l.groups.find(x=>x.id===btn.dataset.g),it=g&&g.items.find(x=>x.id===btn.dataset.i);
-  if(!it)return;it.checked=!it.checked;commit();
+  if(!it)return;it.checked=!it.checked;it.u=Date.now();if(SHARE){shareToggle(it);return}commit();
 });
 
 function openDrawer(){
@@ -499,10 +514,14 @@ $("bMore").onclick=e=>{e.stopPropagation();$("menu").classList.toggle("open")};
 document.addEventListener("click",e=>{if(!e.target.closest("#menu,#bMore"))$("menu").classList.remove("open")});
 $("menu").onclick=async e=>{
   const b=e.target.closest("[data-m]");if(!b)return;$("menu").classList.remove("open");const m=b.dataset.m;
+  if(m==="shareRefresh"){shareLoad(false);return}
+  if(m==="shareForget"){localStorage.removeItem(SHARE_KEY());location.reload();return}
+  if(SHARE&&m!=="uncheck")return;
+  if(m==="share"){showShareStatus();return}
   if(m==="sync"){openSyncSettings();return}
   if(m==="syncNow"){await syncPullMerge({});return}
   const l=cur();if(!l)return;
-  if(m==="uncheck"){l.groups.forEach(g=>g.items.forEach(i=>i.checked=false));commit();toast("已全部取消勾选")}
+  if(m==="uncheck"){const now=Date.now();const ch=[];l.groups.forEach(g=>g.items.forEach(i=>{if(i.checked){i.checked=false;i.u=now;ch.push({id:i.id,checked:false,u:now})}}));if(SHARE){render();shareSaveCache();sharePost(ch);toast("已全部取消勾选");return}commit();toast("已全部取消勾选")}
   if(m==="clear"){const n=dn(l);if(!n){toast("没有已完成项目");return}
     if(await confirmModal({title:"清除已完成",desc:`将从清单中删除 ${n} 个已核对项目。`,ok:"清除",danger:true})){l.groups.forEach(g=>g.items=g.items.filter(i=>!i.checked));commit();toast("已清除")}}
   if(m==="export"){dl({version:2,lists:[l]},`清单-${l.name}-${stamp()}.json`);toast("已导出")}
@@ -532,20 +551,134 @@ document.addEventListener("keydown",e=>{
   else{closeDrawer();$("menu").classList.remove("open")}
 });
 
+
+/* ================= per-list sharing ================= */
+// After `wrangler deploy`, put the Worker origin here, e.g. "https://checklist-share.<sub>.workers.dev"
+// Until then leave empty; share links can still pass ?api=https://….workers.dev
+const SHARE_API_DEFAULT="";
+const QS=new URLSearchParams(location.search);
+const SHARE=(QS.get("share")||"").match(/^[A-Za-z0-9_-]{6,40}$/)?QS.get("share"):null;
+function shareApi(){
+  const q=QS.get("api")||"";
+  try{const u=new URL(q);if(u.protocol==="https:"&&/\.workers\.dev$/.test(u.hostname))return u.origin}catch(e){}
+  return SHARE_API_DEFAULT.replace(/\/$/,"");
+}
+const SHARE_KEY=()=>"checklist-share-"+SHARE;
+let sharePass="",shareTimer=null,sharePending=[];
+
+function mergeChecks(target,source){ // per-item LWW on u; returns #changed in target
+  const m=new Map();(source.groups||[]).forEach(g=>(g.items||[]).forEach(i=>m.set(i.id,i)));
+  let n=0;(target.groups||[]).forEach(g=>(g.items||[]).forEach(i=>{const s=m.get(i.id);if(s&&(Number(s.u)||0)>(Number(i.u)||0)){if(i.checked!==!!s.checked)n++;i.checked=!!s.checked;i.u=Number(s.u)||0}}));
+  return n;
+}
+
+// Owner side: merge check state with each share file in the registry gist (needs token)
+async function syncShares(){
+  if(SHARE||!cfg.token||!S.sharesGistId)return;
+  const shared=S.lists.filter(l=>l.share&&l.share.id&&!l.share.disabled);
+  if(!shared.length)return;
+  const H={"Accept":"application/vnd.github+json","Authorization":"Bearer "+cfg.token};
+  const res=await fetch("https://api.github.com/gists/"+S.sharesGistId,{headers:H});
+  if(!res.ok)throw new Error("读取分享库失败 HTTP "+res.status);
+  const files=(await res.json()).files||{};
+  const out={};let ownerChanged=false;
+  for(const l of shared){
+    const fn="share-"+l.share.id+".json",f=files[fn];if(!f)continue;
+    let rec;try{rec=JSON.parse(f.truncated?await (await fetch(f.raw_url,{headers:H})).text():f.content)}catch(e){continue}
+    if(mergeChecks(l,rec.list)){ownerChanged=true;l.updatedAt=Date.now()}
+    if(mergeChecks(rec.list,l)){rec.updatedAt=Date.now();rec.list.updatedAt=rec.updatedAt;out[fn]={content:JSON.stringify(rec,null,2)}}
+  }
+  if(Object.keys(out).length){
+    const r=await fetch("https://api.github.com/gists/"+S.sharesGistId,{method:"PATCH",headers:{...H,"Content-Type":"application/json"},body:JSON.stringify({files:out})});
+    if(!r.ok)throw new Error("写入分享库失败 HTTP "+r.status);
+  }
+  if(ownerChanged){S.updatedAt=Date.now();saveLocal();render()}
+}
+
+async function showShareStatus(){
+  const l=cur();if(!l)return;
+  const s=l.share;
+  if(!s||!s.id){await confirmModal({title:"分享此清单",desc:"这份清单还没有分享。请在对话中告诉助手：「把『"+l.name+"』分享出去，口令 xxxx」，助手会生成链接。",ok:"知道了"});return}
+  if(s.disabled){await confirmModal({title:"分享已停用",desc:"「"+l.name+"」的分享链接已停用。如需重新开启，请在对话中告诉助手。",ok:"知道了"});return}
+  const r=await confirmModal({title:"分享此清单",desc:"已分享 · 对方凭链接 + 口令只能看到并勾选这一份清单，勾选会双向同步。\n\n"+s.url+"\n\n口令不在这里显示；改口令或停用请在对话中告诉助手。",ok:"复制链接",extra:"关闭"});
+  if(r===true){try{await navigator.clipboard.writeText(s.url);toast("已复制链接")}catch(e){prompt("复制链接：",s.url)}}
+}
+
+/* ---- recipient (share) mode ---- */
+function shareSaveCache(){try{localStorage.setItem(SHARE_KEY(),JSON.stringify({pass:sharePass,list:cur()}))}catch(e){}}
+async function shareFetch(method,path,body){
+  const api=shareApi();if(!api)throw new Error("分享服务未配置");
+  const res=await fetch(api+"/api/share/"+SHARE+(path||""),{method,headers:{"X-Share-Pass":sharePass,...(body?{"Content-Type":"application/json"}:{})},body:body?JSON.stringify(body):undefined});
+  if(res.status===401){const e=new Error("口令不正确");e.code=401;throw e}
+  if(res.status===404){const e=new Error("分享不存在或已停用");e.code=404;throw e}
+  if(!res.ok)throw new Error("服务暂时不可用 ("+res.status+")");
+  return res.json();
+}
+function shareApply(data){
+  const local=cur();
+  const list=normList(data.list);list.id=list.id||"shared";
+  if(local&&local.id===list.id)mergeChecks(list,local); // keep my not-yet-confirmed taps
+  S={version:2,updatedAt:Date.now(),activeListId:list.id,lists:[list]};
+  shareSaveCache();render();
+}
+function setDot(kind){const d=$("syncDot");d.classList.remove("on","err","busy");if(kind)d.classList.add(kind)}
+async function shareLoad(quiet){
+  setDot("busy");
+  try{const d=await shareFetch("GET");shareApply(d);setDot(sharePending.length?"busy":"on");if(!quiet)toast("已刷新")}
+  catch(e){setDot("err");if(e.code===401){askSharePass("口令不正确或已更改，请重新输入");return}if(!quiet||e.code===404)toast(e.message)}
+}
+async function sharePost(changes){
+  sharePending.push(...changes);
+  clearTimeout(shareTimer);
+  shareTimer=setTimeout(async()=>{
+    const batch=sharePending.splice(0);if(!batch.length)return;
+    setDot("busy");
+    try{const d=await shareFetch("POST","/check",{changes:batch});shareApply(d);setDot("on")}
+    catch(e){sharePending.unshift(...batch);setDot("err");toast("同步失败，稍后重试："+e.message);setTimeout(()=>sharePost([]),8000)}
+  },500);
+}
+function shareToggle(it){render();shareSaveCache();sharePost([{id:it.id,checked:it.checked,u:it.u}])}
+
+function askSharePass(msg){
+  const w=$("mPass");$("passMsg").textContent=msg||"请输入分享口令";$("passInput").value="";
+  w.classList.add("open");setTimeout(()=>$("passInput").focus(),50);
+}
+function bootShare(){
+  document.body.classList.add("share-mode");
+  document.querySelectorAll(".owner-only").forEach(e=>e.classList.add("hidden"));
+  document.querySelectorAll(".share-only").forEach(e=>e.classList.remove("hidden"));
+  $("bCatalog").classList.add("hidden");
+  $("menu").querySelectorAll('[data-m="clear"],[data-m="export"],[data-m="exportAll"],[data-m="import"]').forEach(e=>e.classList.add("hidden"));
+  S={version:2,updatedAt:0,activeListId:null,lists:[]};
+  let cache=null;try{cache=JSON.parse(localStorage.getItem(SHARE_KEY())||"null")}catch(e){}
+  if(cache&&cache.list){S={version:2,updatedAt:0,activeListId:cache.list.id,lists:[normList(cache.list)]}}
+  sharePass=(cache&&cache.pass)||"";
+  if(cur())render();else{$("title").textContent="共享清单";$("main").innerHTML='<div class="empty">需要口令才能查看这份清单</div>'}
+  $("passForm").onsubmit=e=>{e.preventDefault();const v=$("passInput").value.trim();if(!v)return;sharePass=v;$("mPass").classList.remove("open");shareLoad(true)};
+  if(!shareApi()){toast("分享服务未配置");return}
+  if(sharePass)shareLoad(true);else askSharePass();
+  setInterval(()=>{if(sharePass&&!document.hidden&&!sharePending.length)shareLoad(true)},15000);
+  document.addEventListener("visibilitychange",()=>{if(!document.hidden&&sharePass)shareLoad(true)});
+}
+
 /* ---- boot ---- */
-loadCfg();
-loadLocal();
-render();
-updateSyncDot();
-if(cfg.gistId){
-  syncPullMerge({quiet:true});
+if(SHARE){
+  bootShare(); // recipients: never touch owner config, owner gist, or other lists
+}else{
+  loadCfg();
+  loadLocal();
+  render();
+  updateSyncDot();
+  if(cfg.gistId){
+    syncPullMerge({quiet:true});
+  }
 }
 
 /* ---- expose for dry-run tests ---- */
 window.__checklistTest={
   parseGistId,mergeStates,normState,sample,
   getState:()=>S,setState:s=>{S=s},
-  getCfg:()=>cfg,setCfg:c=>{cfg=c}
+  getCfg:()=>cfg,setCfg:c=>{cfg=c},mergeChecks,syncShares,isShare:()=>!!SHARE
 };
 })();
 </script>
