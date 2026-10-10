@@ -23,6 +23,13 @@ input{outline:none}
 .catalog-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;background:#fff;color:var(--navy);font-weight:700;font-size:.92rem;box-shadow:var(--shadow);border:1px solid var(--line)}
 .catalog-btn:hover,.catalog-btn:focus-visible{background:#e8eef6;outline:none}
 .catalog-btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.top-right{display:flex;align-items:center;gap:8px}
+.refresh-btn{display:inline-flex;align-items:center;gap:5px;padding:8px 12px;border-radius:10px;background:#fff;color:var(--navy);font-weight:700;font-size:.92rem;box-shadow:var(--shadow);border:1px solid var(--line)}
+.refresh-btn:hover,.refresh-btn:focus-visible{background:#e8eef6;outline:none}
+.refresh-btn:disabled{opacity:.55;cursor:wait}
+.refresh-btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.refresh-btn.spinning svg{animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
 .ibtn{width:40px;height:40px;display:inline-flex;align-items:center;justify-content:center;border-radius:10px;color:#9aa3b2}
 .ibtn:hover,.ibtn:focus-visible{background:#e4e8ee;color:var(--navy);outline:none}
 .ibtn svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
@@ -97,11 +104,17 @@ h1.title{text-align:center;font-size:1.45rem;font-weight:800;color:var(--navy);m
       <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h14"/></svg>
       目录
     </button>
-    <div class="more-wrap">
-      <button type="button" class="ibtn" id="bMore" aria-label="更多" title="更多">
-        <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg>
+    <div class="top-right">
+      <button type="button" class="refresh-btn" id="bRefresh" aria-label="刷新" title="从云端拉取最新">
+        <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        刷新
       </button>
-      <span class="sync-dot" id="syncDot" title="同步状态"></span>
+      <div class="more-wrap">
+        <button type="button" class="ibtn" id="bMore" aria-label="更多" title="更多">
+          <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg>
+        </button>
+        <span class="sync-dot" id="syncDot" title="同步状态"></span>
+      </div>
     </div>
   </div>
   <h1 class="title" id="title">清单</h1>
@@ -529,6 +542,21 @@ const stamp=()=>new Date().toISOString().slice(0,16).replace(/[-:T]/g,"");
 function pick(){$("file").value="";$("file").click()}
 
 $("bMore").onclick=e=>{e.stopPropagation();$("menu").classList.toggle("open")};
+$("bRefresh").onclick=async()=>{
+  const btn=$("bRefresh");
+  if(btn.disabled)return;
+  btn.disabled=true;btn.classList.add("spinning");
+  try{
+    if(typeof SHARE!=="undefined"&&SHARE){
+      if(!sharePass){askSharePass();toast("请先输入口令");return}
+      await shareLoad(false);
+    }else{
+      if(!cfg.gistId){toast("请先在同步设置中填写 Gist ID");openSyncSettings();return}
+      await syncPullMerge({});
+    }
+  }catch(e){toast("刷新失败："+(e.message||e))}
+  finally{btn.disabled=false;btn.classList.remove("spinning")}
+};
 document.addEventListener("click",e=>{if(!e.target.closest("#menu,#bMore"))$("menu").classList.remove("open")});
 $("menu").onclick=async e=>{
   const b=e.target.closest("[data-m]");if(!b)return;$("menu").classList.remove("open");const m=b.dataset.m;
