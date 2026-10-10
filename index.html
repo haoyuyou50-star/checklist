@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#f1f3f6" />
+<title>可视化清单</title>
+<style>
+:root{
+  --bg:#f1f3f6;--card:#fff;--navy:#1e3a5f;--text:#1f2937;--muted:#8a94a6;--done:#a0a8b6;
+  --green:#3fba6f;--green-track:#dfe5ec;--red:#d93a3a;--red-bg:#fdecec;--line:#e3e7ee;
+  --shadow:0 1px 3px rgba(20,30,50,.06),0 2px 8px rgba(20,30,50,.04);
+  --font:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC","Segoe UI",sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-tap-highlight-color:transparent}
+body{font-family:var(--font);background:var(--bg);color:var(--text);line-height:1.45;min-height:100vh}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer;border:none;background:none}
+input{outline:none}
+.app{max-width:640px;margin:0 auto;padding:12px 16px calc(40px + env(safe-area-inset-bottom))}
+.topbar{display:flex;justify-content:space-between;align-items:center;min-height:40px;margin-bottom:4px}
+.catalog-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;background:#fff;color:var(--navy);font-weight:700;font-size:.92rem;box-shadow:var(--shadow);border:1px solid var(--line)}
+.catalog-btn:hover,.catalog-btn:focus-visible{background:#e8eef6;outline:none}
+.catalog-btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ibtn{width:40px;height:40px;display:inline-flex;align-items:center;justify-content:center;border-radius:10px;color:#9aa3b2}
+.ibtn:hover,.ibtn:focus-visible{background:#e4e8ee;color:var(--navy);outline:none}
+.ibtn svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.sync-dot{width:8px;height:8px;border-radius:50%;background:#c3c9d3;position:absolute;top:8px;right:8px}
+.sync-dot.on{background:var(--green)}.sync-dot.err{background:var(--red)}.sync-dot.busy{background:#f59e0b;animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.4}}
+.more-wrap{position:relative}
+h1.title{text-align:center;font-size:1.45rem;font-weight:800;color:var(--navy);margin:2px 0 14px;letter-spacing:.02em;word-break:break-word}
+.bar{height:8px;background:var(--green-track);border-radius:99px;overflow:hidden}
+.fill{height:100%;width:0;background:var(--green);border-radius:99px;transition:width .35s ease}
+.count{text-align:center;color:var(--muted);font-size:.85rem;margin:10px 0 18px}
+.done-banner{display:none;text-align:center;color:var(--green);font-weight:700;margin:-8px 0 16px}
+.done-banner.show{display:block}
+.group{margin-bottom:22px}
+.ghead{display:flex;align-items:center;gap:6px;margin-bottom:10px}
+.pill{display:inline-block;padding:5px 12px;border-radius:7px;color:#fff;font-weight:700;font-size:.95rem}
+.gcount{color:var(--muted);font-size:.78rem;margin-left:4px}
+.items{list-style:none;display:flex;flex-direction:column;gap:10px}
+.item{display:flex;align-items:center;gap:14px;background:var(--card);border-radius:12px;box-shadow:var(--shadow);padding:16px;min-height:60px;cursor:pointer;user-select:none;transition:transform .1s;width:100%;text-align:left}
+.item:active{transform:scale(.99)}
+.chk{flex-shrink:0;width:26px;height:26px;border-radius:50%;border:2px solid #cfd5de;display:flex;align-items:center;justify-content:center;color:transparent;transition:all .15s}
+.chk svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:3.2;stroke-linecap:round;stroke-linejoin:round}
+.item.done .chk{background:var(--green);border-color:var(--green);color:#fff}
+.body{flex:1;min-width:0;font-size:1rem;color:var(--text);word-break:break-word}
+.item.done .txt{color:var(--done);text-decoration:line-through}
+.tag{display:inline;margin-left:8px;padding:2px 7px;border-radius:4px;background:var(--red-bg);color:var(--red);font-size:.78rem;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+.note{display:block;font-size:.8rem;color:var(--muted);margin-top:3px}
+.qty{flex-shrink:0;font-weight:700;color:#8a94a6;font-size:1rem;white-space:nowrap}
+.empty{text-align:center;color:var(--muted);padding:40px 10px;font-size:.95rem;line-height:1.6}
+.overlay{position:fixed;inset:0;background:rgba(15,23,42,.35);z-index:50;opacity:0;visibility:hidden;transition:.2s}
+.overlay.open{opacity:1;visibility:visible}
+.drawer{position:fixed;top:0;bottom:0;left:0;width:min(320px,88vw);background:#fff;z-index:60;transform:translateX(-100%);transition:transform .25s ease;display:flex;flex-direction:column;box-shadow:0 0 30px rgba(0,0,0,.15)}
+.drawer.open{transform:none}
+.dhead{display:flex;justify-content:space-between;align-items:center;padding:16px;border-bottom:1px solid var(--line);font-weight:800;font-size:1.05rem;color:var(--navy)}
+.dbody{flex:1;overflow:auto;padding:12px}
+.dhint{padding:0 16px 10px;font-size:.8rem;color:var(--muted)}
+.litem{display:flex;width:100%;gap:8px;padding:14px 12px;border-radius:12px;text-align:left;margin-bottom:6px;border:1px solid transparent}
+.litem:hover{background:#f3f5f8}.litem.active{background:#e8eef6;color:var(--navy);font-weight:700;border-color:#c5d4e8}
+.litem span:first-child{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.litem span:last-child{color:var(--muted);font-size:.8rem;font-variant-numeric:tabular-nums}
+.menu{position:fixed;top:56px;right:max(12px,calc(50% - 308px));background:#fff;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.15);z-index:55;padding:6px;min-width:180px;display:none}
+.menu.open{display:block}
+.menu button{display:block;width:100%;text-align:left;padding:12px 14px;border-radius:8px;font-size:.92rem}
+.menu button:hover{background:#f3f5f8}
+.mwrap{position:fixed;inset:0;background:rgba(15,23,42,.4);z-index:70;display:flex;align-items:flex-end;justify-content:center;padding:12px;padding-bottom:calc(12px + env(safe-area-inset-bottom));opacity:0;visibility:hidden;transition:.2s}
+.mwrap.open{opacity:1;visibility:visible}
+@media(min-width:540px){.mwrap{align-items:center}}
+.modal{width:100%;max-width:420px;background:#fff;border-radius:16px;padding:20px;max-height:90vh;overflow:auto}
+.modal h3{color:var(--navy);margin-bottom:6px}
+.mdesc{color:var(--muted);font-size:.88rem;margin-bottom:14px}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:.8rem;color:var(--muted);margin-bottom:4px}
+.field input{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:#f8f9fb;font-size:.95rem}
+.field input:focus{border-color:var(--navy);background:#fff}
+.sync-status{font-size:.82rem;color:var(--muted);line-height:1.5;min-height:2.4em;padding:8px 10px;background:#f3f5f8;border-radius:8px;margin-bottom:12px;word-break:break-word}
+.sync-status.ok{color:#166534;background:#ecfdf3}.sync-status.err{color:#991b1b;background:var(--red-bg)}
+.macts{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.btn{padding:11px 16px;border-radius:10px;font-weight:600;font-size:.92rem}
+.btn-p{background:var(--navy);color:#fff}.btn-g{background:#eef1f5;color:#334155}.btn-d{background:var(--red-bg);color:var(--red)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translate(-50%,80px);background:#1f2937;color:#fff;padding:9px 18px;border-radius:99px;font-size:.88rem;opacity:0;transition:.3s;z-index:100;pointer-events:none;max-width:90vw}
+.toast.show{transform:translate(-50%,0);opacity:1}
+.hidden{display:none!important}
+:focus-visible{outline:2px solid var(--navy);outline-offset:2px}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <button type="button" class="catalog-btn" id="bCatalog" aria-label="目录：切换清单">
+      <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h14"/></svg>
+      目录
+    </button>
+    <div class="more-wrap">
+      <button type="button" class="ibtn" id="bMore" aria-label="更多" title="更多">
+        <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg>
+      </button>
+      <span class="sync-dot" id="syncDot" title="同步状态"></span>
+    </div>
+  </div>
+  <h1 class="title" id="title">清单</h1>
+  <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" id="bar"><div class="fill" id="fill"></div></div>
+  <p class="count" id="count">已核对 0 / 0</p>
+  <p class="done-banner" id="banner">✓ 全部核对完成</p>
+  <main id="main"></main>
+</div>
+
+<div class="menu" id="menu" role="menu">
+  <button type="button" data-m="sync">同步设置</button>
+  <button type="button" data-m="syncNow">立即同步</button>
+  <button type="button" data-m="uncheck">全部取消勾选</button>
+  <button type="button" data-m="clear">清除已完成</button>
+  <button type="button" data-m="export">导出当前 JSON</button>
+  <button type="button" data-m="exportAll">导出全部 JSON</button>
+  <button type="button" data-m="import">导入 JSON</button>
+</div>
+
+<div class="overlay" id="overlay"></div>
+<aside class="drawer" id="drawer" aria-label="目录">
+  <div class="dhead">目录<button type="button" class="ibtn" id="bClose" aria-label="关闭"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+  <p class="dhint">点选切换清单。新建 / 编辑内容请在对话中告诉助手。</p>
+  <div class="dbody" id="dbody"></div>
+</aside>
+
+<div class="mwrap" id="mConfirm" role="dialog" aria-modal="true">
+  <div class="modal">
+    <h3 id="ctitle"></h3>
+    <p class="mdesc" id="cdesc"></p>
+    <div class="macts">
+      <button type="button" class="btn btn-g" id="ccancel">取消</button>
+      <button type="button" class="btn btn-d hidden" id="cextra"></button>
+      <button type="button" class="btn btn-p" id="cok">确定</button>
+    </div>
+  </div>
+</div>
+
+<div class="mwrap" id="mSync" role="dialog" aria-modal="true">
+  <div class="modal">
+    <h3>同步设置</h3>
+    <p class="mdesc">用一个 GitHub Gist 在手机与电脑间同步全部清单。Token 只保存在本浏览器。</p>
+    <div class="field">
+      <label for="gistId">Gist ID 或链接</label>
+      <input id="gistId" autocomplete="off" placeholder="例如 abc123… 或 https://gist.github.com/…/abc123" />
+    </div>
+    <div class="field">
+      <label for="gistToken">GitHub PAT（需 gist 权限；写入必填）</label>
+      <input id="gistToken" type="password" autocomplete="off" placeholder="ghp_… 或 github_pat_…" />
+    </div>
+    <div class="field">
+      <label for="gistFile">Gist 内文件名</label>
+      <input id="gistFile" autocomplete="off" value="checklist-data.json" />
+    </div>
+    <div class="sync-status" id="syncStatus">未配置同步</div>
+    <div class="macts">
+      <button type="button" class="btn btn-g" id="syncClose">关闭</button>
+      <button type="button" class="btn btn-g" id="syncPull">立即同步</button>
+      <button type="button" class="btn btn-p" id="syncSave">保存</button>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="file" accept="application/json,.json" class="hidden" />
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function(){
+"use strict";
+const KEY="checklist-app-v1";
+const CFG_KEY="checklist-gist-cfg";
+const META_KEY="checklist-gist-meta";
+const GIST_FILE_DEFAULT="checklist-data.json";
+const COLORS=["#1e3a5f","#2f6db3","#2a7d7b","#6b4fa0","#b5651d","#3d4a5c"];
+const TICK='<svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>';
+const $=id=>document.getElementById(id);
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+const esc=s=>String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+
+function I(text,qty,tag,checked,note){return{id:uid(),text,qty:qty||"",tag:tag||"",note:note||"",checked:!!checked,createdAt:Date.now()}}
+function sample(){
+  const gear={id:"demo-gear",name:"影视拍摄器材验收清单",updatedAt:Date.now(),groups:[
+    {id:uid(),name:"摄影组",color:COLORS[0],items:[
+      I("Sony FX3 摄影机","×1","",true),I("雅典娜镜头套装 24+35+50","×1套","只成套租",true),
+      I("铁头遮光斗","×1"),I("图瑞斯V18云台","×1"),I("4×1黑柔滤镜","×1"),
+      I("跟焦器（原力M）","×1"),I("摄影机套件底座","×1套","楚门提供")]},
+    {id:uid(),name:"监看组",color:COLORS[1],items:[I("大疆图传（一发）","×1"),I("大疆小监","×3"),I("监视器遮光罩","×3")]},
+    {id:uid(),name:"灯光组",color:COLORS[2],items:[I("艾蒙拉 600d","×2"),I("柔光箱","×2","需提前确认"),I("灯架","×4"),I("V口电池","×6")]}]};
+  const exhibit={id:"demo-exhibit",name:"展陈布置",updatedAt:Date.now()-1000,groups:[
+    {id:uid(),name:"现场准备",color:COLORS[0],items:[I("确认展位尺寸与承重","","",true),I("核对灯光与电源点位"),I("测量参观动线宽度","","","","不少于 1.2m")]},
+    {id:uid(),name:"展品与说明",color:COLORS[1],items:[I("展品清点与编号","×24"),I("说明牌与二维码","×24","需打印"),I("防撞与限高提示","×6")]}]};
+  const daily={id:"demo-daily",name:"日常事项",updatedAt:Date.now()-2000,groups:[
+    {id:uid(),name:"今天",color:COLORS[2],items:[I("回复邮件与消息"),I("整理待办优先级"),I("喝水 / 站立活动","×8","每小时")]}]};
+  return{version:2,updatedAt:Date.now(),activeListId:gear.id,lists:[gear,exhibit,daily]};
+}
+
+let S;
+let cfg={gistId:"",token:"",fileName:GIST_FILE_DEFAULT};
+let meta={lastSync:0,lastError:"",lastOk:false};
+let syncBusy=false;
+let pushTimer=null;
+let suppressPush=false;
+
+function normItem(it){return{id:it.id||uid(),text:String(it.text||""),qty:String(it.qty||""),tag:String(it.tag||""),note:String(it.note||""),checked:!!it.checked,createdAt:it.createdAt||Date.now()}}
+function normList(l){return{id:l.id||uid(),name:l.name||"导入清单",updatedAt:Number(l.updatedAt)||0,
+  groups:(Array.isArray(l.groups)?l.groups:[]).map((g,gi)=>({id:g.id||uid(),name:g.name||"分组",color:g.color||COLORS[gi%COLORS.length],items:(Array.isArray(g.items)?g.items:[]).map(normItem)}))}}
+function normState(p){
+  if(!p||!Array.isArray(p.lists))return null;
+  const lists=p.lists.map(normList);
+  if(!lists.length)return null;
+  let active=p.activeListId;
+  if(!lists.some(l=>l.id===active))active=lists[0].id;
+  const maxList=lists.reduce((m,l)=>Math.max(m,l.updatedAt||0),0);
+  return{version:2,updatedAt:Number(p.updatedAt)||maxList||Date.now(),activeListId:active,lists};
+}
+
+function loadCfg(){
+  try{const c=JSON.parse(localStorage.getItem(CFG_KEY)||"null");if(c)cfg={gistId:c.gistId||"",token:c.token||"",fileName:c.fileName||GIST_FILE_DEFAULT}}catch(e){}
+  try{const m=JSON.parse(localStorage.getItem(META_KEY)||"null");if(m)meta={lastSync:m.lastSync||0,lastError:m.lastError||"",lastOk:!!m.lastOk}}catch(e){}
+}
+function saveCfg(){localStorage.setItem(CFG_KEY,JSON.stringify(cfg));localStorage.setItem(META_KEY,JSON.stringify(meta));updateSyncDot()}
+
+function loadLocal(){
+  try{const p=JSON.parse(localStorage.getItem(KEY)||"null");const n=normState(p);if(n){S=n;return}}catch(e){}
+  S=sample();saveLocal();
+}
+function saveLocal(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){toast("本地保存失败")}}
+
+const cur=()=>S.lists.find(l=>l.id===S.activeListId);
+const tot=l=>l.groups.reduce((n,g)=>n+g.items.length,0);
+const dn=l=>l.groups.reduce((n,g)=>n+g.items.filter(i=>i.checked).length,0);
+
+function commit(opts){
+  const l=cur();if(l)l.updatedAt=Date.now();
+  S.updatedAt=Date.now();
+  saveLocal();
+  render();
+  if(!(opts&&opts.skipPush)) schedulePush();
+}
+
+let tt;function toast(m){const t=$("toast");t.textContent=m;t.classList.add("show");clearTimeout(tt);tt=setTimeout(()=>t.classList.remove("show"),2200)}
+
+function parseGistId(raw){
+  raw=String(raw||"").trim();
+  if(!raw)return"";
+  const m=raw.match(/gist\.github\.com\/(?:[^/]+\/)?([a-f0-9]+)/i)||raw.match(/api\.github\.com\/gists\/([a-f0-9]+)/i)||raw.match(/^([a-f0-9]{10,})$/i);
+  return m?m[1]:raw;
+}
+
+function updateSyncDot(){
+  const d=$("syncDot");
+  d.classList.remove("on","err","busy");
+  if(syncBusy)d.classList.add("busy");
+  else if(!cfg.gistId){/* idle gray */}
+  else if(meta.lastError)d.classList.add("err");
+  else if(meta.lastOk)d.classList.add("on");
+}
+
+function fmtTime(ts){
+  if(!ts)return"—";
+  try{return new Date(ts).toLocaleString("zh-CN",{hour12:false})}catch(e){return String(ts)}
+}
+
+function setStatus(text,kind){
+  const el=$("syncStatus");
+  el.textContent=text;
+  el.className="sync-status"+(kind?" "+kind:"");
+}
+
+function refreshStatusLine(){
+  if(!cfg.gistId){setStatus("未配置同步。可离线使用；配置后可跨设备同步。","");return}
+  const mode=cfg.token?"读写":"只读（无 Token，公开 Gist 可拉取）";
+  let t=`Gist ${cfg.gistId.slice(0,8)}… · ${mode}`;
+  if(meta.lastSync)t+=`\n上次同步：${fmtTime(meta.lastSync)}`;
+  if(meta.lastError){setStatus(t+`\n错误：${meta.lastError}`,"err");return}
+  if(meta.lastOk){setStatus(t,"ok");return}
+  setStatus(t,"");
+}
+
+/* ---- Gist API ---- */
+async function gistFetchRemote(){
+  if(!cfg.gistId)throw new Error("未填写 Gist ID");
+  const headers={"Accept":"application/vnd.github+json"};
+  if(cfg.token)headers.Authorization="Bearer "+cfg.token;
+  const res=await fetch("https://api.github.com/gists/"+cfg.gistId,{headers});
+  if(!res.ok){
+    const body=await res.text().catch(()=>"");
+    throw new Error("读取失败 HTTP "+res.status+(body?": "+body.slice(0,120):""));
+  }
+  const gist=await res.json();
+  const files=gist.files||{};
+  let file=files[cfg.fileName];
+  if(!file){
+    const keys=Object.keys(files);
+    file=keys.length?files[keys[0]]:null;
+    if(file&&keys[0]!==cfg.fileName)cfg.fileName=keys[0];
+  }
+  if(!file||file.content==null){
+    // empty gist — treat as no remote data
+    return null;
+  }
+  let content=file.content;
+  if(file.truncated&&cfg.token){
+    const raw=await fetch(file.raw_url,{headers:{Authorization:"Bearer "+cfg.token}});
+    if(!raw.ok)throw new Error("读取大文件失败 HTTP "+raw.status);
+    content=await raw.text();
+  }else if(file.truncated){
+    const raw=await fetch(file.raw_url);
+    if(!raw.ok)throw new Error("读取公开 raw 失败 HTTP "+raw.status);
+    content=await raw.text();
+  }
+  const parsed=JSON.parse(content);
+  return normState(parsed);
+}
+
+async function gistPushLocal(){
+  if(!cfg.gistId)throw new Error("未填写 Gist ID");
+  if(!cfg.token)throw new Error("写入需要 GitHub PAT（gist 权限）");
+  const headers={
+    "Accept":"application/vnd.github+json",
+    "Authorization":"Bearer "+cfg.token,
+    "Content-Type":"application/json"
+  };
+  const body=JSON.stringify({
+    files:{[cfg.fileName||GIST_FILE_DEFAULT]:{content:JSON.stringify(S,null,2)}}
+  });
+  const res=await fetch("https://api.github.com/gists/"+cfg.gistId,{method:"PATCH",headers,body});
+  if(!res.ok){
+    const t=await res.text().catch(()=>"");
+    throw new Error("写入失败 HTTP "+res.status+(t?": "+t.slice(0,120):""));
+  }
+  return true;
+}
+
+/** Last-write-wins merge by list.updatedAt; root updatedAt = max */
+function mergeStates(local,remote){
+  if(!remote)return{state:local,changed:false,source:"local"};
+  if(!local)return{state:remote,changed:true,source:"remote"};
+  const map=new Map();
+  local.lists.forEach(l=>map.set(l.id,l));
+  let changed=false;
+  remote.lists.forEach(r=>{
+    const L=map.get(r.id);
+    if(!L){map.set(r.id,r);changed=true;return}
+    if((r.updatedAt||0)>(L.updatedAt||0)){map.set(r.id,r);changed=true}
+    else if((r.updatedAt||0)<(L.updatedAt||0)){changed=true} // local newer kept
+    // equal: keep local
+  });
+  const lists=[...map.values()].sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
+  const remoteNewer=(remote.updatedAt||0)>(local.updatedAt||0);
+  const activeListId=remoteNewer?remote.activeListId:local.activeListId;
+  const finalActive=lists.some(l=>l.id===activeListId)?activeListId:lists[0].id;
+  const updatedAt=Math.max(local.updatedAt||0,remote.updatedAt||0);
+  // detect if any list content differs from local-only
+  if(lists.length!==local.lists.length)changed=true;
+  const state={version:2,updatedAt,activeListId:finalActive,lists};
+  return{state,changed,source:remoteNewer&&changed?"remote":"merged"};
+}
+
+async function syncPullMerge(opts){
+  const quiet=opts&&opts.quiet;
+  if(!cfg.gistId){if(!quiet)toast("请先配置 Gist");return}
+  syncBusy=true;updateSyncDot();
+  try{
+    const remote=await gistFetchRemote();
+    const {state,changed}=mergeStates(S,remote);
+    suppressPush=true;
+    S=state;
+    saveLocal();
+    render();
+    suppressPush=false;
+    meta.lastSync=Date.now();meta.lastError="";meta.lastOk=true;saveCfg();
+    if(!quiet)toast(changed?"已从 Gist 合并":"已与 Gist 一致");
+    // if local had newer bits, push back
+    if(cfg.token&&remote&&(S.updatedAt>(remote.updatedAt||0)||changed)){
+      await gistPushLocal();
+      meta.lastSync=Date.now();saveCfg();
+    }else if(cfg.token&&!remote){
+      await gistPushLocal();
+      meta.lastSync=Date.now();saveCfg();
+      if(!quiet)toast("已初始化写入 Gist");
+    }
+  }catch(e){
+    meta.lastError=String(e.message||e);meta.lastOk=false;saveCfg();
+    if(!quiet)toast("同步失败："+meta.lastError);
+  }finally{
+    syncBusy=false;updateSyncDot();refreshStatusLine();
+  }
+}
+
+async function syncPushNow(opts){
+  const quiet=opts&&opts.quiet;
+  if(!cfg.gistId)return;
+  if(!cfg.token){if(!quiet)toast("只读模式：填写 Token 后才能上传");return}
+  syncBusy=true;updateSyncDot();
+  try{
+    await gistPushLocal();
+    meta.lastSync=Date.now();meta.lastError="";meta.lastOk=true;saveCfg();
+    if(!quiet)toast("已上传到 Gist");
+  }catch(e){
+    meta.lastError=String(e.message||e);meta.lastOk=false;saveCfg();
+    if(!quiet)toast("上传失败："+meta.lastError);
+  }finally{
+    syncBusy=false;updateSyncDot();refreshStatusLine();
+  }
+}
+
+function schedulePush(){
+  if(suppressPush||!cfg.gistId||!cfg.token)return;
+  clearTimeout(pushTimer);
+  pushTimer=setTimeout(()=>syncPushNow({quiet:true}),1200);
+}
+
+/* ---- confirm modal ---- */
+let cres=null;
+function confirmModal({title,desc="",ok="确定",extra=null,danger=false}){
+  return new Promise(res=>{
+    cres=res;$("ctitle").textContent=title;$("cdesc").textContent=desc;$("cdesc").classList.toggle("hidden",!desc);
+    $("cok").textContent=ok;$("cok").className="btn "+(danger?"btn-d":"btn-p");
+    const ex=$("cextra");ex.classList.toggle("hidden",!extra);if(extra)ex.textContent=extra;
+    $("mConfirm").classList.add("open");$("cok").focus();
+  });
+}
+function cclose(v){$("mConfirm").classList.remove("open");if(cres){const r=cres;cres=null;r(v)}}
+$("cok").onclick=()=>cclose(true);$("ccancel").onclick=()=>cclose(null);$("cextra").onclick=()=>cclose("extra");
+$("mConfirm").onclick=e=>{if(e.target===e.currentTarget)cclose(null)};
+
+/* ---- sync settings UI ---- */
+function openSyncSettings(){
+  $("gistId").value=cfg.gistId;
+  $("gistToken").value=cfg.token;
+  $("gistFile").value=cfg.fileName||GIST_FILE_DEFAULT;
+  refreshStatusLine();
+  $("mSync").classList.add("open");
+  $("gistId").focus();
+}
+function closeSyncSettings(){$("mSync").classList.remove("open")}
+$("syncClose").onclick=closeSyncSettings;
+$("mSync").onclick=e=>{if(e.target===e.currentTarget)closeSyncSettings()};
+$("syncSave").onclick=async()=>{
+  cfg.gistId=parseGistId($("gistId").value);
+  cfg.token=$("gistToken").value.trim();
+  cfg.fileName=($("gistFile").value.trim()||GIST_FILE_DEFAULT);
+  $("gistId").value=cfg.gistId;
+  meta.lastError="";saveCfg();refreshStatusLine();
+  toast(cfg.gistId?"已保存同步设置":"已清除 Gist，仅本地使用");
+  if(cfg.gistId)await syncPullMerge({});
+};
+$("syncPull").onclick=()=>syncPullMerge({});
+
+/* ---- render ---- */
+function render(){
+  const l=cur(),main=$("main");
+  if(!l){main.innerHTML='<div class="empty">还没有清单<br>请在对话中让助手帮你创建</div>';$("title").textContent="清单";return}
+  document.title=l.name;$("title").textContent=l.name;
+  const t=tot(l),d=dn(l),p=t?Math.round(d/t*100):0;
+  $("fill").style.width=p+"%";$("bar").setAttribute("aria-valuenow",p);
+  $("count").textContent=`已核对 ${d} / ${t}`;
+  $("banner").classList.toggle("show",t>0&&d===t);
+  if(!l.groups.length){main.innerHTML='<div class="empty">清单是空的<br>请在对话中让助手添加内容</div>';return}
+  let h="";
+  l.groups.forEach(g=>{
+    const gd=g.items.filter(i=>i.checked).length;
+    h+=`<section class="group"><div class="ghead"><span class="pill" style="background:${esc(g.color)}">${esc(g.name)}</span><span class="gcount">${gd}/${g.items.length}</span></div><ul class="items">`;
+    g.items.forEach(it=>{
+      h+=`<li><button type="button" class="item${it.checked?" done":""}" data-g="${g.id}" data-i="${it.id}" aria-pressed="${it.checked}">
+        <span class="chk" aria-hidden="true">${TICK}</span>
+        <span class="body"><span class="txt">${esc(it.text)}</span>${it.tag?`<span class="tag">${esc(it.tag)}</span>`:""}${it.note?`<span class="note">${esc(it.note)}</span>`:""}</span>
+        ${it.qty?`<span class="qty">${esc(it.qty)}</span>`:""}
+      </button></li>`;
+    });
+    h+=`</ul></section>`;
+  });
+  main.innerHTML=h;
+}
+
+$("main").addEventListener("click",e=>{
+  const btn=e.target.closest(".item");if(!btn)return;
+  const l=cur(),g=l.groups.find(x=>x.id===btn.dataset.g),it=g&&g.items.find(x=>x.id===btn.dataset.i);
+  if(!it)return;it.checked=!it.checked;commit();
+});
+
+function openDrawer(){
+  $("dbody").innerHTML=S.lists.map(l=>`<button type="button" class="litem${l.id===S.activeListId?" active":""}" data-id="${l.id}"><span>${esc(l.name)}</span><span>${dn(l)}/${tot(l)}</span></button>`).join("")||'<div class="empty">暂无清单</div>';
+  $("overlay").classList.add("open");$("drawer").classList.add("open");
+}
+function closeDrawer(){$("overlay").classList.remove("open");$("drawer").classList.remove("open")}
+$("dbody").onclick=e=>{const b=e.target.closest(".litem");if(!b)return;S.activeListId=b.dataset.id;S.updatedAt=Date.now();saveLocal();closeDrawer();render();scrollTo(0,0);schedulePush()};
+$("bCatalog").onclick=openDrawer;$("bClose").onclick=closeDrawer;$("overlay").onclick=closeDrawer;
+
+function dl(data,name){const u=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:"application/json"}));const a=document.createElement("a");a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),1000)}
+const stamp=()=>new Date().toISOString().slice(0,16).replace(/[-:T]/g,"");
+function pick(){$("file").value="";$("file").click()}
+
+$("bMore").onclick=e=>{e.stopPropagation();$("menu").classList.toggle("open")};
+document.addEventListener("click",e=>{if(!e.target.closest("#menu,#bMore"))$("menu").classList.remove("open")});
+$("menu").onclick=async e=>{
+  const b=e.target.closest("[data-m]");if(!b)return;$("menu").classList.remove("open");const m=b.dataset.m;
+  if(m==="sync"){openSyncSettings();return}
+  if(m==="syncNow"){await syncPullMerge({});return}
+  const l=cur();if(!l)return;
+  if(m==="uncheck"){l.groups.forEach(g=>g.items.forEach(i=>i.checked=false));commit();toast("已全部取消勾选")}
+  if(m==="clear"){const n=dn(l);if(!n){toast("没有已完成项目");return}
+    if(await confirmModal({title:"清除已完成",desc:`将从清单中删除 ${n} 个已核对项目。`,ok:"清除",danger:true})){l.groups.forEach(g=>g.items=g.items.filter(i=>!i.checked));commit();toast("已清除")}}
+  if(m==="export"){dl({version:2,lists:[l]},`清单-${l.name}-${stamp()}.json`);toast("已导出")}
+  if(m==="exportAll"){dl(S,`清单全部备份-${stamp()}.json`);toast("已导出全部")}
+  if(m==="import")pick();
+};
+
+$("file").onchange=async e=>{
+  const f=e.target.files&&e.target.files[0];if(!f)return;
+  let data;try{data=JSON.parse(await f.text())}catch(err){toast("导入失败：不是有效 JSON");return}
+  const imp=normState(data);if(!imp){toast("无效文件：缺少 lists");return}
+  const r=await confirmModal({title:"导入清单",desc:`找到 ${imp.lists.length} 个清单。合并＝按 updatedAt 合并；替换＝覆盖本地。`,ok:"合并导入",extra:"替换全部"});
+  if(!r)return;
+  if(r==="extra"){
+    if(!await confirmModal({title:"确认替换？",desc:"本地现有清单将全部被覆盖。",ok:"替换",danger:true}))return;
+    S=imp;
+  }else{
+    const {state}=mergeStates(S,imp);S=state;
+  }
+  commit();toast("导入完成");
+};
+
+document.addEventListener("keydown",e=>{
+  if(e.key!=="Escape")return;
+  if($("mConfirm").classList.contains("open"))cclose(null);
+  else if($("mSync").classList.contains("open"))closeSyncSettings();
+  else{closeDrawer();$("menu").classList.remove("open")}
+});
+
+/* ---- boot ---- */
+loadCfg();
+loadLocal();
+render();
+updateSyncDot();
+if(cfg.gistId){
+  syncPullMerge({quiet:true});
+}
+
+/* ---- expose for dry-run tests ---- */
+window.__checklistTest={
+  parseGistId,mergeStates,normState,sample,
+  getState:()=>S,setState:s=>{S=s},
+  getCfg:()=>cfg,setCfg:c=>{cfg=c}
+};
+})();
+</script>
+</body>
+</html>
