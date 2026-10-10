@@ -70,6 +70,20 @@ h1.title{text-align:center;font-size:1.45rem;font-weight:800;color:var(--navy);m
 .litem:hover{background:#f3f5f8}.litem.active{background:#e8eef6;color:var(--navy);font-weight:700;border-color:#c5d4e8}
 .litem span:first-child{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .litem span:last-child{color:var(--muted);font-size:.8rem;font-variant-numeric:tabular-nums}
+.ltree{margin-bottom:8px}
+.litem .chev{width:18px;flex-shrink:0;transition:transform .2s;color:var(--muted)}
+.litem .chev svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.ltree.open .litem .chev{transform:rotate(90deg);color:var(--navy)}
+.glist{display:none;padding:2px 0 6px 10px;border-left:2px solid var(--line);margin:0 0 4px 18px}
+.ltree.open .glist{display:block}
+.gitem{display:flex;align-items:center;gap:8px;width:100%;padding:10px 10px;border-radius:10px;text-align:left;margin-bottom:2px;font-size:.9rem;color:var(--text)}
+.gitem:hover{background:#f3f5f8}
+.gitem .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.gitem .gn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gitem .gc{color:var(--muted);font-size:.78rem;font-variant-numeric:tabular-nums}
+.dfoot{padding:12px;border-top:1px solid var(--line)}
+.dfoot .btn{width:100%}
+.share-mode .topbar{justify-content:space-between}
 .menu{position:fixed;top:56px;right:max(12px,calc(50% - 308px));background:#fff;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.15);z-index:55;padding:6px;min-width:180px;display:none}
 .menu.open{display:block}
 .menu button{display:block;width:100%;text-align:left;padding:12px 14px;border-radius:8px;font-size:.92rem}
@@ -92,7 +106,6 @@ h1.title{text-align:center;font-size:1.45rem;font-weight:800;color:var(--navy);m
 .btn:disabled{opacity:.45;cursor:not-allowed}
 .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translate(-50%,80px);background:#1f2937;color:#fff;padding:9px 18px;border-radius:99px;font-size:.88rem;opacity:0;transition:.3s;z-index:100;pointer-events:none;max-width:90vw}
 .toast.show{transform:translate(-50%,0);opacity:1}
-.share-mode .topbar{justify-content:flex-end}
 .hidden{display:none!important}
 :focus-visible{outline:2px solid var(--navy);outline-offset:2px}
 </style>
@@ -140,8 +153,11 @@ h1.title{text-align:center;font-size:1.45rem;font-weight:800;color:var(--navy);m
 <div class="overlay" id="overlay"></div>
 <aside class="drawer" id="drawer" aria-label="目录">
   <div class="dhead">目录<button type="button" class="ibtn" id="bClose" aria-label="关闭"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
-  <p class="dhint">点选切换清单。新建 / 编辑内容请在对话中告诉助手。</p>
+  <p class="dhint" id="dhint">点清单切换；点分组跳转。新建 / 编辑请在对话中告诉助手。</p>
   <div class="dbody" id="dbody"></div>
+  <div class="dfoot">
+    <button type="button" class="btn btn-g" id="bTop">↑ 回到顶端</button>
+  </div>
 </aside>
 
 <div class="mwrap" id="mConfirm" role="dialog" aria-modal="true">
@@ -510,7 +526,7 @@ function render(){
   let h="";
   l.groups.forEach(g=>{
     const gd=g.items.filter(i=>i.checked).length;
-    h+=`<section class="group"><div class="ghead"><span class="pill" style="background:${esc(g.color)}">${esc(g.name)}</span><span class="gcount">${gd}/${g.items.length}</span></div><ul class="items">`;
+    h+=`<section class="group" id="grp-${g.id}"><div class="ghead"><span class="pill" style="background:${esc(g.color)}">${esc(g.name)}</span><span class="gcount">${gd}/${g.items.length}</span></div><ul class="items">`;
     g.items.forEach(it=>{
       h+=`<li><button type="button" class="item${it.checked?" done":""}" data-g="${g.id}" data-i="${it.id}" aria-pressed="${it.checked}">
         <span class="chk" aria-hidden="true">${TICK}</span>
@@ -530,12 +546,50 @@ $("main").addEventListener("click",e=>{
 });
 
 function openDrawer(){
-  $("dbody").innerHTML=S.lists.map(l=>`<button type="button" class="litem${l.id===S.activeListId?" active":""}" data-id="${l.id}"><span>${esc(l.name)}</span><span>${dn(l)}/${tot(l)}</span></button>`).join("")||'<div class="empty">暂无清单</div>';
+  const chev='<span class="chev" aria-hidden="true"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></span>';
+  if(!S.lists.length){$("dbody").innerHTML='<div class="empty">暂无清单</div>'}
+  else{
+    $("dbody").innerHTML=S.lists.map(l=>{
+      const open=l.id===S.activeListId?" open":"";
+      const groups=(l.groups||[]).map(g=>{
+        const gd=g.items.filter(i=>i.checked).length;
+        return `<button type="button" class="gitem" data-list="${l.id}" data-gid="${g.id}"><span class="dot" style="background:${esc(g.color||"#94a3b8")}"></span><span class="gn">${esc(g.name)}</span><span class="gc">${gd}/${g.items.length}</span></button>`;
+      }).join("")||'<div class="empty" style="padding:8px;font-size:.8rem">暂无分组</div>';
+      return `<div class="ltree${open}" data-list="${l.id}"><button type="button" class="litem${l.id===S.activeListId?" active":""}" data-id="${l.id}" data-act="list">${chev}<span>${esc(l.name)}</span><span>${dn(l)}/${tot(l)}</span></button><div class="glist">${groups}</div></div>`;
+    }).join("");
+  }
   $("overlay").classList.add("open");$("drawer").classList.add("open");
 }
 function closeDrawer(){$("overlay").classList.remove("open");$("drawer").classList.remove("open")}
-$("dbody").onclick=e=>{const b=e.target.closest(".litem");if(!b)return;S.activeListId=b.dataset.id;S.updatedAt=Date.now();saveLocal();closeDrawer();render();scrollTo(0,0);schedulePush()};
+function jumpToGroup(listId,gid){
+  const needSwitch=S.activeListId!==listId;
+  if(needSwitch){S.activeListId=listId;S.updatedAt=Date.now();saveLocal();if(!SHARE)schedulePush()}
+  closeDrawer();
+  if(needSwitch)render();
+  requestAnimationFrame(()=>{
+    const el=document.getElementById("grp-"+gid);
+    if(el)el.scrollIntoView({behavior:"smooth",block:"start"});
+    else scrollTo({top:0,behavior:"smooth"});
+  });
+}
+$("dbody").onclick=e=>{
+  const g=e.target.closest(".gitem");
+  if(g){jumpToGroup(g.dataset.list,g.dataset.gid);return}
+  const b=e.target.closest(".litem");if(!b)return;
+  const id=b.dataset.id;
+  const tree=b.closest(".ltree");
+  if(S.activeListId===id){
+    tree&&tree.classList.toggle("open");
+    return;
+  }
+  S.activeListId=id;S.updatedAt=Date.now();saveLocal();
+  if(!SHARE)schedulePush();
+  render();
+  openDrawer(); // refresh tree with new active expanded; stay open for group pick
+  scrollTo({top:0,behavior:"smooth"});
+};
 $("bCatalog").onclick=openDrawer;$("bClose").onclick=closeDrawer;$("overlay").onclick=closeDrawer;
+$("bTop").onclick=()=>{closeDrawer();scrollTo({top:0,behavior:"smooth"})};
 
 function dl(data,name){const u=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:"application/json"}));const a=document.createElement("a");a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),1000)}
 const stamp=()=>new Date().toISOString().slice(0,16).replace(/[-:T]/g,"");
@@ -693,7 +747,8 @@ function bootShare(){
   document.body.classList.add("share-mode");
   document.querySelectorAll(".owner-only").forEach(e=>e.classList.add("hidden"));
   document.querySelectorAll(".share-only").forEach(e=>e.classList.remove("hidden"));
-  $("bCatalog").classList.add("hidden");
+  $("bCatalog").classList.remove("hidden");
+  $("dhint").textContent="点分组可跳转到对应区块。";
   $("menu").querySelectorAll('[data-m="clear"],[data-m="export"],[data-m="exportAll"],[data-m="import"]').forEach(e=>e.classList.add("hidden"));
   S={version:2,updatedAt:0,activeListId:null,lists:[]};
   let cache=null;try{cache=JSON.parse(localStorage.getItem(SHARE_KEY())||"null")}catch(e){}
