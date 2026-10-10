@@ -227,7 +227,9 @@ function normState(p){
   let active=p.activeListId;
   if(!lists.some(l=>l.id===active))active=lists[0].id;
   const maxList=lists.reduce((m,l)=>Math.max(m,l.updatedAt||0),0);
-  return{version:2,updatedAt:Number(p.updatedAt)||maxList||Date.now(),activeListId:active,lists:lists.filter(l=>!((p.deleted||{})[l.id]>=(l.updatedAt||0))),sharesGistId:p.sharesGistId||undefined,deleted:p.deleted||{}};
+  const deleted={...(p.deleted||{})};(p.deletedListIds||[]).forEach(id=>{if(!deleted[id])deleted[id]=Number(p.updatedAt)||Date.now()});
+  const lists2=lists.filter(l=>!((deleted[l.id]||0)>=(l.updatedAt||0)));
+  return{version:3,updatedAt:Number(p.updatedAt)||maxList||Date.now(),activeListId:lists2.some(l=>l.id===active)?active:(lists2[0]&&lists2[0].id),lists:lists2,sharesGistId:p.sharesGistId||undefined,deleted,deletedListIds:Object.keys(deleted)};
 }
 
 function loadCfg(){
@@ -348,34 +350,45 @@ async function gistPushLocal(){
   return true;
 }
 
-/** Last-write-wins merge by list.updatedAt; root updatedAt = max */
+/** Catalog LWW: newer root owns the list-set; per-list LWW by updatedAt; tombstones (deleted[id]=ms) drop lists unless edited after deletion. */
 function mergeStates(local,remote){
   if(!remote)return{state:local,changed:false,source:"local"};
   if(!local)return{state:remote,changed:true,source:"remote"};
-  const map=new Map();
-  local.lists.forEach(l=>map.set(l.id,l));
-  let changed=false;
-  remote.lists.forEach(r=>{
-    const L=map.get(r.id);
-    if(!L){map.set(r.id,r);changed=true;return}
-    if((r.updatedAt||0)>(L.updatedAt||0)){map.set(r.id,r);changed=true}
-    else if((r.updatedAt||0)<(L.updatedAt||0)){changed=true} // local newer kept
-    // equal: keep local
-  });
-  // tombstones: {listId: deletedAt}; a list is dropped unless edited after deletion
+  const remoteNewer=(remote.updatedAt||0)>=(local.updatedAt||0);
   const deleted={...(local.deleted||{})};
-  Object.entries(remote.deleted||{}).forEach(([k,v])=>{if(!(deleted[k]>=v))deleted[k]=v});
-  for(const [id,l] of map){if(deleted[id]>=(l.updatedAt||0)){map.delete(id);changed=true}}
-  if(!map.size)remote.lists.concat(local.lists).slice(0,1).forEach(l=>map.set(l.id,l));
+  Object.entries(remote.deleted||{}).forEach(([k,v])=>{const n=Number(v)||0;if(n>=(Number(deleted[k])||0))deleted[k]=n});
+  (remote.deletedListIds||[]).forEach(id=>{if(!(deleted[id]>0))deleted[id]=remote.updatedAt||Date.now()});
+  (local.deletedListIds||[]).forEach(id=>{if(!(deleted[id]>0))deleted[id]=local.updatedAt||Date.now()});
+  const map=new Map();
+  const primary=remoteNewer?remote.lists:local.lists;
+  const secondary=remoteNewer?local.lists:remote.lists;
+  const primaryRoot=remoteNewer?(remote.updatedAt||0):(local.updatedAt||0);
+  let changed=false;
+  primary.forEach(l=>map.set(l.id,l));
+  secondary.forEach(s=>{
+    const P=map.get(s.id);
+    if(!P){
+      // Secondary-only list: keep only if created/edited AFTER the primary snapshot (true new work), else it was deleted on primary.
+      if((s.updatedAt||0)>primaryRoot){map.set(s.id,s);changed=true}
+      else changed=true; // dropped stale local-only / remote-only
+      return;
+    }
+    if((s.updatedAt||0)>(P.updatedAt||0)){map.set(s.id,s);changed=true}
+    else if((s.updatedAt||0)<(P.updatedAt||0))changed=true;
+  });
+  for(const [id,l] of [...map]){
+    if((Number(deleted[id])||0)>=(Number(l.updatedAt)||0)){map.delete(id);changed=true}
+  }
+  if(!map.size){
+    (remote.lists.length?remote.lists:local.lists).slice(0,1).forEach(l=>map.set(l.id,l));
+  }
   const lists=[...map.values()].sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
-  const remoteNewer=(remote.updatedAt||0)>(local.updatedAt||0);
-  const activeListId=remoteNewer?remote.activeListId:local.activeListId;
-  const finalActive=lists.some(l=>l.id===activeListId)?activeListId:lists[0].id;
+  let activeListId=remoteNewer?remote.activeListId:local.activeListId;
+  if(!lists.some(l=>l.id===activeListId))activeListId=lists[0].id;
   const updatedAt=Math.max(local.updatedAt||0,remote.updatedAt||0);
-  // detect if any list content differs from local-only
-  if(lists.length!==local.lists.length)changed=true;
-  const state={version:2,updatedAt,activeListId:finalActive,lists,sharesGistId:remote.sharesGistId||local.sharesGistId,deleted};
-  return{state,changed,source:remoteNewer&&changed?"remote":"merged"};
+  const deletedListIds=Object.keys(deleted);
+  const state={version:3,updatedAt,activeListId,lists,sharesGistId:remote.sharesGistId||local.sharesGistId,deleted,deletedListIds};
+  return{state,changed,source:remoteNewer?"remote-primary":"local-primary"};
 }
 
 async function syncPullMerge(opts){
