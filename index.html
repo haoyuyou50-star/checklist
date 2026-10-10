@@ -227,7 +227,7 @@ function normState(p){
   let active=p.activeListId;
   if(!lists.some(l=>l.id===active))active=lists[0].id;
   const maxList=lists.reduce((m,l)=>Math.max(m,l.updatedAt||0),0);
-  return{version:2,updatedAt:Number(p.updatedAt)||maxList||Date.now(),activeListId:active,lists,sharesGistId:p.sharesGistId||undefined};
+  return{version:2,updatedAt:Number(p.updatedAt)||maxList||Date.now(),activeListId:active,lists:lists.filter(l=>!((p.deleted||{})[l.id]>=(l.updatedAt||0))),sharesGistId:p.sharesGistId||undefined,deleted:p.deleted||{}};
 }
 
 function loadCfg(){
@@ -362,6 +362,11 @@ function mergeStates(local,remote){
     else if((r.updatedAt||0)<(L.updatedAt||0)){changed=true} // local newer kept
     // equal: keep local
   });
+  // tombstones: {listId: deletedAt}; a list is dropped unless edited after deletion
+  const deleted={...(local.deleted||{})};
+  Object.entries(remote.deleted||{}).forEach(([k,v])=>{if(!(deleted[k]>=v))deleted[k]=v});
+  for(const [id,l] of map){if(deleted[id]>=(l.updatedAt||0)){map.delete(id);changed=true}}
+  if(!map.size)remote.lists.concat(local.lists).slice(0,1).forEach(l=>map.set(l.id,l));
   const lists=[...map.values()].sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
   const remoteNewer=(remote.updatedAt||0)>(local.updatedAt||0);
   const activeListId=remoteNewer?remote.activeListId:local.activeListId;
@@ -369,7 +374,7 @@ function mergeStates(local,remote){
   const updatedAt=Math.max(local.updatedAt||0,remote.updatedAt||0);
   // detect if any list content differs from local-only
   if(lists.length!==local.lists.length)changed=true;
-  const state={version:2,updatedAt,activeListId:finalActive,lists,sharesGistId:remote.sharesGistId||local.sharesGistId};
+  const state={version:2,updatedAt,activeListId:finalActive,lists,sharesGistId:remote.sharesGistId||local.sharesGistId,deleted};
   return{state,changed,source:remoteNewer&&changed?"remote":"merged"};
 }
 
@@ -555,7 +560,7 @@ document.addEventListener("keydown",e=>{
 /* ================= per-list sharing ================= */
 // After `wrangler deploy`, put the Worker origin here, e.g. "https://checklist-share.<sub>.workers.dev"
 // Until then leave empty; share links can still pass ?api=https://….workers.dev
-const SHARE_API_DEFAULT="";
+const SHARE_API_DEFAULT="https://checklist-share.haoyuyou50.workers.dev";
 const QS=new URLSearchParams(location.search);
 const SHARE=(QS.get("share")||"").match(/^[A-Za-z0-9_-]{6,40}$/)?QS.get("share"):null;
 function shareApi(){
