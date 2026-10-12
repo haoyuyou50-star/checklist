@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+worker/.wrangler/
+worker/.dev.vars
+.dev.vars
+checklist-data.json
+*.token

@@ -1,0 +1,12 @@
+{
+  "name": "checklist-share-worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node test/handler.test.mjs && node test/sync.test.mjs",
+    "deploy": "npx wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^3.114.17"
+  }
+}
