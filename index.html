@@ -175,23 +175,14 @@ h1.title{text-align:center;font-size:1.45rem;font-weight:800;color:var(--navy);m
 <div class="mwrap" id="mSync" role="dialog" aria-modal="true">
   <div class="modal">
     <h3>同步设置</h3>
-    <p class="mdesc">用一个 GitHub Gist 在手机与电脑间同步全部清单。Token 只保存在本浏览器。</p>
+    <p class="mdesc" id="syncDesc">输入一次同步口令，之后这台设备会自动同步。口令只留在本浏览器。</p>
     <div class="field">
-      <label for="gistId">Gist ID 或链接</label>
-      <input id="gistId" autocomplete="off" placeholder="1647bd9e840333f548aee22d9471cd22（粘贴后保存才生效）" />
+      <label for="syncPass">同步口令</label>
+      <input id="syncPass" type="password" autocomplete="current-password" inputmode="text" />
     </div>
-    <div class="field">
-      <label for="gistToken">GitHub PAT（需 gist 权限；写入必填）</label>
-      <input id="gistToken" type="password" autocomplete="off" placeholder="ghp_… 或 github_pat_…" />
-    </div>
-    <div class="field">
-      <label for="gistFile">Gist 内文件名</label>
-      <input id="gistFile" autocomplete="off" value="checklist-data.json" />
-    </div>
-    <div class="sync-status" id="syncStatus">未配置同步</div>
+    <div class="sync-status" id="syncStatus">还没有同步口令。填一次之后会自动同步。</div>
     <div class="macts">
       <button type="button" class="btn btn-g" id="syncClose">关闭</button>
-      <button type="button" class="btn btn-g" id="syncPull">立即同步</button>
       <button type="button" class="btn btn-p" id="syncSave">保存</button>
     </div>
   </div>
@@ -215,7 +206,7 @@ h1.title{text-align:center;font-size:1.45rem;font-weight:800;color:var(--navy);m
 const KEY="checklist-app-v1";
 const CFG_KEY="checklist-gist-cfg";
 const META_KEY="checklist-gist-meta";
-const GIST_FILE_DEFAULT="checklist-data.json";
+const SEED_KEY="checklist-sample-seed";
 const COLORS=["#1e3a5f","#2f6db3","#2a7d7b","#6b4fa0","#b5651d","#3d4a5c"];
 const TICK='<svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>';
 const $=id=>document.getElementById(id);
@@ -240,11 +231,15 @@ function sample(){
 }
 
 let S;
-let cfg={gistId:"",token:"",fileName:GIST_FILE_DEFAULT};
-let meta={lastSync:0,lastError:"",lastOk:false};
+let cfg={passcode:""};
+let meta={lastSync:0,lastError:"",lastOk:false,needPasscode:false,status:""};
 let syncBusy=false;
 let pushTimer=null;
 let suppressPush=false;
+let freshSample=false;
+let passcodeBad=false;
+let lastToastStatus="";
+let syncRev=0;
 
 function normItem(it){return{id:it.id||uid(),text:String(it.text||""),qty:String(it.qty||""),tag:String(it.tag||""),note:String(it.note||""),checked:!!it.checked,u:Number(it.u)||0,createdAt:it.createdAt||Date.now()}}
 function normList(l){return{id:l.id||uid(),name:l.name||"导入清单",updatedAt:Number(l.updatedAt)||0,share:l.share&&l.share.id?l.share:undefined,
@@ -262,14 +257,35 @@ function normState(p){
 }
 
 function loadCfg(){
-  try{const c=JSON.parse(localStorage.getItem(CFG_KEY)||"null");if(c&&(c.gistId||c.token||c.fileName))cfg={gistId:c.gistId||"",token:c.token||"",fileName:c.fileName||GIST_FILE_DEFAULT}}catch(e){}
-  try{const m=JSON.parse(localStorage.getItem(META_KEY)||"null");if(m)meta={lastSync:m.lastSync||0,lastError:m.lastError||"",lastOk:!!m.lastOk}}catch(e){}
+  let strip=false;
+  try{
+    const c=JSON.parse(localStorage.getItem(CFG_KEY)||"null");
+    if(c&&typeof c==="object"){
+      cfg.passcode=String(c.passcode||"");
+      if(c.gistId||c.token||c.fileName){strip=true;if(!cfg.passcode)meta.needPasscode=true}
+    }
+  }catch(e){}
+  try{
+    const m=JSON.parse(localStorage.getItem(META_KEY)||"null");
+    if(m){meta.lastSync=m.lastSync||0;meta.lastError=m.lastError||"";meta.lastOk=!!m.lastOk;meta.needPasscode=meta.needPasscode||!!m.needPasscode;meta.status=m.status||""}
+  }catch(e){}
+  if(strip)saveCfg();
 }
-function saveCfg(){localStorage.setItem(CFG_KEY,JSON.stringify(cfg));localStorage.setItem(META_KEY,JSON.stringify(meta));updateSyncDot()}
+function saveCfg(){
+  localStorage.setItem(CFG_KEY,JSON.stringify({passcode:cfg.passcode||""}));
+  localStorage.setItem(META_KEY,JSON.stringify({lastSync:meta.lastSync||0,lastError:meta.lastError||"",lastOk:!!meta.lastOk,needPasscode:!!meta.needPasscode,status:meta.status||""}));
+  updateSyncDot();
+}
 
 function loadLocal(){
-  try{const p=JSON.parse(localStorage.getItem(KEY)||"null");const n=normState(p);if(n){S=n;return}}catch(e){}
-  S=sample();saveLocal();
+  try{
+    const p=JSON.parse(localStorage.getItem(KEY)||"null");
+    const n=normState(p);
+    if(n){S=n;freshSample=localStorage.getItem(SEED_KEY)==="1";return}
+  }catch(e){}
+  S=sample();freshSample=true;
+  try{localStorage.setItem(SEED_KEY,"1")}catch(e){}
+  saveLocal();
 }
 function saveLocal(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){toast("本地保存失败")}}
 
@@ -278,6 +294,9 @@ const tot=l=>l.groups.reduce((n,g)=>n+g.items.length,0);
 const dn=l=>l.groups.reduce((n,g)=>n+g.items.filter(i=>i.checked).length,0);
 
 function commit(opts){
+  syncRev++;
+  freshSample=false;
+  try{localStorage.removeItem(SEED_KEY)}catch(e){}
   const l=cur();if(l)l.updatedAt=Date.now();
   S.updatedAt=Date.now();
   saveLocal();
@@ -287,25 +306,14 @@ function commit(opts){
 
 let tt;function toast(m){const t=$("toast");t.textContent=m;t.classList.add("show");clearTimeout(tt);tt=setTimeout(()=>t.classList.remove("show"),2200)}
 
-function parseGistId(raw){
-  raw=String(raw||"").trim();
-  if(!raw)return"";
-  const m=raw.match(/gist\.github\.com\/(?:[^/]+\/)?([a-f0-9]+)/i)||raw.match(/api\.github\.com\/gists\/([a-f0-9]+)/i)||raw.match(/^([a-f0-9]{10,})$/i);
-  return m?m[1]:raw;
-}
-
 function updateSyncDot(){
   const d=$("syncDot");
   d.classList.remove("on","err","busy");
-  if(syncBusy)d.classList.add("busy");
-  else if(!cfg.gistId){/* idle gray */}
+  d.title=meta.status||"同步";
+  if(syncBusy){d.classList.add("busy");return}
+  if(!cfg.passcode)return;
+  if(meta.lastOk)d.classList.add("on");
   else if(meta.lastError)d.classList.add("err");
-  else if(meta.lastOk)d.classList.add("on");
-}
-
-function fmtTime(ts){
-  if(!ts)return"—";
-  try{return new Date(ts).toLocaleString("zh-CN",{hour12:false})}catch(e){return String(ts)}
 }
 
 function setStatus(text,kind){
@@ -315,165 +323,165 @@ function setStatus(text,kind){
 }
 
 function refreshStatusLine(){
-  if(!cfg.gistId){setStatus("未配置同步。可离线使用；配置后可跨设备同步。","");return}
-  const mode=cfg.token?"读写":"只读（无 Token，公开 Gist 可拉取）";
-  let t=`Gist ${cfg.gistId.slice(0,8)}… · ${mode}`;
-  if(meta.lastSync)t+=`\n上次同步：${fmtTime(meta.lastSync)}`;
-  if(meta.lastError){setStatus(t+`\n错误：${meta.lastError}`,"err");return}
-  if(meta.lastOk){setStatus(t,"ok");return}
-  setStatus(t,"");
+  if(!cfg.passcode){
+    setStatus(meta.needPasscode?"同步已改为口令，请输入一次同步口令":"还没有同步口令。填一次之后会自动同步。","");
+    return;
+  }
+  if(meta.status){setStatus(meta.status,meta.lastOk?"ok":(meta.lastError?"err":""));return}
+  setStatus("保存口令后会自动同步","");
 }
 
-/* ---- Gist API ---- */
-async function gistFetchRemote(){
-  if(!cfg.gistId)throw new Error("未填写 Gist ID");
-  const headers={"Accept":"application/vnd.github+json"};
-  if(cfg.token)headers.Authorization="Bearer "+cfg.token;
-  const res=await fetch("https://api.github.com/gists/"+cfg.gistId,{headers});
-  if(!res.ok){
-    const body=await res.text().catch(()=>"");
-    throw new Error("读取失败 HTTP "+res.status+(body?": "+body.slice(0,120):""));
-  }
-  const gist=await res.json();
-  const files=gist.files||{};
-  let file=files[cfg.fileName];
-  if(!file){
-    const keys=Object.keys(files);
-    file=keys.length?files[keys[0]]:null;
-    if(file&&keys[0]!==cfg.fileName)cfg.fileName=keys[0];
-  }
-  if(!file||file.content==null){
-    // empty gist — treat as no remote data
-    return null;
-  }
-  let content=file.content;
-  if(file.truncated&&cfg.token){
-    const raw=await fetch(file.raw_url,{headers:{Authorization:"Bearer "+cfg.token}});
-    if(!raw.ok)throw new Error("读取大文件失败 HTTP "+raw.status);
-    content=await raw.text();
-  }else if(file.truncated){
-    const raw=await fetch(file.raw_url);
-    if(!raw.ok)throw new Error("读取公开 raw 失败 HTTP "+raw.status);
-    content=await raw.text();
-  }
-  const parsed=JSON.parse(content);
-  return normState(parsed);
-}
-
-async function gistPushLocal(){
-  if(!cfg.gistId)throw new Error("未填写 Gist ID");
-  if(!cfg.token)throw new Error("写入需要 GitHub PAT（gist 权限）");
-  const headers={
-    "Accept":"application/vnd.github+json",
-    "Authorization":"Bearer "+cfg.token,
-    "Content-Type":"application/json"
-  };
-  const body=JSON.stringify({
-    files:{[cfg.fileName||GIST_FILE_DEFAULT]:{content:JSON.stringify(S,null,2)}}
-  });
-  const res=await fetch("https://api.github.com/gists/"+cfg.gistId,{method:"PATCH",headers,body});
-  if(!res.ok){
-    const t=await res.text().catch(()=>"");
-    throw new Error("写入失败 HTTP "+res.status+(t?": "+t.slice(0,120):""));
-  }
-  return true;
-}
-
-/** Catalog LWW: newer root owns the list-set; per-list LWW by updatedAt; tombstones (deleted[id]=ms) drop lists unless edited after deletion. */
+/** Union merge: lists = (local ∪ remote) − tombstones. Tombstone wins only if newer than the list's updatedAt.
+ *  Same list on both sides: newer updatedAt supplies content; per-item check state LWW by item.u.
+ *  Root updatedAt is informational only and never decides which lists exist. */
 function mergeStates(local,remote){
   if(!remote)return{state:local,changed:false,source:"local"};
   if(!local)return{state:remote,changed:true,source:"remote"};
-  const remoteNewer=(remote.updatedAt||0)>=(local.updatedAt||0);
-  const deleted={...(local.deleted||{})};
-  Object.entries(remote.deleted||{}).forEach(([k,v])=>{const n=Number(v)||0;if(n>=(Number(deleted[k])||0))deleted[k]=n});
-  (remote.deletedListIds||[]).forEach(id=>{if(!(deleted[id]>0))deleted[id]=remote.updatedAt||Date.now()});
-  (local.deletedListIds||[]).forEach(id=>{if(!(deleted[id]>0))deleted[id]=local.updatedAt||Date.now()});
-  const map=new Map();
-  const primary=remoteNewer?remote.lists:local.lists;
-  const secondary=remoteNewer?local.lists:remote.lists;
-  const primaryRoot=remoteNewer?(remote.updatedAt||0):(local.updatedAt||0);
-  let changed=false;
-  primary.forEach(l=>map.set(l.id,l));
-  secondary.forEach(s=>{
-    const P=map.get(s.id);
-    if(!P){
-      // Secondary-only list: keep only if created/edited AFTER the primary snapshot (true new work), else it was deleted on primary.
-      if((s.updatedAt||0)>primaryRoot){map.set(s.id,s);changed=true}
-      else changed=true; // dropped stale local-only / remote-only
-      return;
-    }
-    if((s.updatedAt||0)>(P.updatedAt||0)){map.set(s.id,s);changed=true}
-    else if((s.updatedAt||0)<(P.updatedAt||0))changed=true;
+  const deleted={};
+  const addTomb=(k,v)=>{const n=Number(v)||0;if(n>(Number(deleted[k])||0))deleted[k]=n};
+  [local,remote].forEach(s=>{
+    Object.entries(s.deleted||{}).forEach(([k,v])=>addTomb(k,v));
+    (s.deletedListIds||[]).forEach(id=>{if(!(deleted[id]>0))addTomb(id,s.updatedAt||1)});
   });
-  for(const [id,l] of [...map]){
-    if((Number(deleted[id])||0)>=(Number(l.updatedAt)||0)){map.delete(id);changed=true}
+  const L=new Map(local.lists.map(l=>[l.id,l])),R=new Map(remote.lists.map(l=>[l.id,l]));
+  const ids=[...new Set([...remote.lists.map(l=>l.id),...local.lists.map(l=>l.id)])];
+  const lists=[];let changed=false;
+  for(const id of ids){
+    const a=L.get(id),b=R.get(id);
+    let out;
+    if(a&&b){
+      const newer=(Number(b.updatedAt)||0)>(Number(a.updatedAt)||0)?b:a, older=newer===a?b:a;
+      out=JSON.parse(JSON.stringify(newer));
+      mergeChecks(out,older); // per-item LWW
+      if(newer===b||JSON.stringify(out)!==JSON.stringify(a))changed=true;
+    }else{out=a||b;if(!a)changed=true}
+    if((Number(deleted[id])||0)>=(Number(out.updatedAt)||0)){if(a)changed=true;continue}
+    lists.push(out);
   }
-  if(!map.size){
-    (remote.lists.length?remote.lists:local.lists).slice(0,1).forEach(l=>map.set(l.id,l));
-  }
-  const lists=[...map.values()].sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
-  let activeListId=remoteNewer?remote.activeListId:local.activeListId;
-  if(!lists.some(l=>l.id===activeListId))activeListId=lists[0].id;
-  const updatedAt=Math.max(local.updatedAt||0,remote.updatedAt||0);
-  const deletedListIds=Object.keys(deleted);
-  const state={version:3,updatedAt,activeListId,lists,sharesGistId:remote.sharesGistId||local.sharesGistId,deleted,deletedListIds};
-  return{state,changed,source:remoteNewer?"remote-primary":"local-primary"};
+  if(!lists.length&&(local.lists[0]||remote.lists[0]))lists.push(remote.lists[0]||local.lists[0]);
+  let activeListId=lists.some(l=>l.id===local.activeListId)?local.activeListId:(lists.some(l=>l.id===remote.activeListId)?remote.activeListId:lists[0]&&lists[0].id);
+  const updatedAt=Math.max(Number(local.updatedAt)||0,Number(remote.updatedAt)||0);
+  const state={version:3,updatedAt,activeListId,lists,sharesGistId:remote.sharesGistId||local.sharesGistId,deleted,deletedListIds:Object.keys(deleted)};
+  return{state,changed,source:"union"};
 }
 
-async function syncPullMerge(opts){
-  const quiet=opts&&opts.quiet;
-  if(!cfg.gistId){if(!quiet)toast("请先配置 Gist");return}
-  syncBusy=true;updateSyncDot();
+function passHeader(pw){
+  const bytes=new TextEncoder().encode(pw);
+  let s="";for(let i=0;i<bytes.length;i++)s+=String.fromCharCode(bytes[i]);
+  return "base64:"+btoa(s);
+}
+function noteSync(text,kind,announce){
+  meta.status=text;
+  meta.lastOk=kind==="ok";
+  meta.lastError=kind==="err"?text:"";
+  if(kind==="ok")meta.lastSync=Date.now();
+  saveCfg();
+  setStatus(text,kind==="ok"?"ok":kind==="err"?"err":"");
+  if(announce&&text!==lastToastStatus){toast(text);lastToastStatus=text}
+  if(kind==="ok")lastToastStatus="";
+}
+async function syncRequest(method,body){
+  const api=shareApi();
+  if(!api){const e=new Error("离线，联网后自动同步");e.code="offline";throw e}
+  let res;
   try{
-    const remote=await gistFetchRemote();
-    const {state,changed}=mergeStates(S,remote);
+    res=await fetch(api+"/sync",{
+      method,cache:"no-store",
+      headers:{Authorization:"Bearer "+passHeader(cfg.passcode),...(body?{"Content-Type":"application/json"}:{})},
+      body:body?JSON.stringify(body):undefined
+    });
+  }catch(e){const err=new Error("离线，联网后自动同步");err.code="offline";throw err}
+  if(res.status===401){const err=new Error("口令不对");err.code=401;throw err}
+  if(res.status===429){const err=new Error("试太多次，请稍后再试");err.code=429;throw err}
+  if(!res.ok){const err=new Error("离线，联网后自动同步");err.code="offline";throw err}
+  return res.json();
+}
+function canon(s){return JSON.stringify({lists:(s&&s.lists)||[],deleted:(s&&s.deleted)||{}})}
+function adopt(next){
+  const keep=S.activeListId;
+  const n=normState(next);
+  if(!n)return false;
+  if(keep&&n.lists.some(l=>l.id===keep))n.activeListId=keep;
+  S=n;saveLocal();render();
+  return true;
+}
+function clearSeed(){freshSample=false;try{localStorage.removeItem(SEED_KEY)}catch(e){}}
+function mergeIn(payload){
+  const remote=payload&&payload.empty?null:normState(payload);
+  if(!remote)return false;
+  const keep=S.activeListId;
+  const merged=mergeStates(S,remote).state;
+  if(keep&&merged.lists.some(l=>l.id===keep))merged.activeListId=keep;
+  S=merged;saveLocal();render();
+  return true;
+}
+async function syncPull(opts){
+  const quiet=opts&&opts.quiet, force=opts&&opts.force;
+  if(!cfg.passcode){
+    if(!quiet){toast(meta.needPasscode?"请输入一次同步口令":"请先输入同步口令");openSyncSettings()}
+    refreshStatusLine();updateSyncDot();return;
+  }
+  if(passcodeBad&&quiet&&!force)return;
+  if(syncBusy)return;
+  syncBusy=true;updateSyncDot();
+  const mark=syncRev;
+  try{
+    const body=await syncRequest("GET");
+    const remoteState=body&&body.empty?null:normState(body);
     suppressPush=true;
-    S=state;
-    saveLocal();
-    render();
-    suppressPush=false;
-    meta.lastSync=Date.now();meta.lastError="";meta.lastOk=true;saveCfg();
-    if(!quiet)toast(changed?"已从 Gist 合并":"已与 Gist 一致");
-    await syncShares();
-    // if local had newer bits, push back
-    if(cfg.token&&remote&&(S.updatedAt>(remote.updatedAt||0)||changed)){
-      await gistPushLocal();
-      meta.lastSync=Date.now();saveCfg();
-    }else if(cfg.token&&!remote){
-      await gistPushLocal();
-      meta.lastSync=Date.now();saveCfg();
-      if(!quiet)toast("已初始化写入 Gist");
+    if(freshSample&&remoteState&&syncRev===mark){
+      adopt(remoteState);clearSeed();
+    }else if(remoteState){
+      mergeIn(body);
+      if(canon(S)!==canon(remoteState)){
+        const putMark=syncRev;
+        const pushed=await syncRequest("PUT",S);
+        mergeIn(pushed);
+        if(syncRev!==putMark){suppressPush=false;schedulePush()}
+      }
+    }else if(!freshSample){
+      const putMark=syncRev;
+      const pushed=await syncRequest("PUT",S);
+      mergeIn(pushed);
+      if(syncRev!==putMark){suppressPush=false;schedulePush()}
     }
+    suppressPush=false;
+    passcodeBad=false;
+    noteSync("已同步","ok",!quiet);
   }catch(e){
-    meta.lastError=String(e.message||e);meta.lastOk=false;saveCfg();
-    if(!quiet)toast("同步失败："+meta.lastError);
+    suppressPush=false;
+    if(e.code===401){passcodeBad=true;noteSync("口令不对","err",true)}
+    else if(e.code===429)noteSync("试太多次，请稍后再试","err",true);
+    else noteSync("离线，联网后自动同步","err",!quiet||meta.status!=="离线，联网后自动同步");
   }finally{
-    syncBusy=false;updateSyncDot();refreshStatusLine();
+    syncBusy=false;updateSyncDot();
   }
 }
-
-async function syncPushNow(opts){
+async function syncPush(opts){
   const quiet=opts&&opts.quiet;
-  if(!cfg.gistId)return;
-  if(!cfg.token){if(!quiet)toast("只读模式：填写 Token 后才能上传");return}
+  if(!cfg.passcode||passcodeBad||freshSample)return;
+  if(syncBusy){schedulePush();return}
   syncBusy=true;updateSyncDot();
+  const putMark=syncRev;
   try{
-    await syncShares();
-    await gistPushLocal();
-    meta.lastSync=Date.now();meta.lastError="";meta.lastOk=true;saveCfg();
-    if(!quiet)toast("已上传到 Gist");
+    const pushed=await syncRequest("PUT",S);
+    suppressPush=true;mergeIn(pushed);suppressPush=false;
+    passcodeBad=false;
+    noteSync("已同步","ok",!quiet);
+    if(syncRev!==putMark)schedulePush();
   }catch(e){
-    meta.lastError=String(e.message||e);meta.lastOk=false;saveCfg();
-    if(!quiet)toast("上传失败："+meta.lastError);
+    suppressPush=false;
+    if(e.code===401){passcodeBad=true;noteSync("口令不对","err",true)}
+    else if(e.code===429)noteSync("试太多次，请稍后再试","err",true);
+    else noteSync("离线，联网后自动同步","err",true);
   }finally{
-    syncBusy=false;updateSyncDot();refreshStatusLine();
+    syncBusy=false;updateSyncDot();
   }
 }
-
 function schedulePush(){
-  if(suppressPush||!cfg.gistId||!cfg.token)return;
+  if(suppressPush||!cfg.passcode||passcodeBad||freshSample)return;
   clearTimeout(pushTimer);
-  pushTimer=setTimeout(()=>syncPushNow({quiet:true}),1200);
+  pushTimer=setTimeout(()=>syncPush({quiet:true}),1000);
 }
 
 /* ---- confirm modal ---- */
@@ -492,26 +500,28 @@ $("mConfirm").onclick=e=>{if(e.target===e.currentTarget)cclose(null)};
 
 /* ---- sync settings UI ---- */
 function openSyncSettings(){
-  $("gistId").value=cfg.gistId;
-  $("gistToken").value=cfg.token;
-  $("gistFile").value=cfg.fileName||GIST_FILE_DEFAULT;
+  $("syncPass").value=cfg.passcode||"";
+  if(meta.needPasscode&&!cfg.passcode)$("syncDesc").textContent="以前填写的同步配置已从这台设备清除。请输入一次同步口令，之后会自动同步。";
   refreshStatusLine();
   $("mSync").classList.add("open");
-  $("gistId").focus();
+  $("syncPass").focus();
 }
 function closeSyncSettings(){$("mSync").classList.remove("open")}
 $("syncClose").onclick=closeSyncSettings;
 $("mSync").onclick=e=>{if(e.target===e.currentTarget)closeSyncSettings()};
 $("syncSave").onclick=async()=>{
-  cfg.gistId=parseGistId($("gistId").value);
-  cfg.token=$("gistToken").value.trim();
-  cfg.fileName=($("gistFile").value.trim()||GIST_FILE_DEFAULT);
-  $("gistId").value=cfg.gistId;
-  meta.lastError="";saveCfg();refreshStatusLine();
-  toast(cfg.gistId?"已保存同步设置":"已清除 Gist，仅本地使用");
-  if(cfg.gistId)await syncPullMerge({});
+  const v=$("syncPass").value.trim();
+  cfg.passcode=v;
+  passcodeBad=false;
+  meta.lastError="";
+  meta.status="";
+  meta.lastOk=false;
+  if(v)meta.needPasscode=false;
+  saveCfg();
+  if(!v){refreshStatusLine();toast("已清除口令，仅在本机使用");return}
+  await syncPull({force:true});
+  if(meta.lastOk)closeSyncSettings();
 };
-$("syncPull").onclick=()=>syncPullMerge({});
 
 /* ---- render ---- */
 function render(){
@@ -605,8 +615,7 @@ $("bRefresh").onclick=async()=>{
       if(!sharePass){askSharePass();toast("请先输入口令");return}
       await shareLoad(false);
     }else{
-      if(!cfg.gistId){toast("请先在同步设置中填写 Gist ID");openSyncSettings();return}
-      await syncPullMerge({});
+      await syncPull({force:true});
     }
   }catch(e){toast("刷新失败："+(e.message||e))}
   finally{btn.disabled=false;btn.classList.remove("spinning")}
@@ -619,7 +628,7 @@ $("menu").onclick=async e=>{
   if(SHARE&&m!=="uncheck")return;
   if(m==="share"){showShareStatus();return}
   if(m==="sync"){openSyncSettings();return}
-  if(m==="syncNow"){await syncPullMerge({});return}
+  if(m==="syncNow"){await syncPull({force:true});return}
   const l=cur();if(!l)return;
   if(m==="uncheck"){const now=Date.now();const ch=[];l.groups.forEach(g=>g.items.forEach(i=>{if(i.checked){i.checked=false;i.u=now;ch.push({id:i.id,checked:false,u:now})}}));if(SHARE){render();shareSaveCache();sharePost(ch);toast("已全部取消勾选");return}commit();toast("已全部取消勾选")}
   if(m==="clear"){const n=dn(l);if(!n){toast("没有已完成项目");return}
@@ -670,29 +679,6 @@ function mergeChecks(target,source){ // per-item LWW on u; returns #changed in t
   const m=new Map();(source.groups||[]).forEach(g=>(g.items||[]).forEach(i=>m.set(i.id,i)));
   let n=0;(target.groups||[]).forEach(g=>(g.items||[]).forEach(i=>{const s=m.get(i.id);if(s&&(Number(s.u)||0)>(Number(i.u)||0)){if(i.checked!==!!s.checked)n++;i.checked=!!s.checked;i.u=Number(s.u)||0}}));
   return n;
-}
-
-// Owner side: merge check state with each share file in the registry gist (needs token)
-async function syncShares(){
-  if(SHARE||!cfg.token||!S.sharesGistId)return;
-  const shared=S.lists.filter(l=>l.share&&l.share.id&&!l.share.disabled);
-  if(!shared.length)return;
-  const H={"Accept":"application/vnd.github+json","Authorization":"Bearer "+cfg.token};
-  const res=await fetch("https://api.github.com/gists/"+S.sharesGistId,{headers:H});
-  if(!res.ok)throw new Error("读取分享库失败 HTTP "+res.status);
-  const files=(await res.json()).files||{};
-  const out={};let ownerChanged=false;
-  for(const l of shared){
-    const fn="share-"+l.share.id+".json",f=files[fn];if(!f)continue;
-    let rec;try{rec=JSON.parse(f.truncated?await (await fetch(f.raw_url,{headers:H})).text():f.content)}catch(e){continue}
-    if(mergeChecks(l,rec.list)){ownerChanged=true;l.updatedAt=Date.now()}
-    if(mergeChecks(rec.list,l)){rec.updatedAt=Date.now();rec.list.updatedAt=rec.updatedAt;out[fn]={content:JSON.stringify(rec,null,2)}}
-  }
-  if(Object.keys(out).length){
-    const r=await fetch("https://api.github.com/gists/"+S.sharesGistId,{method:"PATCH",headers:{...H,"Content-Type":"application/json"},body:JSON.stringify({files:out})});
-    if(!r.ok)throw new Error("写入分享库失败 HTTP "+r.status);
-  }
-  if(ownerChanged){S.updatedAt=Date.now();saveLocal();render()}
 }
 
 async function showShareStatus(){
@@ -770,16 +756,21 @@ if(SHARE){
   loadLocal();
   render();
   updateSyncDot();
-  if(cfg.gistId){
-    syncPullMerge({quiet:true});
-  }
+  refreshStatusLine();
+  if(meta.needPasscode&&!cfg.passcode)openSyncSettings();
+  else if(cfg.passcode)syncPull({quiet:true});
+  document.addEventListener("visibilitychange",()=>{
+    if(document.hidden){if(pushTimer){clearTimeout(pushTimer);pushTimer=null;syncPush({quiet:true})}}
+    else syncPull({quiet:true});
+  });
+  window.addEventListener("online",()=>syncPull({quiet:true}));
 }
 
 /* ---- expose for dry-run tests ---- */
 window.__checklistTest={
-  parseGistId,mergeStates,normState,sample,
+  mergeStates,normState,sample,
   getState:()=>S,setState:s=>{S=s},
-  getCfg:()=>cfg,setCfg:c=>{cfg=c},mergeChecks,syncShares,isShare:()=>!!SHARE
+  getCfg:()=>cfg,setCfg:c=>{cfg=c},mergeChecks,isShare:()=>!!SHARE
 };
 })();
 </script>

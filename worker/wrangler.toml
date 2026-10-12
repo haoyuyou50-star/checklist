@@ -1,0 +1,17 @@
+name = "checklist-share"
+main = "src/index.js"
+account_id = "12e92b0b526004da5dc76b1056a217bf"
+compatibility_date = "2026-01-01"
+
+[vars]
+# Pages origin allowed to call the API (comma-separated for several)
+ALLOWED_ORIGIN = "https://haoyuyou50-star.github.io,https://checklist-2wu.pages.dev"
+ALLOWED_ORIGIN_SUFFIXES = ".checklist-2wu.pages.dev"
+# Secret gist that holds one file per shared list: share-<id>.json
+# (created by scripts/share.py --init-registry; paste its id here)
+SHARES_GIST_ID = "4108e3a82f25633d296e946fde9d8915"
+
+# Secrets (wrangler secret put — never commit the values):
+#   GITHUB_TOKEN         PAT with gist scope
+#   GIST_ID              gist that stores checklist-data.json
+#   SYNC_PASSCODE_HASH   pbkdf2$iterations$salt$hash   (node ../scripts/hash-passcode.mjs)
