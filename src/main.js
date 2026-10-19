@@ -6,7 +6,7 @@ import { WindAudio } from './audio.js';
 
 const params = new URLSearchParams(location.search);
 const CAPTURE = params.has('capture');
-const DEMO = params.has('demo') || CAPTURE;
+const DEMO = (params.has('demo') || CAPTURE) && !params.has('nodemo');
 const qName = params.get('q') || (matchMedia('(pointer: coarse)').matches ? 'low' : 'mid');
 const Q = QUALITY[qName] || QUALITY.high;
 
@@ -72,7 +72,7 @@ const audio = new WindAudio();
 
 /* ---------------- state ---------------- */
 const S = {
-  idx: 0, mode: 'loading',
+  idx: 0, mode: 'loading', grade: 0,
   morph: 0, reveal: 0, wind: 0, windTarget: 0.55, windOn: 0, flash: 1, fMix: 0,
   gustFront: -999, gustAmp: 0, focusDim: 0, focusId: -1,
   hotBase: 0, hot: new Array(8).fill(0), hoverId: 0, markers: 0,
@@ -237,6 +237,7 @@ async function enter() {
   tween(1.4, (e) => { el.frame.style.opacity = 1 - e; el.frame.style.transform = `scale(${1 + 0.05 * e})`; el.frame.style.filter = `blur(${e * 6}px)`; }, { delay: 1.0, e: ease.inOut });
   tween(1.0, (e) => { $('.art-floor').style.opacity = 1 - e; $('.spot').style.opacity = 1 - e; }, { delay: 1.0 });
   tween(3.9, (e) => { S.morph = e; }, { delay: 1.0, e: ease.inOut });
+  tween(3.4, (e) => { S.grade = e; }, { delay: 1.1, e: ease.inOut });
   tween(4.8, (e) => { S.fMix = e; S.cam.pitch = S.basePitch * e; S.cam.pos.set(0, 0, -dolly * e); }, { delay: 1.35, e: ease.inOut });
   tween(4.4, (e) => { S.reveal = e; }, { delay: 1.6, e: ease.inOut });
   tween(2.0, (e) => { el.wall.style.opacity = 1 - e; }, { delay: 1.7 });
@@ -279,6 +280,7 @@ async function exit() {
   tween(3.3, (e) => { S.reveal = 1 - e; }, { e: ease.inOut });
   tween(3.7, (e) => { S.fMix = 1 - e; S.cam.pitch = S.basePitch * (1 - e); S.cam.pos.set(0, 0, -dolly * (1 - e)); }, { delay: 0.25, e: ease.inOut });
   tween(3.2, (e) => { S.morph = 1 - e; }, { delay: 0.55, e: ease.inOut });
+  tween(3.0, (e) => { S.grade = 1 - e; }, { delay: 0.6, e: ease.inOut });
   tween(1.6, (e) => { el.wall.style.opacity = e; }, { delay: 1.5 });
   tween(1.1, (e) => { el.frame.style.opacity = e; el.frame.style.transform = `scale(${1.05 - 0.05 * e})`; el.frame.style.filter = `blur(${(1 - e) * 6}px)`; $('.art-floor').style.opacity = e; $('.spot').style.opacity = e; }, { delay: 2.7, e: ease.out });
   tween(0.9, (e) => { el.art.style.opacity = e; }, { delay: 3.55, e: ease.sine });
@@ -429,6 +431,7 @@ function step(dt, draw = true) {
     U.uViewport.value.copy(vp);
     U.uTime.value = clock;
     U.uMorph.value = S.morph; U.uReveal.value = S.reveal; U.uWind.value = S.wind; U.uFlash.value = S.flash;
+    U.uGrade.value = S.grade;
     U.uFocusDim.value = S.focusDim; U.uFocusId.value = S.focusId;
     U.uGustFront.value = S.gustFront; U.uGustAmp.value = S.gustAmp;
     U.uWindDir.value.set(...sc.wind.dir).normalize();
@@ -483,8 +486,8 @@ window.app = app;
 let imgs = [];
 function buildOne(i) {
   const data = buildScene(SCENES[i], imgs[i], Q);
-  const cloud = new SplatCloud(SCENES[i].id, data, { syncSort: CAPTURE });
-  const backdrop = makeBackdrop(data.bg);
+  const cloud = new SplatCloud(SCENES[i].id, data, { syncSort: CAPTURE, grade: SCENES[i].grade });
+  const backdrop = makeBackdrop(data.bg, SCENES[i].grade);
   cloud.mesh.visible = false; backdrop.visible = false;
   scene3.add(backdrop, cloud.mesh);
   built[i] = { data, cloud, backdrop };

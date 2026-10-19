@@ -61,6 +61,7 @@ const poppies = {
     thumbLabel: '罂粟花田',
   },
   cam: { f: 0.866, h: 2.4, vH: 0.505, maxD: 92, dolly: 1.8, sky: 620 },
+  grade: { gamma: 1.0, expo: 1.03, wb: [0.98, 1.0, 1.04], sat: 1.14, lift: 0.08, contrast: 1.07 },
   wind: { dir: [0.86, 0.5], base: 0.55 },
   classify(u, v, r, g, b, rand) {
     const cam = this.cam, asp = this.asp;
@@ -130,6 +131,7 @@ const regatta = {
     thumbLabel: '阿让特伊的帆船赛',
   },
   cam: { f: 0.866, h: 1.6, vH: 0.55, maxD: 62, dolly: 1.4, sky: 520 },
+  grade: { gamma: 0.9, expo: 1.1, wb: [0.94, 1.0, 1.1], sat: 1.28, lift: 0.28, contrast: 1.06 },
   wind: { dir: [1, 0.22], base: 0.5 },
   classify(u, v, r, g, b, rand) {
     const cam = this.cam, asp = this.asp;
@@ -169,7 +171,12 @@ const regatta = {
     { id: 4, cn: '碎裂的倒影', en: 'Broken Reflections', zoom: 1.35,
       text: '这是整幅画最大胆的部分：倒影由一道道水平的色块组成，彼此并不相连。站远一些，它们便在眼中融成荡漾的水光——观者的眼睛，替画家完成了最后一笔。' },
   ],
-  ext: { kind: 'water', boats: [[-55, 40, 9], [-98, 64, 10], [-150, 50, 8], [118, 44, 7], [-20, 70, 6]], houses: [[48, 0], [76, 0], [-122, 0], [158, 0]] },
+  ext: {
+    kind: 'water',
+    boats: [[-55, 40, 9], [-98, 64, 10], [-150, 50, 8], [118, 44, 7], [-20, 70, 6]],
+    houses: [[48, 0], [76, 0], [-122, 0], [158, 0]],
+    bankTrees: [[33, 31, 6.8, 6], [38, 32, 8.5, 5], [44, 33, 6, 7], [52, 34, 7.5, 6], [60, 37, 6.5, 8], [68, 40, 8, 6], [84, 46, 7, 9], [96, 52, 9, 7]],
+  },
 };
 
 export const SCENES = [poppies, regatta];
