@@ -37,11 +37,11 @@ float windField(vec3 p) {
   vec2 q = p.xz;
   float along = dot(q, uWindDir);
   float n = vnoise(q * 0.045 + uWindDir * uTime * 0.25);
-  float w = 0.5 + 0.5 * sin(along * 0.2 - uTime * 2.0 + n * 5.0);
-  w = w * w * w;
+  float w = 0.5 + 0.5 * sin(along * 0.3 - uTime * 2.6 + n * 4.0);
+  w = w * w;
   float g = smoothstep(0.15, 0.85, vnoise(q * 0.011 - uWindDir * uTime * 0.07));
   float front = along - uGustFront;
-  float gust = exp(-front * front / 180.0) * uGustAmp;
+  float gust = exp(-front * front / 300.0) * uGustAmp;
   return w * (0.35 + 0.95 * g) * uWind + gust * (0.55 + 0.6 * w);
 }
 
@@ -92,13 +92,13 @@ void main() {
 
   if (cls == 1 || cls == 2) {               // grass / flowers
     float b = w * flex;
-    pos += wd3 * b * (0.12 + 0.013 * dist);
-    pos.y -= b * 0.004 * dist;
+    pos += wd3 * b * (0.15 + 0.02 * dist);
+    pos.y -= b * 0.005 * dist;
     float al = length(axis);
     vec3 ad = axis / max(al, 1e-5);
     vec3 bent = normalize(wd3 + vec3(0.0, 0.3, 0.0));
     axis = normalize(mix(ad, bent * sign(dot(ad, bent) + 0.3), clamp(b * 0.55, 0.0, 0.7))) * al * (1.0 + b * 0.55);
-    col = mix(col, col * 1.12 + vec3(0.075, 0.075, 0.05), clamp(b, 0.0, 1.0) * 0.6);
+    col = mix(col, col * 1.22 + vec3(0.11, 0.11, 0.085), clamp(b, 0.0, 1.0) * 0.75);
   } else if (cls == 3) {                     // foliage
     float sway = sin(uTime * 1.25 + pos.x * 0.07 + pos.z * 0.05) * 0.5 + 0.5;
     float b = flex * (0.25 * sway + w * 0.8);
@@ -132,6 +132,7 @@ void main() {
          + vec3(sin(life * 9.0 + seed * 20.0), 0.0, cos(life * 7.0 + seed * 11.0)) * 0.7 * life;
     alpha *= smoothstep(0.0, 0.08, life) * (1.0 - smoothstep(0.62, 1.0, life)) * smoothstep(0.12, 0.55, strength);
     axis = rotAround(axis, normalize(vec3(seed, 1.0 - seed, 0.5)), uTime * (3.0 + seed * 4.0));
+    alpha *= smoothstep(2.0, 6.0, length(pos - cameraPosition));
   } else if (cls == 9) {                     // motes of light
     vec3 drift = wd3 * uTime * (0.45 + seed * 0.6) * (0.4 + uWind)
                + vec3(sin(uTime * 0.31 + seed * 17.0), sin(uTime * 0.23 + seed * 29.0) * 0.4, cos(uTime * 0.27 + seed * 11.0)) * 1.5;
@@ -156,8 +157,8 @@ void main() {
       alpha *= g * (0.035 + 0.05 * pulse);
       emit = 1.0;
     } else {
-      col += vec3(1.0, 0.84, 0.56) * g * pulse * 0.14;
-      emit = max(emit, g * pulse * 0.18);
+      col += vec3(1.0, 0.86, 0.6) * g * pulse * 0.1;
+      emit = max(emit, g * pulse * 0.12);
     }
   }
   if (uFocusDim > 0.001 && abs(hot - uFocusId) > 0.5) {
@@ -178,6 +179,7 @@ void main() {
   float mn = minor * sizeMul * projectionMatrix[1][1] * 0.5 * uViewport.y / cc.w;
   vec2 dir = maj > 1e-4 ? dPx / maj : vec2(1.0, 0.0);
   maj = max(maj, mn);
+  if (cls == 8) { maj = min(maj, 0.011 * uViewport.y); mn = min(mn, maj * 0.6); }
   float lim = 0.6 * uViewport.y;
   maj = min(maj, lim); mn = min(mn, lim);
   if (mn < 0.8) { alpha *= mn / 0.8; mn = 0.8; }
@@ -236,8 +238,7 @@ export class SplatCloud {
     const n = data.count;
 
     const geo = new THREE.InstancedBufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array([-1, -1, 0, 1, -1, 0, 1, 1, 0, -1, 1, 0]), 3));
-    geo.setIndex([0, 1, 2, 0, 2, 3]);
+    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array([0, 2, 0, -1.7321, -1, 0, 1.7321, -1, 0]), 3));
     const order = new Float32Array(n);
     for (let i = 0; i < n; i++) order[i] = i;
     this.orderAttr = new THREE.InstancedBufferAttribute(order, 1);
@@ -273,31 +274,41 @@ export class SplatCloud {
     this.lastKey = null;
     if (!syncSort) {
       if (!sortWorker) sortWorker = new Worker(new URL('./sortWorker.js', import.meta.url), { type: 'module' });
-      sortWorker.postMessage({ type: 'init', id, count: n, A: data.A.slice(), B: data.B.slice(), E: data.E.slice() });
+      sortWorker.postMessage({ type: 'init', id, count: n, A: data.A.slice(), B: data.B.slice(), C: data.C.slice(), E: data.E.slice() });
       sortWorker.addEventListener('message', (e) => {
         if (e.data.id !== this.id) return;
-        this.orderAttr.array.set(e.data.order);
+        this.orderAttr.array.set(e.data.order.subarray(0, e.data.n));
+        this.orderAttr.clearUpdateRanges();
+        this.orderAttr.addUpdateRange(0, e.data.n);
         this.orderAttr.needsUpdate = true;
+        this.mesh.geometry.instanceCount = e.data.n;
         this.pending = false;
       });
     }
   }
 
-  requestSort(camera, morph) {
-    const p = camera.position, d = new THREE.Vector3();
-    camera.getWorldDirection(d);
-    const key = [p.x, p.y, p.z, d.x, d.y, d.z, morph].map((v) => v.toFixed(3)).join(',');
+  requestSort(camera, fr, morph, reveal) {
+    const e = camera.matrixWorld.elements;
+    const p = camera.position;
+    const view = {
+      cam: [p.x, p.y, p.z], right: [e[0], e[1], e[2]], up: [e[4], e[5], e[6]], fwd: [-e[8], -e[9], -e[10]],
+      fr, margin: this.syncSort ? 0.06 : 0.3,
+    };
+    const key = [...view.cam, ...view.fwd, fr.l, fr.t, morph, reveal].map((v) => v.toFixed(3)).join(',');
     if (key === this.lastKey) return;
     if (this.syncSort) {
-      sortSplats(this.data, [p.x, p.y, p.z], [d.x, d.y, d.z], morph, this.orderAttr.array);
+      const n = sortSplats(this.data, view, morph, reveal, this.orderAttr.array);
+      this.orderAttr.clearUpdateRanges();
+      this.orderAttr.addUpdateRange(0, n);
       this.orderAttr.needsUpdate = true;
+      this.mesh.geometry.instanceCount = n;
       this.lastKey = key;
       return;
     }
     if (this.pending) return;
     this.pending = true;
     this.lastKey = key;
-    sortWorker.postMessage({ type: 'sort', id: this.id, cam: [p.x, p.y, p.z], dir: [d.x, d.y, d.z], morph, seq: ++seqCounter });
+    sortWorker.postMessage({ type: 'sort', id: this.id, view, morph, reveal });
   }
 }
 

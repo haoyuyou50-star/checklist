@@ -129,6 +129,8 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 
 /* ---------- HUD ---------- */
 #hud > * { position: absolute; }
+.h-scrim { left: 0; right: 0; top: 0; height: 22vh; background: linear-gradient(180deg, rgba(14, 12, 9, 0.42), rgba(14, 12, 9, 0)); }
+.h-scrim::after { content: ""; position: absolute; left: 0; right: 0; top: 78vh; height: 22vh; background: linear-gradient(0deg, rgba(14, 12, 9, 0.3), rgba(14, 12, 9, 0)); }
 .h-title { left: 4vw; top: 4vh; display: flex; align-items: baseline; gap: 14px; text-shadow: 0 1px 12px rgba(0, 0, 0, 0.45); }
 .h-idx { font-weight: 500; color: var(--gold); font-size: 18px; }
 .h-cn { font-family: var(--cn); font-size: 16px; letter-spacing: 0.3em; }
