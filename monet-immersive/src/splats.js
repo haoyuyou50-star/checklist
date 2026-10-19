@@ -14,6 +14,8 @@ uniform float uTime, uMorph, uReveal, uWind, uFlash, uFocusDim, uFocusId, uGustF
 uniform vec2 uWindDir;
 uniform vec3 uFront;
 uniform float uHot[8];
+uniform float uGrade, uGamma, uExpo, uSat, uLift, uContrast;
+uniform vec3 uWB;
 
 in float aIndex;
 out vec4 vColor;
@@ -21,12 +23,21 @@ out vec2 vUv;
 out float vSeed;
 out float vEmit;
 out float vBr;
+out float vPx;
 
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float vnoise(vec2 p) {
   vec2 i = floor(p), f = fract(p);
   vec2 u = f * f * (3.0 - 2.0 * f);
   return mix(mix(hash(i), hash(i + vec2(1, 0)), u.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), u.x), u.y);
+}
+vec3 grade(vec3 c) {
+  vec3 g = pow(max(c, vec3(0.0)), vec3(uGamma)) * uExpo * uWB;
+  float l = dot(g, vec3(0.299, 0.587, 0.114));
+  g = max(mix(vec3(l), g, uSat), vec3(0.0));
+  g = mix(g, (1.0 - exp(-g * 1.8)) / (1.0 - exp(-1.8)), uLift);
+  g = (g - 0.5) * uContrast + 0.5;
+  return mix(c, clamp(g, 0.0, 1.0), uGrade);
 }
 vec3 rotAround(vec3 v, vec3 k, float a) {
   float c = cos(a), s = sin(a);
@@ -57,7 +68,7 @@ void main() {
   vec3 world = A.xyz; float seed = A.w;
   vec3 canv = B.xyz; int cls = int(B.w + 0.5);
   vec3 axis = C.xyz; float minor = C.w;
-  vec3 col = D.rgb; float alpha = D.a * uOpacity;
+  vec3 col = grade(D.rgb); float alpha = D.a * uOpacity;
   float hot = E.x, flex = E.y, delay = E.z, ext = E.w;
 
   vec3 wd3 = normalize(vec3(uWindDir.x, 0.0, uWindDir.y));
@@ -177,13 +188,17 @@ void main() {
   vec2 dPx = (ce.xy / ce.w - ndcC) * 0.5 * uViewport;
   float maj = length(dPx);
   float mn = minor * sizeMul * projectionMatrix[1][1] * 0.5 * uViewport.y / cc.w;
+  if (ext > 0.5 && (cls == 6 || cls == 11)) {
+    float graze = abs(pos.y - cameraPosition.y) / max(length(pos - cameraPosition), 1e-3);
+    mn *= clamp(graze * 3.2 + 0.12, 0.16, 1.0);
+  }
   vec2 dir = maj > 1e-4 ? dPx / maj : vec2(1.0, 0.0);
   maj = max(maj, mn);
   if (cls == 8) { maj = min(maj, 0.011 * uViewport.y); mn = min(mn, maj * 0.6); }
   float lim = 0.6 * uViewport.y;
   maj = min(maj, lim); mn = min(mn, lim);
-  if (mn < 0.8) { alpha *= mn / 0.8; mn = 0.8; }
-  maj = max(maj, 0.8);
+  if (mn < 0.9) { alpha *= mn / 0.9; mn = 0.9; }
+  maj = max(maj, 0.9);
 
   vec2 perp = vec2(-dir.y, dir.x);
   vec2 off = dir * position.x * maj + perp * position.y * mn;
@@ -192,7 +207,8 @@ void main() {
   vColor = vec4(col, alpha);
   vSeed = seed;
   vEmit = emit;
-  vBr = 1.0 - smoothstep(6.0, 34.0, mn);
+  vBr = 1.0 - smoothstep(8.0, 40.0, mn);
+  vPx = mn;
 }
 `;
 
@@ -203,15 +219,19 @@ in vec2 vUv;
 in float vSeed;
 in float vEmit;
 in float vBr;
+in float vPx;
 out vec4 fragColor;
 void main() {
-  float r2 = dot(vUv, vUv);
-  if (r2 > 1.0) discard;
-  float a = vColor.a * exp(-2.7 * pow(r2, 1.45));
-  float bristle = (sin(vUv.y * 11.0 + vSeed * 37.0) * 0.5 + 0.5) * vBr;
-  a *= 1.0 - 0.2 * bristle;
-  if (a < 0.002) discard;
-  vec3 c = vColor.rgb * (1.0 + 0.06 * (bristle - 0.5 * vBr));
+  float ang = atan(vUv.y, vUv.x);
+  float r = length(vUv) * (1.0 + 0.07 * sin(ang * 3.0 + vSeed * 41.0) + 0.04 * sin(ang * 7.0 + vSeed * 13.0));
+  if (r > 1.0) discard;
+  // firm paint body with a short anti-aliased rim (about 1.2px wide on the minor axis)
+  float rim = clamp(1.4 / max(vPx, 1.0), 0.12, 0.6);
+  float body = 1.0 - smoothstep(1.0 - rim, 1.0, r);
+  float a = vColor.a * mix(body, exp(-2.7 * r * r), vEmit);
+  float streak = (sin(vUv.y * 9.0 + vSeed * 37.0) * 0.5 + 0.5) * vBr;
+  if (a < 0.003) discard;
+  vec3 c = vColor.rgb * (1.0 + 0.045 * (streak - 0.5 * vBr) + 0.035 * (1.0 - r));
   fragColor = vec4(c * a, a * (1.0 - vEmit));
 }
 `;
@@ -227,11 +247,20 @@ function dataTex(src, count) {
   return t;
 }
 
+export const NO_GRADE = { gamma: 1, expo: 1, wb: [1, 1, 1], sat: 1, lift: 0, contrast: 1 };
+export function gradeColor(c, g) {
+  let v = c.map((x, k) => Math.pow(Math.max(x, 0), g.gamma) * g.expo * g.wb[k]);
+  const l = 0.299 * v[0] + 0.587 * v[1] + 0.114 * v[2];
+  const n = 1 - Math.exp(-1.8);
+  v = v.map((x) => Math.max(l + (x - l) * g.sat, 0)).map((x) => x + ((1 - Math.exp(-x * 1.8)) / n - x) * g.lift);
+  return v.map((x) => Math.min(1, Math.max(0, (x - 0.5) * g.contrast + 0.5)));
+}
+
 let sortWorker = null;
 let seqCounter = 0;
 
 export class SplatCloud {
-  constructor(id, data, { syncSort = false } = {}) {
+  constructor(id, data, { syncSort = false, grade = NO_GRADE } = {}) {
     this.id = id;
     this.data = data;
     this.syncSort = syncSort;
@@ -256,6 +285,8 @@ export class SplatCloud {
       uWindDir: { value: new THREE.Vector2(1, 0) },
       uFront: { value: new THREE.Vector3(...data.front) },
       uHot: { value: new Array(8).fill(0) },
+      uGrade: { value: 0 }, uGamma: { value: grade.gamma }, uExpo: { value: grade.expo }, uSat: { value: grade.sat },
+      uLift: { value: grade.lift }, uContrast: { value: grade.contrast }, uWB: { value: new THREE.Vector3(...grade.wb) },
     };
     this.material = new THREE.ShaderMaterial({
       glslVersion: THREE.GLSL3,
@@ -336,7 +367,8 @@ void main() {
   fragColor = vec4(c * uOpacity, uOpacity);
 }`;
 
-export function makeBackdrop(bg) {
+export function makeBackdrop(bg, grade = NO_GRADE) {
+  bg = Object.fromEntries(Object.entries(bg).map(([k, c]) => [k, gradeColor(c, grade)]));
   const mat = new THREE.ShaderMaterial({
     glslVersion: THREE.GLSL3,
     vertexShader: bgVert, fragmentShader: bgFrag,

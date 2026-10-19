@@ -85,9 +85,9 @@ class Builder {
 }
 
 export const QUALITY = {
-  high: { analysisW: 760, layers: [12, 6, 3.0], detail: 2.0, extGround: 90000, extSky: 20000, treeDensity: 3.2, nearTree: 15, motes: 900, glints: 1800, shore: 14000 },
-  mid: { analysisW: 640, layers: [12, 6.2, 3.3], detail: 2.3, extGround: 60000, extSky: 14000, treeDensity: 2.2, nearTree: 11, motes: 600, glints: 1200, shore: 9000 },
-  low: { analysisW: 520, layers: [13, 7, 3.8], detail: 2.8, extGround: 34000, extSky: 9000, treeDensity: 1.4, nearTree: 8, motes: 500, glints: 700, shore: 5000 },
+  high: { analysisW: 760, layers: [11, 5.6, 2.9], detail: 2.0, extGround: 90000, extWater: 150000, extSky: 44000, treeDensity: 4.2, nearTree: 15, motes: 900, glints: 1800, shore: 16000 },
+  mid: { analysisW: 640, layers: [11, 5.8, 3.1], detail: 2.3, extGround: 60000, extWater: 88000, extSky: 27000, treeDensity: 3.0, nearTree: 11, motes: 600, glints: 1200, shore: 11000 },
+  low: { analysisW: 520, layers: [12, 6.6, 3.6], detail: 2.8, extGround: 34000, extWater: 60000, extSky: 17000, treeDensity: 1.9, nearTree: 8, motes: 500, glints: 700, shore: 6000 },
 };
 
 export async function loadImage(src) {
@@ -135,6 +135,7 @@ export function buildScene(scene, img, Q) {
   }
 
   const B = new Builder(400000);
+  const EDGE_IN = 0.024, EDGE_OUT = 0.05;
   const sC = 3.0 / f;
   const hotAcc = new Map();
 
@@ -143,10 +144,10 @@ export function buildScene(scene, img, Q) {
 
   /* ---- painted strokes ---- */
   const layerDefs = [
-    { sp: Q.layers[0], maj: [1.5, 2.6], min: [0.6, 0.9], a: 0.95, src: b3 },
-    { sp: Q.layers[1], maj: [1.3, 2.3], min: [0.55, 0.85], a: 0.9, src: b2 },
-    { sp: Q.layers[2], maj: [1.2, 2.1], min: [0.55, 0.85], a: 0.86, src: b1 },
-    { sp: Q.detail, maj: [1.0, 1.9], min: [0.5, 0.8], a: 0.88, src: b1, detail: true },
+    { sp: Q.layers[0], maj: [1.3, 2.2], min: [0.6, 0.85], a: 0.97, src: b3 },
+    { sp: Q.layers[1], maj: [1.2, 2.1], min: [0.5, 0.75], a: 0.93, src: b2 },
+    { sp: Q.layers[2], maj: [1.1, 2.0], min: [0.45, 0.7], a: 0.92, src: b1 },
+    { sp: Q.detail, maj: [1.0, 1.8], min: [0.42, 0.66], a: 0.92, src: b1, detail: true },
   ];
   const isGround = (c) => c === CLS.SKY || c === CLS.GRASS || c === CLS.WATER || c === CLS.FLOWER;
   layerDefs.forEach((L, li) => {
@@ -158,6 +159,8 @@ export function buildScene(scene, img, Q) {
         const y = clamp(gy0 + (rand() - 0.5) * sp * 0.9, 0, H - 1);
         const i = (y | 0) * W + (x | 0);
         const c = clsMap[i];
+        const eEdge = Math.min(x / W, 1 - x / W, (y / H) * asp, (1 - y / H) * asp);
+        if (eEdge < EDGE_IN && rand() < (1 - eEdge / EDGE_IN) * 0.7) continue;
         if (L.detail) {
           let p = clamp(grad[i] * 9 - 0.12, 0, 0.85);
           if (c === CLS.SKY) p *= 0.15;
@@ -180,7 +183,8 @@ export function buildScene(scene, img, Q) {
         const sxx = Jxx[i], sxy = Jxy[i], syy = Jyy[i];
         const coh = Math.sqrt((sxx - syy) ** 2 + 4 * sxy * sxy) / (sxx + syy + 1e-6);
         let ang;
-        if (rand() < coh * 1.3) ang = 0.5 * Math.atan2(2 * sxy, sxx - syy) + Math.PI / 2;
+        if (c === CLS.WATER) ang = (rand() - 0.5) * 0.2;
+        else if (rand() < coh * 1.3) ang = 0.5 * Math.atan2(2 * sxy, sxx - syy) + Math.PI / 2;
         else if (c === CLS.SKY) ang = (rand() - 0.5) * 0.6;
         else if (c === CLS.GRASS) ang = Math.PI / 2 + (rand() - 0.5) * 1.1;
         else if (c === CLS.WATER) ang = (rand() - 0.5) * 0.18;
@@ -189,10 +193,10 @@ export function buildScene(scene, img, Q) {
 
         let maj = sp * lerp(L.maj[0], L.maj[1], rand());
         let mn = sp * lerp(L.min[0], L.min[1], rand());
-        if (c === CLS.WATER) { maj *= 1.35; mn *= 0.85; }
+        if (c === CLS.WATER) { maj *= li === 0 ? 0.9 : 1.1; mn *= 0.72; }
         if (c === CLS.SKY && li === 0) maj *= 1.25;
 
-        const u = x / W, v = y / H, depth = depMap[i];
+        const u = x / W, v = y / H, depth = depMap[i] * (1 + 0.014 * (3 - li));
         const s = depth / f, sc = sC * (1 + 0.004 * (3 - li));
         const w = toWorld(u, v, depth);
         const cpos = [(u - 0.5) * sc, -(v - vH) * asp * sc, -f * sc];
@@ -236,13 +240,15 @@ export function buildScene(scene, img, Q) {
   const topElev = Math.atan2(vH * asp, f);
   const nSky = 18;
   const skyBins = Array.from({ length: nSky }, () => []);
-  const pal = { tree: [], flower: [], stat: [], sail: [] };
+  const pal = { tree: [], flower: [], stat: [], sail: [], water: [] };
   for (let y = 0; y < H; y += 2) for (let x = 0; x < W; x += 2) {
     const i = y * W + x, c = clsMap[i];
     const col = [b2[i * 3], b2[i * 3 + 1], b2[i * 3 + 2]];
+    if (c === CLS.WATER && b1[i * 3 + 2] > b1[i * 3] * 1.04 && b1[i * 3 + 2] >= b1[i * 3 + 1] * 0.97) pal.water.push([b1[i * 3], b1[i * 3 + 1], b1[i * 3 + 2]]);
     if (c === CLS.GRASS) groundBins[binOf(depMap[i])].push(col);
     else if (c === CLS.WATER) { if (col[2] >= col[0] * 0.98 || rand() < 0.08) groundBins[binOf(depMap[i])].push(col); }
     else if (c === CLS.SKY) {
+      if (scene.ext.kind === 'water' && (col[2] < col[0] * 0.97 || col[0] * 0.3 + col[1] * 0.59 + col[2] * 0.11 < 0.42)) continue;
       const yy = -((y + 0.5) / H - vH) * asp, xx = (x + 0.5) / W - 0.5;
       const e = Math.atan2(yy, Math.hypot(xx, f));
       skyBins[clamp(Math.floor((e / topElev) * nSky), 0, nSky - 1)].push(col);
@@ -276,10 +282,35 @@ export function buildScene(scene, img, Q) {
   const keep = (x, y, z) => {
     if (z >= -1e-3) return true;
     const u = (x / -z) * f + 0.5, v = vH - ((y / -z) * f) / asp;
-    const e = Math.min(u, 1 - u, v, 1 - v);
+    const e = Math.min(u, 1 - u, v * asp, (1 - v) * asp);
     if (e < 0) return true;
-    if (e < 0.014) return rand() < (1 - e / 0.014) * 0.55;
+    if (e < EDGE_OUT) return rand() < (1 - e / EDGE_OUT) * 0.8;
     return false;
+  };
+  // Pull extension colours toward the painting near its border, sampling the nearest pixel of the same kind.
+  const fam = (c) => (c === CLS.SKY ? 0 : c === CLS.WATER ? 1 : c === CLS.SAIL ? 3 : 2);
+  const EDGE_M = 0.26;
+  const edgeBlend = (w, col, family, maxK = 0.88) => {
+    const z = w[2];
+    if (z >= -0.5) return col;
+    const u = (w[0] / -z) * f + 0.5, v = vH - ((w[1] / -z) * f) / asp;
+    const cu = clamp(u, 0, 1), cv = clamp(v, 0, 1);
+    const d = Math.hypot(u - cu, (v - cv) * asp);
+    if (d >= EDGE_M) return col;
+    let dx = 0.5 - cu, dy = (0.5 - cv) * asp;
+    const dl = Math.hypot(dx, dy) || 1;
+    dx /= dl; dy /= dl;
+    const along = (rand() - 0.5) * 16;
+    const px = cu * (W - 1) - dy * along, py = cv * (H - 1) + dx * along;
+    const s0 = 2 + rand() * 16;
+    for (let s = s0; s < s0 + 90; s += 3) {
+      const xi = clamp(Math.round(px + dx * s), 0, W - 1), yi = clamp(Math.round(py + dy * s), 0, H - 1);
+      const i = yi * W + xi;
+      if (fam(clsMap[i]) !== family) continue;
+      const k = Math.pow(1 - d / EDGE_M, 1.5) * maxK;
+      return [lerp(col[0], b2[i * 3], k), lerp(col[1], b2[i * 3 + 1], k), lerp(col[2], b2[i * 3 + 2], k)];
+    }
+    return col;
   };
   const extDelay = (x, y, z) => {
     const l = Math.hypot(x, y, z) || 1;
@@ -297,15 +328,19 @@ export function buildScene(scene, img, Q) {
   const mirror = (w, axis, minor, col, alpha, waterCol) => {
     if (ext.kind !== 'water') return;
     const yRel = w[1] + h;
-    if (yRel < 0.02 || rand() > 0.62) return;
-    const wm = [w[0] + (rand() - 0.5) * 0.4, -h - yRel * 0.95, w[2]];
+    if (yRel < 0.02 || rand() > 0.42) return;
+    // where the ray to the mirrored point meets the water surface
+    const k = (h / (h + yRel * 0.95)) * 0.995;
+    const wm = [(w[0] + (rand() - 0.5) * 0.4) * k, -h + 0.01, w[2] * k];
     const th = Math.atan2(w[0], -w[2]);
     const t = tangentAt(th);
-    const len = Math.hypot(axis[0], axis[1], axis[2]) * 1.4;
-    const c = [lerp(col[0] * 0.8, waterCol[0], 0.38), lerp(col[1] * 0.8, waterCol[1], 0.38), lerp(col[2] * 0.82, waterCol[2], 0.38)];
-    reflections.push([wm, [t[0] * len, 0, t[2] * len], minor * 0.7, c, alpha * 0.6]);
+    const len = Math.hypot(axis[0], axis[1], axis[2]) * lerp(2.2, 3.6, rand()) * k;
+    minor *= k * 4.2;
+    const cl = (col[0] + col[1] + col[2]) / 3;
+    const c = [0, 1, 2].map((j) => clamp(lerp(cl + (col[j] - cl) * 1.35, waterCol[j], 0.14) * 0.84, 0, 1));
+    reflections.push([wm, [t[0] * len, 0, t[2] * len], minor * 0.8, c, Math.min(1, alpha * 1.02)]);
   };
-  const waterColAt = (d) => pick(groundBins[binOf(d)]);
+  const waterColAt = (d) => (ext.kind === 'water' && pal.water.length > 40 ? pickQ(pal.water, 0.35 + rand() * 0.6) : pick(groundBins[binOf(d)]));
 
   // ground plane: grass field or river surface
   const shoreR = (th) => {
@@ -315,7 +350,8 @@ export function buildScene(scene, img, Q) {
   };
   const shoreMul = (th) => { let d = (th * 180) / Math.PI; d = ((d + 540) % 360) - 180; return d < 0 ? smooth(35, 95, -d) : 1; };
 
-  const nG = Q.extGround;
+  const nG = ext.kind === 'water' ? Q.extWater : Q.extGround;
+  const wp = pal.water.length > 40 ? pal.water.sort(byLum) : groundBins[Math.floor(nBins * 0.6)];
   for (let k = 0; k < nG * 1.35; k++) {
     const th = rand() * Math.PI * 2;
     const rMax = ext.kind === 'water' ? shoreR(th) + 2 : ext.ring[1] + 6;
@@ -334,19 +370,24 @@ export function buildScene(scene, img, Q) {
         if (n > 0.56 && rand() < (n - 0.56) * 3.2 && pal.flower.length) { col = pick(pal.flower); cls = CLS.FLOWER; maj *= 0.6; mn *= 0.85; }
       }
       const a = rand() < 0.65 ? (rand() - 0.5) * 0.9 : rand() * Math.PI;
-      const idx = addExt([x, y, z], axisInPlane(t, a, maj), mn, jitterCol(col), 0.86, cls, 0.35 + rand() * 0.65);
+      if (cls === CLS.GRASS) col = edgeBlend([x, y, z], col, 2, 0.8);
+      const idx = addExt([x, y, z], axisInPlane(t, a, maj), mn, jitterCol(col), 0.9, cls, 0.35 + rand() * 0.65);
       if (cls === CLS.FLOWER && ext.petals && r < 26 && rand() < 0.35) {
         addExt([x, y, z], axisInPlane(t, rand() * 3, maj * 0.45), mn * 0.55, [Math.min(1, col[0] * 1.1), col[1], col[2]], 0.95, CLS.PETAL, 1);
       }
       void idx;
     } else {
-      const wc = pick(groundBins[binOf(r)]), hz = pickQ(skyBins[1], 0.3 + rand() * 0.6);
-      const kf = smooth(22, 100, r) * 0.6;
-      const col = jitterCol([lerp(wc[0], hz[0], kf), lerp(wc[1], hz[1], kf), lerp(wc[2], hz[2], kf)], 0.06);
-      const s = 0.07 * Math.pow(r, 0.64);
-      const maj = s * lerp(1.2, 2.6, rand()), mn = maj * lerp(0.16, 0.3, rand());
-      const a = Math.PI / 2 + (rand() - 0.5) * 0.16;
-      addExt([x, y, z], axisInPlane(t, a, maj), mn, col, 0.85, CLS.WATER, 0.5 + rand() * 0.5);
+      const n = fbm2(r * 0.32 + 7.3, th * 16 + 2.1, 3);
+      const wc = pickQ(wp, clamp(0.2 + (n - 0.5) * 1.6 + 0.35 + (rand() - 0.5) * 0.4, 0, 0.999));
+      const elev = Math.atan2(h, r);
+      const hz = pickQ(skyBins[clamp(Math.floor((elev / topElev) * nSky * 2.2), 0, nSky - 1)], 0.4 + rand() * 0.55);
+      const kf = 0.22 + 0.5 * smooth(6, 80, r);
+      let col = [lerp(wc[0], hz[0], kf), lerp(wc[1], hz[1], kf), lerp(wc[2], hz[2], kf)];
+      col = jitterCol(edgeBlend([x, y, z], col, 1, 0.92), 0.05);
+      const s = 0.042 * Math.pow(r, 0.72);
+      const maj = s * lerp(1.0, 2.3, rand()), mn = maj * lerp(0.32, 0.5, rand());
+      const a = Math.PI / 2 + (rand() - 0.5) * 0.12;
+      addExt([x, y, z], axisInPlane(t, a, maj), mn, col, 0.93, CLS.WATER, 0.5 + rand() * 0.5);
     }
   }
 
@@ -354,7 +395,7 @@ export function buildScene(scene, img, Q) {
   const R = cam.sky;
   const topBlue = mean(skyBins[nSky - 1].slice(0, Math.max(1, skyBins[nSky - 1].length >> 2)));
   for (let k = 0; k < Q.extSky * 1.3; k++) {
-    const sinE = lerp(Math.sin(-0.06), 1, rand());
+    const sinE = lerp(Math.sin(-0.06), 1, Math.pow(rand(), 1.5));
     const e = Math.asin(sinE), th = rand() * Math.PI * 2;
     const dir = [Math.cos(e) * Math.sin(th), sinE, -Math.cos(e) * Math.cos(th)];
     const w = [dir[0] * R, dir[1] * R, dir[2] * R];
@@ -363,39 +404,61 @@ export function buildScene(scene, img, Q) {
     let bin = Math.floor((Math.max(e, 0) / topElev) * nSky);
     if (bin >= nSky) bin = nSky - 1 - Math.floor(rand() * 4);
     const arr = skyBins[clamp(bin, 0, nSky - 1)];
-    const q = clamp(n * 1.45 - 0.12 + (rand() - 0.5) * 0.3, 0, 0.999);
+    const q = clamp(n * 1.5 - 0.1 + (rand() - 0.5) * 0.14, 0.14, 0.999);
     let col = pickQ(arr, q);
     const zen = smooth(topElev, 1.45, e) * (1 - q) * 0.45;
     col = [lerp(col[0], topBlue[0] * 0.92, zen), lerp(col[1], topBlue[1] * 0.96, zen), lerp(col[2], Math.min(1, topBlue[2] * 1.04), zen)];
+    col = edgeBlend(w, col, 0, 0.92);
     const t = tangentAt(th);
-    const rot = (n - 0.5) * 1.5 + (rand() - 0.5) * 0.45;
-    const maj = R * lerp(0.045, 0.1, rand()) * (e > 1.0 ? 1.3 : 1);
+    const rot = (n - 0.5) * 1.1 + (rand() - 0.5) * 0.3;
+    const angF = Math.acos(clamp(dir[0] * frontDir[0] + dir[1] * frontDir[1] + dir[2] * frontDir[2], -1, 1));
+    const maj = R * lerp(0.017, 0.036, rand()) * (1 + 0.8 * smooth(0.6, 2.4, angF)) * (e > 1.0 ? 1.3 : 1);
     const ca = Math.cos(rot), sa = Math.sin(rot);
     const axis = [(t[0] * ca) * maj, sa * maj * Math.cos(e), (t[2] * ca) * maj];
-    addExt(w, axis, maj * lerp(0.3, 0.5, rand()), jitterCol(col, 0.04), 0.82, CLS.SKY, 0);
+    addExt(w, axis, maj * lerp(0.32, 0.5, rand()), jitterCol(col, 0.035), 0.9, CLS.SKY, 0);
   }
 
   // tree clumps (shared by distant ring, riverbank and near trees)
   const treeClump = (cx, cz, baseY, Hh, Wd, density, opts = {}) => {
-    const n = Math.floor(Hh * Wd * density * 1.6);
+    const n = Math.floor(Hh * Wd * density * 3.2);
     const th = Math.atan2(cx, -cz), t = tangentAt(th);
     const rdir = [Math.sin(th), 0, -Math.cos(th)];
-    const depthR = opts.round ? Wd * 0.5 : Wd * 0.18;
+    const depthR = opts.round ? 0.5 : 0.2;
     const pTree = pal.tree.length ? pal.tree : [[0.25, 0.35, 0.22]];
+    const cb = opts.crownBase ?? 0.5;
+    // crown = a few overlapping lobes, lit from the upper left
+    const lobes = Array.from({ length: 3 + Math.floor(rand() * 4) }, (_, j) => {
+      const top = j === 0;
+      return {
+        a: top ? (rand() - 0.5) * 0.2 : (rand() - 0.5) * 0.75,
+        b: top ? 0.55 : lerp(-0.5, 0.45, rand()),
+        r: top ? lerp(0.38, 0.5, rand()) : lerp(0.3, 0.48, rand()),
+        tone: (rand() - 0.5) * 0.22,
+      };
+    });
     for (let k = 0; k < n; k++) {
+      const L = lobes[Math.floor(rand() * lobes.length)];
       let a, b, c;
       do { a = rand() * 2 - 1; b = rand() * 2 - 1; c = rand() * 2 - 1; } while (a * a + b * b + c * c > 1);
-      const hy = baseY + Hh * (opts.crownBase ?? 0.5) + b * Hh * (1 - (opts.crownBase ?? 0.5));
-      const x = cx + t[0] * a * Wd * 0.5 + rdir[0] * c * depthR;
-      const z = cz + t[2] * a * Wd * 0.5 + rdir[2] * c * depthR;
-      const light = clamp(0.22 + (b * 0.5 + 0.5) * 0.42 - a * 0.14 - c * 0.12 + (rand() - 0.5) * 0.36, 0, 0.98);
-      const col = jitterCol(pickQ(pTree, light), 0.08);
-      const maj = Hh * lerp(0.035, 0.08, rand());
-      const axis = axisInPlane(t, rand() * Math.PI, maj);
+      const la = L.a + a * L.r, lb = L.b + b * L.r * 1.1;
+      const hy = baseY + Hh * cb + lb * Hh * (1 - cb);
+      const x = cx + t[0] * la * Wd * 0.6 + rdir[0] * c * L.r * Wd * depthR * 2;
+      const z = cz + t[2] * la * Wd * 0.6 + rdir[2] * c * L.r * Wd * depthR * 2;
+      const rim = Math.hypot(a, b);
+      const light = clamp(0.3 + b * 0.24 - a * 0.16 + lb * 0.2 - c * 0.1 + L.tone + (rim > 0.75 && b > 0 ? 0.12 : 0) + (rand() - 0.5) * 0.24, 0, 0.98);
+      let col = jitterCol(pickQ(pTree, light), 0.06);
       const w = [x, hy, z];
       if (!keep(x, hy, z)) continue;
-      addExt(w, axis, maj * lerp(0.45, 0.7, rand()), col, 0.9, CLS.TREE, clamp((hy - baseY) / Hh, 0, 1));
+      col = edgeBlend(w, col, 2, 0.6);
+      const maj = Hh * lerp(0.017, 0.036, rand());
+      const axis = axisInPlane(t, rand() < 0.6 ? lerp(0.3, 1.2, rand()) : rand() * Math.PI, maj);
+      addExt(w, axis, maj * lerp(0.45, 0.68, rand()), col, 0.95, CLS.TREE, clamp((hy - baseY) / Hh, 0, 1));
       mirror(w, axis, maj * 0.5, col, 0.9, waterColAt(Math.hypot(x, z)));
+      if (rand() < 0.16 && rim < 0.8) {
+        const d = 1.012, uc = pickQ(pTree, light * 0.75);
+        const um = maj * lerp(2.0, 2.8, rand());
+        addExt([x * d, hy, z * d], axisInPlane(t, rand() * Math.PI, um), um * 0.6, edgeBlend(w, uc, 2, 0.5), 0.97, CLS.TREE, clamp((hy - baseY) / Hh, 0, 1) * 0.6);
+      }
     }
     if (opts.trunk) {
       for (let k = 0; k < 90; k++) {
@@ -422,8 +485,9 @@ export function buildScene(scene, img, Q) {
       const col = roof ? jitterCol([lerp(rc[0], roofCol[0], 0.35) * 0.9, lerp(rc[1], roofCol[1], 0.35) * 0.9, lerp(rc[2], roofCol[2], 0.35) * 0.9], 0.08) : jitterCol(pickQ(wallPal, 0.45 + rand() * 0.55), 0.06);
       const maj = hgt * lerp(0.06, 0.12, rand());
       const axis = roof ? [t[0] * maj, 0, t[2] * maj] : axisInPlane(t, rand() < 0.5 ? 0 : Math.PI / 2, maj);
-      addExt([x, y, z], axis, maj * 0.55, col, 0.95, CLS.STATIC, 0);
-      mirror([x, y, z], axis, maj * 0.5, col, 0.95, waterColAt(Math.hypot(x, z)));
+      const ec = edgeBlend([x, y, z], col, 2, 0.4);
+      addExt([x, y, z], axis, maj * 0.55, ec, 0.95, CLS.STATIC, 0);
+      mirror([x, y, z], axis, maj * 0.5, ec, 0.95, waterColAt(Math.hypot(x, z)));
     }
   };
 
@@ -466,21 +530,25 @@ export function buildScene(scene, img, Q) {
       const x = r * Math.sin(th), z = -r * Math.cos(th);
       const y = -h + rand() * (0.9 + 1.6 * vnoise2(Math.cos(th) * 7, Math.sin(th) * 7)) * m;
       if (!keep(x, y, z)) continue;
-      const col = jitterCol(pickQ(pal.tree, 0.3 + rand() * 0.6), 0.08);
-      const maj = lerp(0.5, 1.3, rand()) * (r / 40) ** 0.5;
+      const col = edgeBlend([x, y, z], jitterCol(pickQ(pal.tree, 0.3 + rand() * 0.6), 0.07), 2, 0.75);
+      const maj = lerp(0.4, 1.0, rand()) * (r / 40) ** 0.5;
       const axis = axisInPlane(tangentAt(th), Math.PI / 2 + (rand() - 0.5) * 0.8, maj);
-      addExt([x, y, z], axis, maj * 0.4, col, 0.9, CLS.TREE, 0.3);
+      addExt([x, y, z], axis, maj * 0.42, col, 0.95, CLS.TREE, 0.3);
       mirror([x, y, z], axis, maj * 0.4, col, 0.9, waterColAt(r));
     }
-    const K = 70;
+    (ext.bankTrees || []).forEach(([deg, r, Hh, Wd]) => {
+      const th = (deg * Math.PI) / 180;
+      treeClump(r * Math.sin(th), -r * Math.cos(th), -h + 0.5, Hh, Wd, Q.treeDensity * 1.3, { crownBase: 0.3 });
+    });
+    const K = 150;
     for (let k = 0; k < K; k++) {
-      const th = ((k + rand() * 0.7) / K) * Math.PI * 2, m = shoreMul(th);
-      if (m < 0.3 || vnoise2(Math.cos(th) * 2.6 + 1, Math.sin(th) * 2.6 + 6) < 0.4) continue;
-      const r = shoreR(th) + 2 + rand() * 6;
-      const Hh = lerp(5, 13, rand()) * m * Math.min(1, r / 45 + 0.35);
+      const th = ((k + rand() * 0.8) / K) * Math.PI * 2, m = shoreMul(th);
+      if (m < 0.3 || vnoise2(Math.cos(th) * 2.6 + 1, Math.sin(th) * 2.6 + 6) < 0.28) continue;
+      const r = shoreR(th) + 2 + rand() * 8;
+      const Hh = lerp(4, 11, vnoise2(Math.cos(th) * 5 + 3, Math.sin(th) * 5) * 0.6 + rand() * 0.4) * m * Math.min(1, r / 45 + 0.35);
       const cx = r * Math.sin(th), cz = -r * Math.cos(th);
       if (!keep(cx, -h + Hh * 0.5, cz)) continue;
-      treeClump(cx, cz, -h + 0.6, Hh, Hh * lerp(0.4, 0.9, rand()), Q.treeDensity, { crownBase: 0.35 });
+      treeClump(cx, cz, -h + 0.6, Hh, Hh * lerp(0.9, 1.7, rand()), Q.treeDensity * 0.6, { crownBase: 0.3 });
     }
     const wallPal = pal.stat.filter((c) => c[0] > c[2] * 1.15);
     ext.houses.forEach(([deg]) => {
@@ -500,7 +568,7 @@ export function buildScene(scene, img, Q) {
         const s = (rand() - 0.5) * L, y = rand() * 0.45 * (1 - Math.abs(s / L) * 1.2);
         const w = at(s, y);
         if (!keep(w[0], w[1], w[2])) continue;
-        const col = rand() < 0.55 ? jitterCol(pickQ(sailPal, 0.3), 0.06) : [0.22, 0.24, 0.3];
+        const col = rand() < 0.6 ? jitterCol(pickQ(sailPal, 0.3 + rand() * 0.4), 0.06) : jitterCol([0.42, 0.47, 0.58], 0.1);
         const axis = [t[0] * L * 0.12, 0, t[2] * L * 0.12];
         addExt(w, axis, 0.18, col, 0.95, CLS.SAIL, 0.05);
         mirror(w, axis, 0.18, col, 0.95, wc);

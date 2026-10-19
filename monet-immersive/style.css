@@ -17,7 +17,7 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 /* ---------- layers ---------- */
 #wall, #gl, #gallery, #hud, #card, #fx, #cursor, #loader { position: fixed; inset: 0; }
 #wall { z-index: 0; }
-#gl { z-index: 1; width: 100%; height: 100%; display: block; opacity: 0; filter: contrast(1.06) saturate(1.1); }
+#gl { z-index: 1; width: 100%; height: 100%; display: block; opacity: 0; }
 #gallery { z-index: 2; pointer-events: none; }
 #hud { z-index: 3; pointer-events: none; opacity: 0; }
 #card { z-index: 4; pointer-events: none; }
@@ -204,9 +204,9 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .c-back:hover, .c-back.is-hover { color: #fff1cf; }
 
 /* ---------- fx ---------- */
-.vignette { position: absolute; inset: 0; background: radial-gradient(ellipse 75% 70% at 50% 48%, rgba(0, 0, 0, 0) 55%, rgba(8, 6, 4, 0.55) 100%); }
+.vignette { position: absolute; inset: 0; background: radial-gradient(ellipse 75% 70% at 50% 48%, rgba(0, 0, 0, 0) 62%, rgba(12, 16, 24, 0.3) 100%); }
 .grain {
-  position: absolute; inset: -50%; opacity: 0.07; mix-blend-mode: overlay;
+  position: absolute; inset: -50%; opacity: 0.03; mix-blend-mode: overlay;
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='1.1' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23g)'/></svg>");
 }
 
