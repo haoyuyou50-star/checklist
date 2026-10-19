@@ -92,6 +92,7 @@ export const QUALITY = {
 
 export async function loadImage(src) {
   const img = new Image();
+  img.crossOrigin = 'anonymous';
   img.src = src;
   await img.decode();
   return img;
