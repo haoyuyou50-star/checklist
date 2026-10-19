@@ -7,7 +7,7 @@ import { WindAudio } from './audio.js';
 const params = new URLSearchParams(location.search);
 const CAPTURE = params.has('capture');
 const DEMO = params.has('demo') || CAPTURE;
-const qName = params.get('q') || (matchMedia('(pointer: coarse)').matches ? 'low' : 'high');
+const qName = params.get('q') || (matchMedia('(pointer: coarse)').matches ? 'low' : 'mid');
 const Q = QUALITY[qName] || QUALITY.high;
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -168,6 +168,11 @@ async function selectPainting(i) {
   S.idx = i;
   setGalleryContent(i);
   await el.art.decode().catch(() => {});
+  if (!built[i]) {
+    await new Promise((r) => setTimeout(r, 30));
+    buildOne(i);
+    el.enter.classList.remove('is-busy');
+  }
   tween(0.9, (e) => fade(el.artWrap, e, 0, 0, lerp(0.985, 1, e)), { e: ease.out });
   await Promise.all(labelParts.map((n, k) => tween(1.0, (e) => fade(n, e, 14 * (1 - e)), { delay: 0.15 + k * 0.07, e: ease.out })));
   S.mode = 'gallery';
@@ -241,6 +246,7 @@ async function enter() {
   await wait(6.4);
   el.gallery.style.visibility = 'hidden';
   S.mode = 'immersive';
+  el.hud.classList.add('on');
   if (!S.hintShown) {
     S.hintShown = true;
     el.hint.style.opacity = 0;
@@ -254,6 +260,7 @@ function nearestYaw(y) { return y - Math.round(y / (Math.PI * 2)) * Math.PI * 2;
 async function exit() {
   if (S.mode !== 'immersive') return;
   S.mode = 'exiting';
+  el.hud.classList.remove('on');
   const B = cur(), sc = SCENES[S.idx], dolly = sc.cam.dolly;
   S.cam.yaw = nearestYaw(S.cam.yaw);
   S.vel.yaw = S.vel.pitch = 0;
@@ -473,33 +480,40 @@ const app = {
 window.app = app;
 
 /* ---------------- boot ---------------- */
+let imgs = [];
+function buildOne(i) {
+  const data = buildScene(SCENES[i], imgs[i], Q);
+  const cloud = new SplatCloud(SCENES[i].id, data, { syncSort: CAPTURE });
+  const backdrop = makeBackdrop(data.bg);
+  cloud.mesh.visible = false; backdrop.visible = false;
+  scene3.add(backdrop, cloud.mesh);
+  built[i] = { data, cloud, backdrop };
+  console.log(`[monet] ${SCENES[i].id}: ${data.count.toLocaleString()} splats`);
+}
+
 async function boot() {
+  if (location.protocol === 'file:') {
+    $('.ld-txt').innerHTML = '请通过本地服务器打开：双击 start.bat（Windows）或 start.command（macOS）<br>或在本目录运行 python3 -m http.server 8123 后访问 http://localhost:8123';
+    $('.ld-txt').style.cssText = 'text-align:center;line-height:2.2;letter-spacing:.15em';
+    return;
+  }
   buildPicker();
-  const imgs = await Promise.all(SCENES.map((sc) => loadImage(sc.image)));
+  imgs = await Promise.all(SCENES.map((sc) => loadImage(sc.image)));
   imgs.forEach((img, i) => { SCENES[i].asp = img.naturalHeight / img.naturalWidth; });
   setGalleryContent(0);
   resize();
   el.ldBar.style.width = '30%';
   await new Promise((r) => setTimeout(r, 30));
 
-  const buildOne = (i) => {
-    const data = buildScene(SCENES[i], imgs[i], Q);
-    const cloud = new SplatCloud(SCENES[i].id, data, { syncSort: CAPTURE });
-    const backdrop = makeBackdrop(data.bg);
-    cloud.mesh.visible = false; backdrop.visible = false;
-    scene3.add(backdrop, cloud.mesh);
-    built[i] = { data, cloud, backdrop };
-    console.log(`[monet] ${SCENES[i].id}: ${data.count.toLocaleString()} splats`);
-  };
   buildOne(0);
   el.ldBar.style.width = '70%';
   await new Promise((r) => setTimeout(r, 30));
-  buildOne(1);
+  if (CAPTURE) buildOne(1);
   el.ldBar.style.width = '100%';
-  built.forEach((b) => { b.cloud.mesh.visible = true; b.backdrop.visible = true; });
+  built.forEach((b) => { if (b) { b.cloud.mesh.visible = true; b.backdrop.visible = true; } });
   applyCamera();
   renderer.compile(scene3, camera);
-  built.forEach((b, i) => { b.cloud.mesh.visible = i === 0; b.backdrop.visible = i === 0; });
+  built.forEach((b, i) => { if (b) { b.cloud.mesh.visible = i === 0; b.backdrop.visible = i === 0; } });
   setGalleryContent(S.idx);
 
   [el.top, el.artWrap, el.picker, ...labelParts].forEach((n) => fade(n, 0));
