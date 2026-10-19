@@ -57,18 +57,37 @@ python3 -m http.server 8123
    - 所有动画由同一个时钟驱动，所以既能实时运行，也能逐帧确定性录制。
 7. 风声：WebAudio 实时合成，音量和音色随风力、阵风变化。
 
-## 录制视频
+## 渲染演示视频（约 2 分钟）
 
-在有 GPU 的电脑上，最简单的方式是打开 `http://localhost:8123/?demo` 后直接录屏。
+`tools/render.mjs` 一条命令出成片：自带本地服务器，用本机 Chrome/Edge 逐帧播放自动演示（不受实时帧率影响，成片绝对流畅），ffmpeg 编码，并按画面里的风力合成风声音轨。
 
-也可以离线逐帧录制（不受实时帧率影响，输出绝对流畅；软件渲染下每帧约 1~3 秒）：
+**准备**：安装 [Node.js](https://nodejs.org/)（18 或更新）和 Google Chrome（或 Edge）。
+
+**运行**：
+- Windows：双击 `render.bat`
+- macOS：双击 `render.command`
+- 或命令行：
 
 ```bash
-npm install                                   # 安装 puppeteer-core（使用本机 Chrome）
-node tools/capture.mjs --out frames --fps 30 --size 1920x1080
-python3 tools/wind_audio.py frames/wind.json wind.wav     # 依赖 numpy、scipy
-ffmpeg -framerate 30 -i frames/f_%05d.jpg -i wind.wav -c:v libx264 -pix_fmt yuv420p -crf 17 -c:a aac -shortest monet_demo.mp4
+cd monet-immersive
+npm install                    # 首次：安装 puppeteer-core 与 ffmpeg（自动下载，无需单独安装）
+node tools/render.mjs          # 1920x1080 · 30fps · 高画质 → monet_demo.mp4
 ```
+
+渲染时会弹出一个浏览器窗口自动播放，**不要关闭它**（可以最小化到后面）。终端里会显示进度和预计剩余时间。有独立显卡的电脑一般十几分钟内完成。
+
+| 参数 | 作用 |
+|---|---|
+| `--preview` | 快速预览：1280x720 · 24fps · 中画质 → `monet_demo_preview.mp4` |
+| `--out 文件名.mp4` | 输出文件 |
+| `--size 2560x1440` / `--fps 60` / `--q high\|mid\|low` | 分辨率、帧率、画质 |
+| `--chrome "浏览器路径"` | 找不到浏览器时手动指定 |
+| `--headless` | 不弹窗口（软件渲染，慢很多，适合服务器） |
+| `--dry` | 只测量演示时长，不出视频 |
+
+演示内容在 `src/demo.js`：罂粟花田（环顾、卡米耶与让、调高风力）→ 回到展厅 → 帆船赛（环顾、白帆、碎裂的倒影、阵风）→ 回到展厅。改其中的等待时间即可调整时长，改完用 `--dry` 查看总时长。
+
+也可以打开 `http://localhost:8123/?demo` 直接录屏，但成片流畅度取决于电脑的实时帧率。
 
 `node tools/capture.mjs --shots 10,20,30 --out shots` 可快速导出指定时间点的静帧。`--chrome` 可指定 Chrome 路径。
 
@@ -85,7 +104,7 @@ src/splats.js                 高斯渲染着色器（转场、风、发光）�
 src/sort.js, sortWorker.js    视锥剔除 + 深度排序
 src/demo.js                   自动演示脚本
 src/audio.js                  实时风声
-tools/                        逐帧录制、风声合成、字体子集生成
+tools/                        render.mjs 视频渲染、shot.mjs 静帧检查、capture.mjs 逐帧导出、字体子集生成
 assets/paintings/             画作（Wikimedia Commons，公有领域）
 assets/fonts/                 思源宋体 / Cormorant Garamond 子集
 ```
