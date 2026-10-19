@@ -432,6 +432,8 @@ function step(dt, draw = true) {
     U.uTime.value = clock;
     U.uMorph.value = S.morph; U.uReveal.value = S.reveal; U.uWind.value = S.wind; U.uFlash.value = S.flash;
     U.uGrade.value = S.grade;
+    const fh = S.focusId > 0 && B.data.hotspots.find((h) => h.id === S.focusId);
+    if (fh) { U.uFocusPos.value.set(...fh.center); U.uFocusR.value = fh.radius; }
     U.uFocusDim.value = S.focusDim; U.uFocusId.value = S.focusId;
     U.uGustFront.value = S.gustFront; U.uGustAmp.value = S.gustAmp;
     U.uWindDir.value.set(...sc.wind.dir).normalize();
