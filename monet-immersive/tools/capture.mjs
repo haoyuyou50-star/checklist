@@ -33,9 +33,10 @@ await page.waitForFunction('window.__ready === true', { timeout: 300000 });
 await page.evaluate(() => document.fonts.ready);
 
 let t = 0, frame = 0, shotIdx = 0;
+const levels = [];
 const t0 = Date.now();
 while (t < maxT) {
-  const draw = !shots || t + dt + 1e-6 >= shots[shotIdx];
+  const draw = shots ? t + dt + 1e-6 >= shots[shotIdx] : t + dt + 1e-6 >= start;
   await page.evaluate((d, dr) => window.__step(d, dr), dt, draw);
   t += dt;
   const done = await page.evaluate(() => !!window.__demoDone);
@@ -48,10 +49,13 @@ while (t < maxT) {
     }
   } else if (t >= start) {
     await page.screenshot({ path: path.join(out, `f_${String(frame).padStart(5, '0')}.jpg`), type: 'jpeg', quality: 93 });
+    levels.push(await page.evaluate(() => window.app.S.windLevel));
+    if (frame % 150 === 0) fs.writeFileSync(path.join(out, 'wind.json'), JSON.stringify({ fps, levels }));
     frame++;
     if (frame % 30 === 0) console.log(`t=${t.toFixed(2)}s frame=${frame} elapsed=${((Date.now() - t0) / 1000).toFixed(0)}s`);
   }
   if (done) break;
 }
+if (!shots) fs.writeFileSync(path.join(out, 'wind.json'), JSON.stringify({ fps, levels }));
 await browser.close();
 console.log('done', { t, frame });

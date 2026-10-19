@@ -77,7 +77,7 @@ const S = {
   gustFront: -999, gustAmp: 0, focusDim: 0, focusId: -1,
   hotBase: 0, hot: new Array(8).fill(0), hoverId: 0, markers: 0,
   cam: { pos: new THREE.Vector3(), yaw: 0, pitch: 0, fov: 62 }, basePitch: 0,
-  vel: { yaw: 0, pitch: 0 }, galleryFr: null, glVisible: false, hintShown: false,
+  vel: { yaw: 0, pitch: 0 }, galleryFr: null, glVisible: false, hintShown: false, windLevel: 0,
 };
 const IMM_FOV = 62;
 const built = SCENES.map(() => null);
@@ -119,6 +119,7 @@ function applyCamera() {
     const g = S.galleryFr, k = S.fMix;
     fr = { l: lerp(g.l, fr.l, k), r: lerp(g.r, fr.r, k), t: lerp(g.t, fr.t, k), b: lerp(g.b, fr.b, k) };
   }
+  S.fr = fr;
   const n = camera.near;
   camera.projectionMatrix.makePerspective(fr.l * n, fr.r * n, fr.t * n, fr.b * n, n, camera.far);
   camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
@@ -345,7 +346,7 @@ function gust() {
   if (S.mode !== 'immersive' && S.mode !== 'focus') return;
   const wd = SCENES[S.idx].wind.dir, l = Math.hypot(wd[0], wd[1]);
   const base = (S.cam.pos.x * wd[0] + S.cam.pos.z * wd[1]) / l;
-  return tween(4.8, (e, k) => { S.gustFront = base + lerp(-75, 95, k); S.gustAmp = Math.sin(k * Math.PI) ** 0.8 * 1.35; }, { e: ease.lin });
+  return tween(6.0, (e, k) => { S.gustFront = base + lerp(-60, 80, k); S.gustAmp = Math.sin(k * Math.PI) ** 0.7 * 1.3; }, { e: ease.lin });
 }
 function setWind(v) {
   S.windTarget = v;
@@ -409,7 +410,7 @@ function step(dt, draw = true) {
   const B = cur();
   if (B) {
     B.data.hotspots.forEach((hs) => {
-      const t = S.focusId === hs.id ? 0.16 : S.hotBase + (S.hoverId === hs.id ? 0.85 : 0);
+      const t = S.focusId === hs.id ? 0.16 : S.hotBase + (S.hoverId === hs.id ? 0.45 : 0);
       S.hot[hs.id] += (t - S.hot[hs.id]) * Math.min(1, dt * 5);
     });
   }
@@ -427,11 +428,12 @@ function step(dt, draw = true) {
     for (let i = 0; i < 8; i++) U.uHot.value[i] = S.hot[i];
     B.backdrop.material.uniforms.uOpacity.value = clamp((S.reveal - 0.05) / 0.6, 0, 1);
     B.backdrop.position.copy(camera.position);
-    B.cloud.requestSort(camera, S.morph);
+    B.cloud.requestSort(camera, S.fr, S.morph, S.reveal);
     renderer.render(scene3, camera);
   }
   if (markerEls.length) updateMarkers();
-  audio.update(clamp(S.wind * (0.7 + 0.3 * Math.sin(clock * 0.6)) + S.gustAmp * 0.6, 0, 1.4) * S.windOn);
+  S.windLevel = clamp(S.wind * (0.7 + 0.3 * Math.sin(clock * 0.6)) + S.gustAmp * 0.6, 0, 1.4) * S.windOn;
+  audio.update(S.windLevel);
   cursorTick();
 }
 

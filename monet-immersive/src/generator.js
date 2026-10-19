@@ -224,7 +224,7 @@ export function buildScene(scene, img, Q) {
     }
     if (scene.ext.petals && cls === CLS.FLOWER && -B.A[o + 2] < 30 && rand() < 0.4) {
       B.add([B.A[o], B.A[o + 1], B.A[o + 2]], [B.A[o], B.A[o + 1], B.A[o + 2]],
-        [B.C[o] * 0.7, B.C[o + 1] * 0.7, B.C[o + 2] * 0.7], B.C[o + 3] * 0.8,
+        [B.C[o] * 0.45, B.C[o + 1] * 0.45, B.C[o + 2] * 0.45], B.C[o + 3] * 0.55,
         [Math.min(1, B.D[o] * 1.1), B.D[o + 1] * 0.95, B.D[o + 2] * 0.95], 0.95, CLS.PETAL, 0, 1, 0.15, 1, rand());
     }
   }
@@ -336,7 +336,7 @@ export function buildScene(scene, img, Q) {
       const a = rand() < 0.65 ? (rand() - 0.5) * 0.9 : rand() * Math.PI;
       const idx = addExt([x, y, z], axisInPlane(t, a, maj), mn, jitterCol(col), 0.86, cls, 0.35 + rand() * 0.65);
       if (cls === CLS.FLOWER && ext.petals && r < 26 && rand() < 0.35) {
-        addExt([x, y, z], axisInPlane(t, rand() * 3, maj * 0.7), mn * 0.8, [Math.min(1, col[0] * 1.1), col[1], col[2]], 0.95, CLS.PETAL, 1);
+        addExt([x, y, z], axisInPlane(t, rand() * 3, maj * 0.45), mn * 0.55, [Math.min(1, col[0] * 1.1), col[1], col[2]], 0.95, CLS.PETAL, 1);
       }
       void idx;
     } else {
