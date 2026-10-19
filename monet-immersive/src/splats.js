@@ -16,6 +16,8 @@ uniform vec3 uFront;
 uniform float uHot[8];
 uniform float uGrade, uGamma, uExpo, uSat, uLift, uContrast;
 uniform vec3 uWB;
+uniform vec3 uFocusPos;
+uniform float uFocusR;
 
 in float aIndex;
 out vec4 vColor;
@@ -172,9 +174,10 @@ void main() {
       emit = max(emit, g * pulse * 0.12);
     }
   }
-  if (uFocusDim > 0.001 && abs(hot - uFocusId) > 0.5) {
+  if (uFocusDim > 0.001) {
+    float fd = uFocusDim * smoothstep(uFocusR * 0.9, uFocusR * 2.6, distance(pos, uFocusPos));
     float l = dot(col, vec3(0.3, 0.59, 0.11));
-    col = mix(col, vec3(l), 0.5 * uFocusDim) * (1.0 - 0.38 * uFocusDim);
+    col = mix(col, vec3(l), 0.28 * fd) * (1.0 - 0.2 * fd);
   }
 
   vec4 vc = viewMatrix * vec4(pos, 1.0);
@@ -195,6 +198,7 @@ void main() {
   vec2 dir = maj > 1e-4 ? dPx / maj : vec2(1.0, 0.0);
   maj = max(maj, mn);
   if (cls == 8) { maj = min(maj, 0.011 * uViewport.y); mn = min(mn, maj * 0.6); }
+  if (cls == 9) { maj = min(maj, 0.006 * uViewport.y); mn = min(mn, maj); }
   float lim = 0.6 * uViewport.y;
   maj = min(maj, lim); mn = min(mn, lim);
   if (mn < 0.9) { alpha *= mn / 0.9; mn = 0.9; }
@@ -208,7 +212,7 @@ void main() {
   vSeed = seed;
   vEmit = emit;
   vBr = 1.0 - smoothstep(8.0, 40.0, mn);
-  vPx = mn;
+  vPx = cls == 0 ? mn * 0.3 : mn;
 }
 `;
 
@@ -285,6 +289,7 @@ export class SplatCloud {
       uWindDir: { value: new THREE.Vector2(1, 0) },
       uFront: { value: new THREE.Vector3(...data.front) },
       uHot: { value: new Array(8).fill(0) },
+      uFocusPos: { value: new THREE.Vector3() }, uFocusR: { value: 1 },
       uGrade: { value: 0 }, uGamma: { value: grade.gamma }, uExpo: { value: grade.expo }, uSat: { value: grade.sat },
       uLift: { value: grade.lift }, uContrast: { value: grade.contrast }, uWB: { value: new THREE.Vector3(...grade.wb) },
     };

@@ -11,6 +11,7 @@ export function makeRng(seed) {
   };
 }
 const fract = (x) => x - Math.floor(x);
+const lerp3 = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 const clamp = (x, a, b) => (x < a ? a : x > b ? b : x);
 const lerp = (a, b, t) => a + (b - a) * t;
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
@@ -246,7 +247,7 @@ export function buildScene(scene, img, Q) {
     const i = y * W + x, c = clsMap[i];
     const col = [b2[i * 3], b2[i * 3 + 1], b2[i * 3 + 2]];
     if (c === CLS.WATER && b1[i * 3 + 2] > b1[i * 3] * 1.04 && b1[i * 3 + 2] >= b1[i * 3 + 1] * 0.97) pal.water.push([b1[i * 3], b1[i * 3 + 1], b1[i * 3 + 2]]);
-    if (c === CLS.GRASS) groundBins[binOf(depMap[i])].push(col);
+    if (c === CLS.GRASS) { if (b1[i * 3 + 1] >= b1[i * 3] * 0.97) groundBins[binOf(depMap[i])].push([b1[i * 3], b1[i * 3 + 1], b1[i * 3 + 2]]); }
     else if (c === CLS.WATER) { if (col[2] >= col[0] * 0.98 || rand() < 0.08) groundBins[binOf(depMap[i])].push(col); }
     else if (c === CLS.SKY) {
       if (scene.ext.kind === 'water' && (col[2] < col[0] * 0.97 || col[0] * 0.3 + col[1] * 0.59 + col[2] * 0.11 < 0.42)) continue;
@@ -318,8 +319,19 @@ export function buildScene(scene, img, Q) {
     const d = (x * frontDir[0] + y * frontDir[1] + z * frontDir[2]) / l;
     return clamp((Math.acos(clamp(d, -1, 1)) - 0.3) / 2.7, 0, 1) * 0.85 + rand() * 0.15;
   };
-  const addExt = (w, axis, minor, col, alpha, cls, flex, hot = 0) =>
-    B.add(w, w, axis, minor, col, alpha, cls, hot, flex, extDelay(w[0], w[1], w[2]), 1, rand());
+  const allSky = skyBins.flat().sort(byLum), nAS = allSky.length;
+  const horizCol = mean(skyBins[0].concat(skyBins[1] || []));
+  const cloudHi = lerp3(mean(allSky.slice(Math.floor(nAS * 0.9))), [1, 0.98, 0.94], 0.25);
+  const cloudLo = mean(allSky.slice(Math.floor(nAS * 0.5), Math.floor(nAS * 0.72)));
+  const clearCol = mean([...allSky].sort((a, b) => (b[2] - b[0]) - (a[2] - a[0])).slice(0, Math.max(1, Math.floor(nAS * 0.12))));
+  const HAZY = new Set([CLS.TREE, CLS.STATIC, CLS.SAIL, CLS.GRASS, CLS.FLOWER]);
+  const addExt = (w, axis, minor, col, alpha, cls, flex, hot = 0) => {
+    if (HAZY.has(cls)) {
+      const k = smooth(30, 150, Math.hypot(w[0], w[2])) * 0.5;
+      if (k > 0) col = [lerp(col[0], horizCol[0], k), lerp(col[1], horizCol[1], k), lerp(col[2], horizCol[2], k)];
+    }
+    return B.add(w, w, axis, minor, col, alpha, cls, hot, flex, extDelay(w[0], w[1], w[2]), 1, rand());
+  };
   const up = [0, 1, 0];
   const tangentAt = (th) => [Math.cos(th), 0, Math.sin(th)];
   const axisInPlane = (t, a, len) => [(up[0] * Math.cos(a) + t[0] * Math.sin(a)) * len, (up[1] * Math.cos(a)) * len, (up[2] * Math.cos(a) + t[2] * Math.sin(a)) * len];
@@ -401,22 +413,24 @@ export function buildScene(scene, img, Q) {
     const dir = [Math.cos(e) * Math.sin(th), sinE, -Math.cos(e) * Math.cos(th)];
     const w = [dir[0] * R, dir[1] * R, dir[2] * R];
     if (!keep(w[0], w[1], w[2])) continue;
-    const n = fbm3(dir[0] * 2.4 + 5.2, dir[1] * 3.2, dir[2] * 2.4 - 1.3, 4);
-    let bin = Math.floor((Math.max(e, 0) / topElev) * nSky);
-    if (bin >= nSky) bin = nSky - 1 - Math.floor(rand() * 4);
-    const arr = skyBins[clamp(bin, 0, nSky - 1)];
-    const q = clamp(n * 1.5 - 0.1 + (rand() - 0.5) * 0.14, 0.14, 0.999);
-    let col = pickQ(arr, q);
-    const zen = smooth(topElev, 1.45, e) * (1 - q) * 0.45;
-    col = [lerp(col[0], topBlue[0] * 0.92, zen), lerp(col[1], topBlue[1] * 0.96, zen), lerp(col[2], Math.min(1, topBlue[2] * 1.04), zen)];
+    // clear sky gradient + horizontally stretched cloud banks, lit from above
+    const n = fbm3(dir[0] * 1.5 + 5.2, dir[1] * 4.2, dir[2] * 1.5 - 1.3, 5);
+    const n2 = fbm3(dir[0] * 6 + 1.7, dir[1] * 12, dir[2] * 6 - 4.1, 3);
+    const mask = smooth(0.5, 0.62, n + (n2 - 0.5) * 0.12) * (1 - 0.6 * smooth(1.0, 1.45, e));
+    const base = lerp3(horizCol, clearCol, smooth(-0.02, 0.55, e));
+    const zen = smooth(0.8, 1.5, e) * 0.18;
+    const sky = [base[0] * (1 - zen * 0.6), base[1] * (1 - zen * 0.35), Math.min(1, base[2] * (1 + zen * 0.1))];
+    const lit = clamp(0.45 + (n2 - 0.5) * 1.5 + (n - 0.58) * 2.2, 0, 1);
+    let col = lerp3(sky, lerp3(cloudLo, cloudHi, lit), mask);
+    if (rand() < 0.05) col = lerp3(col, rand() < 0.5 ? [1, 0.9, 0.86] : [0.8, 0.81, 0.95], 0.1);
     col = edgeBlend(w, col, 0, 0.92);
     const t = tangentAt(th);
-    const rot = (n - 0.5) * 1.1 + (rand() - 0.5) * 0.3;
+    const rot = (n2 - 0.5) * 0.7 + mask * (n - 0.55) * 1.4 + (rand() - 0.5) * 0.22;
     const angF = Math.acos(clamp(dir[0] * frontDir[0] + dir[1] * frontDir[1] + dir[2] * frontDir[2], -1, 1));
     const maj = R * lerp(0.017, 0.036, rand()) * (1 + 0.8 * smooth(0.6, 2.4, angF)) * (e > 1.0 ? 1.3 : 1);
     const ca = Math.cos(rot), sa = Math.sin(rot);
     const axis = [(t[0] * ca) * maj, sa * maj * Math.cos(e), (t[2] * ca) * maj];
-    addExt(w, axis, maj * lerp(0.32, 0.5, rand()), jitterCol(col, 0.035), 0.9, CLS.SKY, 0);
+    addExt(w, axis, maj * lerp(0.36, 0.55, rand()), jitterCol(col, 0.015), 0.92, CLS.SKY, 0);
   }
 
   // tree clumps (shared by distant ring, riverbank and near trees)
@@ -428,12 +442,13 @@ export function buildScene(scene, img, Q) {
     const pTree = pal.tree.length ? pal.tree : [[0.25, 0.35, 0.22]];
     const cb = opts.crownBase ?? 0.5;
     // crown = a few overlapping lobes, lit from the upper left
-    const lobes = Array.from({ length: 3 + Math.floor(rand() * 4) }, (_, j) => {
+    const round = !!opts.round;
+    const lobes = Array.from({ length: (round ? 6 : 3) + Math.floor(rand() * 4) }, (_, j) => {
       const top = j === 0;
       return {
-        a: top ? (rand() - 0.5) * 0.2 : (rand() - 0.5) * 0.75,
-        b: top ? 0.55 : lerp(-0.5, 0.45, rand()),
-        r: top ? lerp(0.38, 0.5, rand()) : lerp(0.3, 0.48, rand()),
+        a: top ? (rand() - 0.5) * 0.2 : (rand() - 0.5) * (round ? 1.0 : 0.75),
+        b: top ? (round ? 0.35 : 0.55) : lerp(round ? -0.35 : -0.5, round ? 0.3 : 0.45, rand()),
+        r: top ? lerp(0.42, 0.55, rand()) : lerp(0.3, 0.48, rand()),
         tone: (rand() - 0.5) * 0.22,
       };
     });

@@ -42,7 +42,17 @@ if (args.mid) {
   await page.evaluate(() => { window.app.enter(); });
   await step(8);
 }
-for (const y of yaws) {
+if (args.focus) {
+  for (const id of String(args.focus).split(',').map(Number)) {
+    await page.evaluate((id) => { window.app.focusHotspot(id); }, id);
+    await step(3.2);
+    await page.screenshot({ path: path.join(out, `${tag}focus${id}.jpg`), type: 'jpeg', quality: 90 });
+    console.log('shot focus', id);
+    await page.evaluate(() => { window.app.unfocus(); });
+    await step(2.2);
+  }
+}
+for (const y of args.focus ? [] : yaws) {
   await page.evaluate((y, p) => { const S = window.app.S; S.cam.yaw = y; if (p !== null) S.cam.pitch = p; S.vel.yaw = S.vel.pitch = 0; }, y, pitch);
   await step(0.3);
   const f = path.join(out, `${tag}y${y}.jpg`);
