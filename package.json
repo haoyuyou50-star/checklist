@@ -1,14 +1,13 @@
 {
   "name": "monet-immersive",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Monet painting-to-Gaussian-splat immersive demo",
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "serve": "python3 -m http.server 8123",
+    "capture": "node tools/capture.mjs --out frames --fps 30 --size 1920x1080"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "dependencies": {
     "three": "^0.170.0"
   },
