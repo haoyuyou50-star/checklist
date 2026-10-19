@@ -129,6 +129,7 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 
 /* ---------- HUD ---------- */
 #hud > * { position: absolute; }
+#hud:not(.on), #hud:not(.on) * { pointer-events: none !important; }
 .h-scrim { left: 0; right: 0; top: 0; height: 22vh; background: linear-gradient(180deg, rgba(14, 12, 9, 0.42), rgba(14, 12, 9, 0)); }
 .h-scrim::after { content: ""; position: absolute; left: 0; right: 0; top: 78vh; height: 22vh; background: linear-gradient(0deg, rgba(14, 12, 9, 0.3), rgba(14, 12, 9, 0)); }
 .h-title { left: 4vw; top: 4vh; display: flex; align-items: baseline; gap: 14px; text-shadow: 0 1px 12px rgba(0, 0, 0, 0.45); }
