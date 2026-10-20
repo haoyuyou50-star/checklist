@@ -176,13 +176,18 @@ node tools/render.mjs --headless   # 无窗口（软件渲染，云端约 1 小�
 - 资产：画作来自 Wikimedia Commons（公有领域，2048px）；字体是子集化的 Noto Serif SC 和 Cormorant Garamond（OFL）。新增中文文案后需要重新生成字体子集：`python3 tools/fonts.py`。
 - 画面验收标准：明亮通透、偏冷、有笔触感但不脏，看不到画框边界；转场时画面与原画完全对齐。
 
-## 10. 迁移到独立仓库
+## 10. 目标仓库：haoyuyou50-star/MR
 
-分支 `cursor/monet-immersive-standalone-21be` 已经是独立的项目根目录，保留了历史提交。在 GitHub 上新建一个**空仓库**（例如 `monet-immersive`）后：
+用户希望项目放在 https://github.com/haoyuyou50-star/MR ，放在子目录 `monet-immersive/` 下，给团队其他模块留位置。截至交接时，Cursor 的 GitHub 应用还没有该仓库的写权限，需要用户在本机执行一次：
 
 ```bash
-git clone -b cursor/monet-immersive-standalone-21be https://github.com/haoyuyou50-star/checklist.git monet-immersive
-cd monet-immersive
-git remote set-url origin https://github.com/haoyuyou50-star/monet-immersive.git
-git push -u origin HEAD:main
+git clone https://github.com/haoyuyou50-star/MR.git
+cd MR
+git subtree add --prefix=monet-immersive https://github.com/haoyuyou50-star/checklist.git cursor/monet-immersive-standalone-21be
+git push origin main
 ```
+
+- 这样会保留全部提交历史，也不会覆盖 MR 原有的 README。
+- 迁移之后，在 MR 仓库的 `monet-immersive/` 里继续开发即可。
+- 如果用户给 Cursor 的 GitHub 应用开通了 MR 仓库的权限，接手的 agent 可以自己执行上面的命令。
+- 分支 `cursor/monet-immersive-standalone-21be` 的根目录就是本项目（由 `git subtree split` 生成）。
