@@ -110,8 +110,12 @@ void main() {
     float al = length(axis);
     vec3 ad = axis / max(al, 1e-5);
     vec3 bent = normalize(wd3 + vec3(0.0, 0.3, 0.0));
-    axis = normalize(mix(ad, bent * sign(dot(ad, bent) + 0.3), clamp(b * 0.55, 0.0, 0.7))) * al * (1.0 + b * 0.55);
-    col = mix(col, col * 1.22 + vec3(0.11, 0.11, 0.085), clamp(b, 0.0, 1.0) * 0.75);
+    if (cls == 1) {
+      axis = normalize(mix(ad, bent * sign(dot(ad, bent) + 0.3), clamp(b * 0.55, 0.0, 0.7))) * al * (1.0 + b * 0.55);
+      col = mix(col, col * 1.14 + vec3(0.05, 0.05, 0.02), clamp(b, 0.0, 1.0) * 0.6);
+    } else {
+      axis = rotAround(axis, normalize(-pos), b * 0.4 * (seed - 0.5));
+    }
   } else if (cls == 3) {                     // foliage
     float sway = sin(uTime * 1.25 + pos.x * 0.07 + pos.z * 0.05) * 0.5 + 0.5;
     float b = flex * (0.25 * sway + w * 0.8);
@@ -211,7 +215,7 @@ void main() {
   vColor = vec4(col, alpha);
   vSeed = seed;
   vEmit = emit;
-  vBr = 1.0 - smoothstep(8.0, 40.0, mn);
+  vBr = cls == 0 ? 0.0 : 1.0 - smoothstep(8.0, 40.0, mn);
   vPx = cls == 0 ? mn * 0.3 : mn;
 }
 `;

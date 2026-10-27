@@ -61,11 +61,12 @@ const poppies = {
     thumbLabel: '罂粟花田',
   },
   cam: { f: 0.866, h: 2.4, vH: 0.505, maxD: 92, dolly: 1.8, sky: 620 },
-  grade: { gamma: 1.0, expo: 1.03, wb: [0.98, 1.0, 1.04], sat: 1.14, lift: 0.08, contrast: 1.07 },
+  grade: { gamma: 0.96, expo: 1.04, wb: [0.97, 1.0, 1.05], sat: 1.2, lift: 0.1, contrast: 1.12 },
   wind: { dir: [0.86, 0.5], base: 0.55 },
   classify(u, v, r, g, b, rand) {
     const cam = this.cam, asp = this.asp;
     const L = luma(r, g, b);
+    if (inEllipse(u, v, 0.676, 0.76, 0.042, 0.064) && (b > r * 1.05 || L < 0.36)) return { cls: CLS.FIGURE, depth: groundDepth(cam, asp, 0.965), hot: 1, flex: 0.25 };
     if (inPoly(u, v, womanPoly)) return { cls: CLS.FIGURE, depth: groundDepth(cam, asp, 0.965), hot: 1, flex: (0.965 - v) * 2 };
     if (inEllipse(u, v, 0.593, 0.818, 0.03, 0.057)) return { cls: CLS.FIGURE, depth: groundDepth(cam, asp, 0.875), hot: 1, flex: 0.1 };
     if (inEllipse(u, v, 0.201, 0.447, 0.026, 0.066)) return { cls: CLS.FIGURE, depth: 46, hot: 0, flex: 0.1 };
