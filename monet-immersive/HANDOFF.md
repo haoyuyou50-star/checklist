@@ -1,6 +1,8 @@
 # 交接文档：莫奈 · 走进画境（高斯泼溅沉浸 Demo）
 
 > 给接手的 Agent / 开发者。先读这一份，再读 `README.md`（面向使用者的说明）。
+> 制作或打磨画境场景时，按 `skills/painting-to-gaussian-scene/SKILL.md` 操作：里面有完整流程、参数、注意点和验收清单。
+> 想让 Cursor 自动发现这个 Skill，就把该目录复制到仓库根目录下的 `.cursor/skills/painting-to-gaussian-scene/`。
 
 ## 1. 项目背景与目标
 
