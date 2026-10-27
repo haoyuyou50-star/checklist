@@ -9,6 +9,8 @@ VR 艺术家项目「全景沉浸」模块的 HTML 前期演示。流程：**画
 | 01 | 《罂粟花田》Coquelicots, 1873 | 草浪、罂粟花瓣随阵风飞起、树冠摇曳、云层呼吸、光尘 | 卡米耶与让、坡顶的树、罂粟花、远处的农舍 |
 | 02 | 《阿让特伊的帆船赛》Régates à Argenteuil, c.1872 | 水面波纹与倒影拉伸、帆随风倾、水面闪光 | 白帆、红顶房屋、岸边的树、碎裂的倒影 |
 
+开发者文档：交接说明见 [`HANDOFF.md`](HANDOFF.md)；新增或打磨画作的制作流程、注意点和验收清单见 [`skills/painting-to-gaussian-scene/SKILL.md`](skills/painting-to-gaussian-scene/SKILL.md)。
+
 ## 运行
 
 需要通过本地静态服务器打开（ES Module 与读取画作像素都不支持 `file://`，直接双击 `index.html` 会打不开）。

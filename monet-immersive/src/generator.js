@@ -65,6 +65,20 @@ function blurRGB(rgb, W, H, r) {
   return out;
 }
 
+// blur that ignores pixels where mask is 0 (falls back to the plain blur where nothing is left)
+function blurMasked(rgb, mask, fallback, W, H, r) {
+  const N = W * H, out = new Float32Array(N * 3);
+  const blur2 = (a) => blur1(blur1(a, W, H, r), W, H, Math.max(1, r >> 1));
+  const wt = blur2(mask);
+  for (let c = 0; c < 3; c++) {
+    const ch = new Float32Array(N);
+    for (let i = 0; i < N; i++) ch[i] = rgb[i * 3 + c] * mask[i];
+    const b = blur2(ch);
+    for (let i = 0; i < N; i++) out[i * 3 + c] = wt[i] > 0.08 ? b[i] / wt[i] : fallback[i * 3 + c];
+  }
+  return out;
+}
+
 /* ---------------- splat buffer ---------------- */
 class Builder {
   constructor(cap) { this.n = 0; this.alloc(cap); }
@@ -135,6 +149,15 @@ export function buildScene(scene, img, Q) {
     const c = scene.classify((x + 0.5) / W, (y + 0.5) / H, b1[i * 3], b1[i * 3 + 1], b1[i * 3 + 2], rand);
     clsMap[i] = c.cls; depMap[i] = c.depth; hotMap[i] = c.hot; flexMap[i] = clamp(c.flex, 0, 1);
   }
+  // underpainting for the meadow without the poppies, so red only arrives as crisp dabs in the fine layers
+  const noFlower = new Float32Array(N);
+  for (let i = 0; i < N; i++) {
+    const reddish = rgb[i * 3] > rgb[i * 3 + 1] * 1.08;
+    noFlower[i] = clsMap[i] === CLS.GRASS && !reddish ? 1 : 0;
+  }
+  const hasFlowers = clsMap.some((c) => c === CLS.FLOWER);
+  const g2 = hasFlowers ? blurMasked(rgb, noFlower, b2, W, H, 3) : b2;
+  const g3 = hasFlowers ? blurMasked(rgb, noFlower, b3, W, H, 6) : b3;
 
   const B = new Builder(400000);
   const EDGE_IN = 0.024, EDGE_OUT = 0.05;
@@ -147,9 +170,11 @@ export function buildScene(scene, img, Q) {
   /* ---- painted strokes ---- */
   const layerDefs = [
     { sp: Q.layers[0], maj: [1.3, 2.2], min: [0.6, 0.85], a: 0.97, src: b3 },
-    { sp: Q.layers[1], maj: [1.2, 2.1], min: [0.5, 0.75], a: 0.93, src: b2 },
-    { sp: Q.layers[2], maj: [1.1, 2.0], min: [0.45, 0.7], a: 0.92, src: b1 },
-    { sp: Q.detail, maj: [1.0, 1.8], min: [0.42, 0.66], a: 0.92, src: b1, detail: true },
+    { sp: Q.layers[1], maj: [1.2, 2.1], min: [0.5, 0.75], a: 0.97, src: b2 },
+    { sp: Q.layers[2], maj: [1.1, 2.0], min: [0.45, 0.7], a: 0.97, src: b1 },
+    { sp: Q.detail, maj: [1.0, 1.8], min: [0.42, 0.66], a: 0.96, src: b1, detail: true },
+    // extra-fine pass on figures and hotspot objects so close-ups stay crisp
+    { sp: Q.detail * 0.62, maj: [1.0, 1.7], min: [0.45, 0.7], a: 0.95, src: rgb, fine: true },
   ];
   const isGround = (c) => c === CLS.SKY || c === CLS.GRASS || c === CLS.WATER || c === CLS.FLOWER;
   layerDefs.forEach((L, li) => {
@@ -160,9 +185,10 @@ export function buildScene(scene, img, Q) {
         const x = clamp(gx0 + (rand() - 0.5) * sp * 0.9, 0, W - 1);
         const y = clamp(gy0 + (rand() - 0.5) * sp * 0.9, 0, H - 1);
         const i = (y | 0) * W + (x | 0);
-        const c = clsMap[i];
+        let c = clsMap[i], dep = depMap[i], hot = hotMap[i];
         const eEdge = Math.min(x / W, 1 - x / W, (y / H) * asp, (1 - y / H) * asp);
         if (eEdge < EDGE_IN && rand() < (1 - eEdge / EDGE_IN) * 0.7) continue;
+        if (L.fine && (isGround(c) || (c !== CLS.FIGURE && !hotMap[i]) || rand() > 0.75)) continue;
         if (L.detail) {
           let p = clamp(grad[i] * 9 - 0.12, 0, 0.85);
           if (c === CLS.SKY) p *= 0.15;
@@ -171,10 +197,16 @@ export function buildScene(scene, img, Q) {
           if (dl > (c === CLS.SKY ? 0.06 : 0.2)) continue;
         }
         if (c === CLS.SKY && li >= 2 && rand() < 0.3) continue;
-        if (li === 0 && !isGround(c)) continue;
+        if (li === 0 && !isGround(c)) {
+          // meadow behind standing figures, revealed by parallax once the camera moves in
+          const gy = -((y / H) - vH) * asp;
+          if (!(scene.ext.kind === 'field' && c === CLS.FIGURE && gy < -1e-3)) continue;
+          c = CLS.GRASS; dep = Math.min(cam.maxD, (cam.h * f) / -gy); hot = 0;
+        }
         if (c === CLS.SKY && li === 3) continue;
 
-        const k = c === CLS.SKY ? (li === 0 ? b3 : b2) : !isGround(c) && li < 2 ? b1 : L.src;
+        const meadow = (c === CLS.GRASS || c === CLS.FLOWER) && li < 2;
+        const k = c === CLS.SKY ? (li === 0 ? b3 : b2) : meadow ? (li === 0 ? g3 : g2) : !isGround(c) && li < 2 ? b1 : L.src;
         const jit = 1 + (rand() - 0.5) * 0.07;
         const col = [
           clamp(k[i * 3] * jit + (rand() - 0.5) * 0.025, 0, 1),
@@ -197,8 +229,10 @@ export function buildScene(scene, img, Q) {
         let mn = sp * lerp(L.min[0], L.min[1], rand());
         if (c === CLS.WATER) { maj *= li === 0 ? 0.9 : 1.1; mn *= 0.72; }
         if (c === CLS.SKY && li === 0) maj *= 1.25;
+        const dab = c === CLS.FLOWER && li >= 2;
+        if (dab) mn = Math.max(mn, maj * 0.62);
 
-        const u = x / W, v = y / H, depth = depMap[i] * (1 + 0.014 * (3 - li));
+        const u = x / W, v = y / H, depth = dep * (1 + 0.014 * (3 - li)) * (dab ? 0.996 : 1);
         const s = depth / f, sc = sC * (1 + 0.004 * (3 - li));
         const w = toWorld(u, v, depth);
         const cpos = [(u - 0.5) * sc, -(v - vH) * asp * sc, -f * sc];
@@ -206,7 +240,6 @@ export function buildScene(scene, img, Q) {
         const axis = [Math.cos(ang) * maj * unit, -Math.sin(ang) * maj * unit, 0];
         const rad = Math.hypot(u - 0.5, (v - 0.5) * asp) / 0.62;
         const delay = clamp(rad * 0.62 + rand() * 0.38, 0, 1);
-        const hot = hotMap[i];
         B.add(w, cpos, axis, mn * unit, col, L.a, c, hot, flexMap[i], delay, 0, rand());
         if (hot) {
           let h = hotAcc.get(hot);
@@ -220,10 +253,12 @@ export function buildScene(scene, img, Q) {
 
   /* ---- glow halos & petals duplicated from painted strokes ---- */
   const nPaint = B.n;
+  // large hotspots (a whole poppy slope) would otherwise drown in halo haze
+  const haloP = new Map([...hotAcc].map(([id, a]) => [id, Math.min(0.16, 700 / a.n)]));
   for (let j = 0; j < nPaint; j++) {
     const o = j * 4;
     const cls = B.B[o + 3], hot = B.E[o];
-    if (hot > 0 && rand() < 0.16) {
+    if (hot > 0 && rand() < haloP.get(hot)) {
       const col = [lerp(B.D[o], 1.0, 0.55), lerp(B.D[o + 1], 0.84, 0.55), lerp(B.D[o + 2], 0.56, 0.55)];
       B.add([B.A[o], B.A[o + 1], B.A[o + 2]], [B.B[o], B.B[o + 1], B.B[o + 2]],
         [B.C[o] * 2.6, B.C[o + 1] * 2.6, B.C[o + 2] * 2.6], B.C[o + 3] * 3.2, col, 1, CLS.HALO, hot, 0, B.E[o + 2], 0, rand());
@@ -256,7 +291,7 @@ export function buildScene(scene, img, Q) {
       skyBins[clamp(Math.floor((e / topElev) * nSky), 0, nSky - 1)].push(col);
     }
     else if (c === CLS.TREE) pal.tree.push(col);
-    else if (c === CLS.FLOWER) pal.flower.push(col);
+    else if (c === CLS.FLOWER) { if (rgb[i * 3] > rgb[i * 3 + 1] * 1.7) pal.flower.push([rgb[i * 3], rgb[i * 3 + 1], rgb[i * 3 + 2]]); }
     else if (c === CLS.STATIC) pal.stat.push(col);
     else if (c === CLS.SAIL) pal.sail.push(col);
   }
@@ -267,6 +302,7 @@ export function buildScene(scene, img, Q) {
     }
   }
   const byLum = (a, b) => (a[0] * 0.3 + a[1] * 0.59 + a[2] * 0.11) - (b[0] * 0.3 + b[1] * 0.59 + b[2] * 0.11);
+  new Set(groundBins).forEach((g) => g.sort(byLum));
   for (let b = 0; b < nSky; b++) {
     if (!skyBins[b].length) skyBins[b] = skyBins[b - 1] || [];
     skyBins[b].sort(byLum);
@@ -375,20 +411,34 @@ export function buildScene(scene, img, Q) {
     if (!keep(x, y, z)) continue;
     const t = tangentAt(th);
     if (ext.kind === 'field') {
-      let col = pick(groundBins[binOf(r)]), cls = CLS.GRASS;
+      // broad tonal patches like the painting's meadow instead of per-stroke noise; shaded base, lit tips
+      const zone = fbm2(x * 0.03 + 1.3, z * 0.03 - 4.2, 4), fine = fbm2(x * 0.2 - 2.7, z * 0.2 + 0.4, 2);
+      const base = r < 45 && rand() < 0.2;
+      const yy = base ? -h + rand() * 0.05 : y;
+      const tip = (yy + h) / 0.22;
+      const accent = !base && r < 30 && rand() < 0.07;
+      const q = clamp(0.5 + (zone - 0.5) * 2.4 + (fine - 0.5) * 0.6 + tip * 0.12 + (rand() - 0.5) * 0.22, 0.03, 0.97) * (base ? 0.5 : accent ? 0.22 : 1);
+      let col = pickQ(groundBins[binOf(r)], q), cls = CLS.GRASS;
       const s = 0.05 * Math.pow(r, 0.62);
-      let maj = s * lerp(1.0, 2.0, rand()), mn = s * lerp(0.35, 0.62, rand());
-      if (ext.flowers) {
+      let maj = s * lerp(1.1, 2.1, rand()) * (base ? 1.5 : 1), mn = s * lerp(0.3, 0.5, rand()) * (base ? 1.6 : 1);
+      let a = rand() < 0.85 ? 0.12 + (rand() - 0.5) * 0.5 : (rand() - 0.5) * 2.4;
+      let yF = yy;
+      if (ext.flowers && !base && pal.flower.length) {
         const n = fbm2(x * 0.06 + 3.1, z * 0.06 - 1.7, 3);
-        if (n > 0.56 && rand() < (n - 0.56) * 3.2 && pal.flower.length) { col = pick(pal.flower); cls = CLS.FLOWER; maj *= 0.6; mn *= 0.85; }
+        // round dabs, none right under the viewer, thinning out towards the horizon so they don't line up
+        const fade = smooth(2.5, 5, r) * (1 - 0.85 * smooth(22, 70, r));
+        if (n > 0.53 && rand() < (n - 0.53) * 3.6 * fade) {
+          const fc = pickQ(pal.flower, 0.12 + rand() * 0.7), fl = fc[0] * 0.3 + fc[1] * 0.59 + fc[2] * 0.11;
+          col = fc.map((v) => clamp(fl + (v - fl) * 1.25, 0, 1)); cls = CLS.FLOWER;
+          maj *= 0.42; mn = maj * lerp(0.78, 0.95, rand()); a = rand() * Math.PI; yF = -h + 0.12 + rand() * 0.18;
+        }
       }
-      const a = rand() < 0.65 ? (rand() - 0.5) * 0.9 : rand() * Math.PI;
-      if (cls === CLS.GRASS) col = edgeBlend([x, y, z], col, 2, 0.8);
-      const idx = addExt([x, y, z], axisInPlane(t, a, maj), mn, jitterCol(col), 0.9, cls, 0.35 + rand() * 0.65);
+      if (cls === CLS.GRASS) col = edgeBlend([x, yF, z], col, 2, 0.8);
+      const pd = base ? 1.015 : 1;
+      addExt([x * pd, yF, z * pd], axisInPlane(t, a, maj), mn, jitterCol(col, 0.04), base ? 0.98 : 0.96, cls, base ? 0.15 : 0.35 + rand() * 0.65);
       if (cls === CLS.FLOWER && ext.petals && r < 26 && rand() < 0.35) {
-        addExt([x, y, z], axisInPlane(t, rand() * 3, maj * 0.45), mn * 0.55, [Math.min(1, col[0] * 1.1), col[1], col[2]], 0.95, CLS.PETAL, 1);
+        addExt([x, yF, z], axisInPlane(t, rand() * 3, maj * 0.45), mn * 0.55, [Math.min(1, col[0] * 1.1), col[1], col[2]], 0.95, CLS.PETAL, 1);
       }
-      void idx;
     } else {
       const n = fbm2(r * 0.32 + 7.3, th * 16 + 2.1, 3);
       const wc = pickQ(wp, clamp(0.2 + (n - 0.5) * 1.6 + 0.35 + (rand() - 0.5) * 0.4, 0, 0.999));
@@ -427,15 +477,19 @@ export function buildScene(scene, img, Q) {
     const t = tangentAt(th);
     const rot = (n2 - 0.5) * 0.7 + mask * (n - 0.55) * 1.4 + (rand() - 0.5) * 0.22;
     const angF = Math.acos(clamp(dir[0] * frontDir[0] + dir[1] * frontDir[1] + dir[2] * frontDir[2], -1, 1));
-    const maj = R * lerp(0.017, 0.036, rand()) * (1 + 0.8 * smooth(0.6, 2.4, angF)) * (e > 1.0 ? 1.3 : 1);
+    const maj = R * lerp(0.026, 0.05, rand()) * (1 + 0.6 * smooth(0.6, 2.4, angF)) * (e > 1.0 ? 1.3 : 1);
     const ca = Math.cos(rot), sa = Math.sin(rot);
     const axis = [(t[0] * ca) * maj, sa * maj * Math.cos(e), (t[2] * ca) * maj];
     addExt(w, axis, maj * lerp(0.36, 0.55, rand()), jitterCol(col, 0.015), 0.92, CLS.SKY, 0);
   }
 
+  const sunLeaf = ext.kind === 'field' && pal.tree.length
+    ? lerp3(mean(pal.tree.slice(Math.floor(pal.tree.length * 0.92))), mean(groundBins[Math.floor(nBins * 0.5)].slice(-20)), 0.5)
+    : null;
   // tree clumps (shared by distant ring, riverbank and near trees)
   const treeClump = (cx, cz, baseY, Hh, Wd, density, opts = {}) => {
-    const n = Math.floor(Hh * Wd * density * 3.2);
+    const fineLeaf = opts.round ? 0.75 : 1;
+    const n = Math.floor((Hh * Wd * density * 3.2) / (fineLeaf * fineLeaf));
     const th = Math.atan2(cx, -cz), t = tangentAt(th);
     const rdir = [Math.sin(th), 0, -Math.cos(th)];
     const depthR = opts.round ? 0.5 : 0.2;
@@ -463,10 +517,11 @@ export function buildScene(scene, img, Q) {
       const rim = Math.hypot(a, b);
       const light = clamp(0.3 + b * 0.24 - a * 0.16 + lb * 0.2 - c * 0.1 + L.tone + (rim > 0.75 && b > 0 ? 0.12 : 0) + (rand() - 0.5) * 0.24, 0, 0.98);
       let col = jitterCol(pickQ(pTree, light), 0.06);
+      if (sunLeaf) col = lerp3(col, sunLeaf, clamp((light - 0.5) * 1.2, 0, 0.45));
       const w = [x, hy, z];
       if (!keep(x, hy, z)) continue;
       col = edgeBlend(w, col, 2, 0.6);
-      const maj = Hh * lerp(0.017, 0.036, rand());
+      const maj = Hh * lerp(0.017, 0.036, rand()) * fineLeaf;
       const axis = axisInPlane(t, rand() < 0.6 ? lerp(0.3, 1.2, rand()) : rand() * Math.PI, maj);
       addExt(w, axis, maj * lerp(0.45, 0.68, rand()), col, 0.95, CLS.TREE, clamp((hy - baseY) / Hh, 0, 1));
       mirror(w, axis, maj * 0.5, col, 0.9, waterColAt(Math.hypot(x, z)));
