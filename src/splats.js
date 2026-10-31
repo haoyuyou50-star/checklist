@@ -74,6 +74,15 @@ float windField(vec3 p) {
   return w * (0.35 + 0.95 * g) * uWind + gust * (0.55 + 0.6 * w);
 }
 
+// a wandering flight: incommensurate sweeps per bird, so no two gulls and no two laps look alike
+vec3 gullPath(vec3 c, float r, float s, float t) {
+  vec4 f = vec4(0.53, 0.29, 0.41, 0.23) * (0.8 + 0.4 * s);
+  vec4 p = vec4(s * 31.0, s * 17.0, s * 23.0, s * 43.0);
+  return c + vec3(r * (0.65 * sin(f.x * t + p.x) + 0.35 * sin(f.y * t * 1.7 + p.y)),
+                  2.5 * sin(0.37 * t + p.z) + 1.2 * sin(0.9 * t + p.w),
+                  r * (0.65 * cos(f.z * t + p.z) + 0.35 * sin(f.w * t * 1.9 + p.x)));
+}
+
 void main() {
   int i = int(aIndex + 0.5);
   ivec2 tc = ivec2(i % ${TEX_W}, i / ${TEX_W});
@@ -192,13 +201,13 @@ void main() {
     vec2 e2 = abs(rel.xz) / (box.xz * 0.5);
     alpha *= (1.0 - smoothstep(0.7, 1.0, max(e2.x, e2.y))) * (0.45 + 0.55 * sin(uTime * 1.7 + seed * 30.0));
     emit = 1.0;
-  } else if (cls == 12) {                    // gulls circling and flapping
+  } else if (cls == 12) {                    // gulls wandering and flapping
     float seg = canv.x, side = sign(seg), rad = canv.y;
-    float ang = seed * 6.2832 + uTime * canv.z * (1.0 + 0.35 * uGustAmp);
-    vec3 radial = vec3(cos(ang), 0.0, sin(ang));
-    vec3 fwd = vec3(-sin(ang), 0.0, cos(ang)) * sign(canv.z);
+    float t = uTime * abs(canv.z) * (1.0 + 0.35 * uGustAmp);
+    vec3 body = gullPath(world, rad, seed, t);
+    vec3 fwd = gullPath(world, rad, seed, t + 0.05) - body;
+    fwd = normalize(vec3(fwd.x, 0.0, fwd.z) + 1e-5);
     vec3 lat = cross(vec3(0.0, 1.0, 0.0), fwd);
-    vec3 body = world + radial * rad + vec3(0.0, sin(uTime * 0.37 + seed * 9.0) * 1.2, 0.0);
     // flap in bursts, then glide with the wings held in a shallow M
     float burst = smoothstep(0.2, 0.6, sin(uTime * 0.45 + seed * 17.0));
     float flap = sin(uTime * (7.0 + seed * 2.0) + seed * 30.0) * burst;
