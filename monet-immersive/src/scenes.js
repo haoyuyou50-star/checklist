@@ -116,7 +116,7 @@ const inR = (u, v, u0, v0, u1, v1) => u >= u0 && u <= u1 && v >= v0 && v <= v1;
 
 const regatta = {
   id: 'regatta',
-  image: 'assets/regatta/composite.jpg',
+  image: 'assets/paintings/regatta.jpg',
   info: {
     index: '02',
     titleCn: '阿让特伊的帆船赛',
@@ -132,7 +132,7 @@ const regatta = {
     water: [[0, 0.556], [0.44, 0.557], [0.465, 0.62], [0.5, 0.642], [0.68, 0.64], [1, 0.645]],
     farBank: { top: 0.542, uMax: 0.445 },
     // the plate takes broader strokes so the element cards can be fine within the splat budget
-    alphaMul: { low: 1.1, mid: 1.21, high: 1.21 },
+    alphaMul: { low: 1.15, mid: 1.26, high: 1.27 },
     // the clean plate has no boats: every element comes from its own layer card (see layered)
     boats: [],
     landMinLayer: 1,
@@ -164,9 +164,11 @@ const regatta = {
       { id: 'house_big', kind: 'house', hot: 2, depth: 1.9, fine: 0.28, box: [0.7899, 0.2939, 0.9477, 0.4807] },
       { id: 'grove_back', kind: 'tree', depth: 1.62, fine: 0.55, box: [0.4906, 0.3185, 0.8398, 0.5119] },
       { id: 'grove_front', kind: 'tree', depth: 1.44, box: [0.4508, 0.3728, 0.7113, 0.5268] },
-      { id: 'house_small', kind: 'house', depth: 1.3, fine: 0.28, skirt: { src: 'grove_front', h: 0.17, margin: 0.14, seed: 2 }, box: [0.6129, 0.3527, 0.7146, 0.4978] },
-      { id: 'tree', kind: 'tree', hot: 3, depth: 1.18, fine: 0.42, skirt: { src: 'grove_front', h: 0.12, margin: 0.45, seed: 5 }, box: [0.5794, 0.2366, 0.648, 0.5037] },
+      { id: 'house_small', kind: 'house', depth: 1.3, fine: 0.28, box: [0.6129, 0.3527, 0.7146, 0.4978] },
+      { id: 'tree', kind: 'tree', hot: 3, depth: 1.18, fine: 0.42, box: [0.5794, 0.2366, 0.648, 0.5037] },
     ].map((c) => ({ ...c, src: `assets/regatta/${c.id}.webp` })),
+    // shrubs in front of the tall tree and the small house, hiding where their cards meet the ground
+    hedges: [{ src: 'grove_front', box: [0.468, 0.452, 0.742, 0.536], depth: 1.1, fine: 0.5, seed: 3 }],
     // beyond the frame (coarser strokes than in the frame): [azimuth°, distance (sails: metres on the river; trees: x shore distance), height m, mirrored]
     extras: [
       { id: 'x_sail_side', kind: 'sail', at: [[-42, 95, 7, 0]] },
@@ -180,7 +182,7 @@ const regatta = {
       { id: 'x_grove_2', kind: 'tree', at: [[64, 1.1, 9.5, 1], [116, 1.06, 11, 0], [-165, 1.04, 13, 1]] },
       { id: 'x_tree_1', kind: 'tree', at: [[56, 1.18, 14, 0], [104, 1.14, 15, 1], [176, 1.06, 17, 0]] },
       { id: 'x_tree_2', kind: 'tree', at: [[80, 1.16, 14, 0], [134, 1.1, 16, 1], [-150, 1.06, 16, 0]] },
-    ].map((e) => ({ spMul: e.kind === 'tree' ? 1.25 : 1.2, ...e, src: `assets/regatta/${e.id}.webp` })),
+    ].map((e) => ({ spMul: e.kind === 'tree' ? 1.0 : 1.2, ...e, src: `assets/regatta/${e.id}.webp` })),
   },
   hotspots: [
     { id: 1, cn: '白帆', en: 'The Sails', zoom: 2.0,
