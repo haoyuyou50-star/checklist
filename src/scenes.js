@@ -1,6 +1,6 @@
 export const CLS = {
   SKY: 0, GRASS: 1, FLOWER: 2, TREE: 3, STATIC: 4, FIGURE: 5, WATER: 6, SAIL: 7,
-  PETAL: 8, MOTE: 9, HALO: 10, GLINT: 11,
+  PETAL: 8, MOTE: 9, HALO: 10, GLINT: 11, GULL: 12,
 };
 
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -136,6 +136,8 @@ const regatta = {
     // the clean plate has no boats: every element comes from its own layer card (see layered)
     boats: [],
     landMinLayer: 1,
+    // gulls circling over the river: [azimuth°, distance m, height m, circle radius m]
+    gulls: [[-18, 70, 30, 16], [8, 95, 40, 22], [24, 60, 24, 12], [-40, 85, 26, 20], [62, 75, 20, 14], [140, 80, 24, 18], [-120, 70, 19, 15], [-170, 90, 28, 22], [95, 55, 15, 10]],
     land: regattaLand,
     // column ranges walked outward from the frame edge (the red house and the tall tree stay unique)
     landPool: [[1.0, 0.955], [0.79, 0.665]],
