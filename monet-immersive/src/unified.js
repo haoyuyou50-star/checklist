@@ -361,10 +361,18 @@ export function buildUnified(scene, img, Q) {
       const t = h / -d[1];
       // the reflection band under the bank keeps the bank's own painted reflections
       const shoreBand = land && hw > S * lerp(0.5, 0.8, rand());
+      const near = smooth(-0.3, -0.7, d[1]);
       let vs, xs, flip, img;
       if (shoreBand) {
         xs = x; flip = pu.flip; img = famImg[FAM_WATER];
         vs = vH + (h * f) / (colD[x] * (hw / S) * asp);
+      } else if (rand() < near) {
+        // underfoot every azimuth meets: sample by ground position, or the azimuth tiling shows as wedges
+        const px = d[0] * t, pz = d[2] * t;
+        const su = tri(px / 11 + 0.9 * (fbm2(px * 0.04 + 2.1, pz * 0.04, 3) - 0.5));
+        const sw = tri(pz / 8 + 0.9 * (fbm2(px * 0.04, pz * 0.04 + 5.3, 3) - 0.5));
+        xs = xOf(0.12 + su * 0.76 + (rand() - 0.5) * 0.04); flip = false; img = waterBaseImg;
+        vs = lerp(0.76, 0.92, sw) + (rand() - 0.5) * 0.02;
       } else {
         const sv = skySrc(th, 0);
         xs = xOf(sv.u); flip = sv.flip; img = waterBaseImg;
@@ -378,7 +386,7 @@ export function buildUnified(scene, img, Q) {
         if (cx >= 0 && !U.waterBad(cx / W, ys / H)) xs = cx;
         else for (let k = 0; k < 10 && (!waterOK[ys * W + xs] || U.waterBad(xs / W, ys / H)); k++) { xs = xOf(rand()); ys = yOf(Math.max(vs, colWl[xs] + 0.004)); }
       }
-      return { P: [d[0] * t, d[1] * t, d[2] * t], cls: CLS.WATER, x: xs, y: ys, flip, img, hot: 0, flex: shoreBand ? -S / hw : 0.5 + rand() * 0.5, comp: -1, haze: 0 };
+      return { P: [d[0] * t, d[1] * t, d[2] * t], cls: CLS.WATER, x: xs, y: ys, flip, img, hot: 0, flex: shoreBand ? -S / hw : 0.5 + rand() * 0.5, comp: -1, haze: 0, near };
     }
     const tb = S / ce, yb = d[1] * tb;
     const hb = colHb[x] * (land ? lerp(1, 0.85, smooth(40, 140, S)) : 1);
@@ -457,7 +465,7 @@ export function buildUnified(scene, img, Q) {
     const c0 = sampleCol(r, L.lvl);
     const col = [0, 1, 2].map((j) => clamp(c0[j] * jit + (rand() - 0.5) * 0.025, 0, 1));
     let maj = sp * lerp(L.maj[0], L.maj[1], rand()), mn = sp * lerp(L.min[0], L.min[1], rand());
-    if (c === CLS.WATER) { maj *= li === 0 ? 0.9 : 1.1; mn *= 0.72; }
+    if (c === CLS.WATER) { maj *= li === 0 ? 0.9 : 1.1; mn *= lerp(0.72, 1.05, r.near || 0); maj *= lerp(1, 0.8, r.near || 0); }
     if (r.far) maj *= lerp(1, 0.7, r.far);
     if (c === CLS.SKY && li === 0) maj *= 1.25;
     const dm = 1 + 0.014 * (3 - li);
@@ -465,7 +473,10 @@ export function buildUnified(scene, img, Q) {
     const dist = Math.hypot(P[0], P[1], P[2]);
     const Rt = norm(cross(d, up)), Ut = cross(Rt, d);
     const ang = strokeAngle(r, g), ca = Math.cos(ang) * maj * dist, sa = -Math.sin(ang) * maj * dist;
-    const axis = [Rt[0] * ca + Ut[0] * sa, Rt[1] * ca + Ut[1] * sa, Rt[2] * ca + Ut[2] * sa];
+    let axis = [Rt[0] * ca + Ut[0] * sa, Rt[1] * ca + Ut[1] * sa, Rt[2] * ca + Ut[2] * sa];
+    // looking down, strokes laid across the line of sight close into rings around the nadir;
+    // there they lie flat on the river in any direction instead
+    if (c === CLS.WATER && r.near && rand() < r.near) { const a = rand() * Math.PI; axis = [Math.cos(a) * maj * dist, 0, Math.sin(a) * maj * dist]; }
     let cpos = P, delay;
     if (!ext) {
       const sc = sC * (1 + 0.004 * (3 - li)) * f / -d[2];
