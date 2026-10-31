@@ -157,11 +157,6 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 }
 .w-label { font-family: var(--cn); font-size: 15px; letter-spacing: 0.2em; display: flex; align-items: baseline; gap: 8px; }
 .w-label small { font-family: var(--serif); font-size: 11px; letter-spacing: 0.3em; color: var(--ink-dim); }
-.w-range { -webkit-appearance: none; appearance: none; width: 170px; height: 2px; border-radius: 2px; outline: none; cursor: pointer;
-  background: linear-gradient(90deg, var(--gold) var(--p, 55%), rgba(255, 240, 210, 0.25) var(--p, 55%)); }
-.w-range::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: #fff6e0;
-  box-shadow: 0 0 0 4px rgba(217, 184, 113, 0.25), 0 0 16px rgba(255, 226, 160, 0.8); }
-.w-range::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: #fff6e0; border: 0; }
 .w-gust {
   font-family: var(--cn); font-size: 13px; letter-spacing: 0.3em; padding: 9px 18px 9px 22px; border-radius: 40px;
   border: 1px solid rgba(217, 184, 113, 0.6); background: rgba(217, 184, 113, 0.1); transition: background 0.4s, box-shadow 0.4s;

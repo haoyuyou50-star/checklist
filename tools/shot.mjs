@@ -52,6 +52,17 @@ if (args.focus) {
     await step(2.2);
   }
 }
+// --series 8 --gust: frames 0.7 s apart at the first yaw, to catch things that flicker over time
+if (args.series) {
+  await page.evaluate(() => { window.app.eye.force = [0, 0]; });
+  if (args.gust) await page.evaluate(() => { window.app.gust(); });
+  for (let i = 0; i < Number(args.series); i++) {
+    await step(0.7);
+    await page.screenshot({ path: path.join(out, `${tag}t${i}.jpg`), type: 'jpeg', quality: 90 });
+  }
+  await browser.close();
+  process.exit(0);
+}
 // --look "-1,0;1,0" pins the parallax eye offset (x,y in -1..1) for each shot
 const looks = args.look ? String(args.look).split(';').map((s) => s.split(',').map(Number)) : [null];
 for (const y of args.focus ? [] : yaws) for (const lk of looks) {

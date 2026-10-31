@@ -69,7 +69,7 @@ float windField(vec3 p) {
   float w = 0.5 + 0.5 * sin(along * 0.3 - uTime * 2.6 + n * 4.0);
   w = w * w;
   float g = smoothstep(0.15, 0.85, vnoise(q * 0.011 - uWindDir * uTime * 0.07));
-  float front = along - uGustFront;
+  float front = mod(along - uGustFront + 45.0, 90.0) - 45.0;
   float gust = exp(-front * front / 300.0) * uGustAmp;
   return w * (0.35 + 0.95 * g) * uWind + gust * (0.55 + 0.6 * w);
 }
@@ -333,7 +333,7 @@ export class SplatCloud {
       tD: { value: dataTex(data.D, n) }, tE: { value: dataTex(data.E, n) },
       uViewport: { value: new THREE.Vector2(1, 1) },
       uTime: { value: 0 }, uMorph: { value: 0 }, uReveal: { value: 0 }, uWind: { value: 0 }, uFlash: { value: 1 },
-      uFocusDim: { value: 0 }, uFocusId: { value: -1 }, uGustFront: { value: -999 }, uGustAmp: { value: 0 },
+      uFocusDim: { value: 0 }, uFocusId: { value: -1 }, uGustFront: { value: 0 }, uGustAmp: { value: 0 },
       uOpacity: { value: 1 }, uH: { value: data.h || 2 }, uUnified: { value: data.unified ? 1 : 0 },
       uWindDir: { value: new THREE.Vector2(1, 0) },
       uFront: { value: new THREE.Vector3(...data.front) }, uEye0: { value: new THREE.Vector3() },

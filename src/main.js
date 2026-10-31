@@ -17,7 +17,7 @@ const el = {
   top: $('.g-top'), artWrap: $('.art-wrap'), frame: $('.frame'), art: $('.art'), label: $('.label'), picker: $('.picker'),
   idx: $('.idx'), titleCn: $('.title-cn'), titleFr: $('.title-fr'), meta: $('.meta'), desc: $('.desc'), enter: $('.enter'),
   hIdx: $('.h-idx'), hCn: $('.h-cn'), hFr: $('.h-fr'), exit: $('.h-exit'), hint: $('.h-hint'),
-  range: $('.w-range'), gustBtn: $('.w-gust'), sound: $('.w-sound'), markers: $('.markers'),
+  gustBtn: $('.w-gust'), sound: $('.w-sound'), markers: $('.markers'),
   cIdx: $('.c-idx'), cTitle: $('.c-title'), cSub: $('.c-sub'), cText: $('.c-text'), cBack: $('.c-back'),
   cursor: $('#cursor'), ldBar: $('.ld-bar i'),
 };
@@ -75,7 +75,7 @@ const audio = new WindAudio();
 const S = {
   idx: 0, mode: 'loading', grade: 0,
   morph: 0, reveal: 0, wind: 0, windTarget: 0.55, windOn: 0, flash: 1, fMix: 0,
-  gustFront: -999, gustAmp: 0, focusDim: 0, focusId: -1,
+  gustFront: 0, gustAmp: 0, gustE: 0, focusDim: 0, focusId: -1,
   hotBase: 0, hot: new Array(8).fill(0), hoverId: 0, markers: 0,
   cam: { pos: new THREE.Vector3(), yaw: 0, pitch: 0, fov: 62 }, basePitch: 0,
   vel: { yaw: 0, pitch: 0 }, galleryFr: null, glVisible: false, hintShown: false, windLevel: 0,
@@ -229,8 +229,7 @@ async function enter() {
   S.basePitch = Math.atan((p.yT + p.yB) / 2);
   Object.assign(S, { fMix: 0, morph: 0, reveal: 0, flash: 1, windOn: 0, markers: 0, hotBase: 0, focusDim: 0, focusId: -1 });
   S.windTarget = sc.wind.base;
-  el.range.value = Math.round(S.windTarget * 100);
-  el.range.style.setProperty('--p', `${el.range.value}%`);
+  S.gustE = S.gustAmp = 0;
   S.cam.pos.set(0, 0, 0); S.cam.yaw = 0; S.cam.pitch = 0; S.cam.fov = IMM_FOV;
   S.glVisible = true;
   el.canvas.style.opacity = 1;
@@ -356,18 +355,21 @@ async function unfocus() {
 }
 
 /* ---------------- wind ---------------- */
-function gust() {
+// one wave of the hand = one gust (strength ~0..1.5). Waves may come in quick succession: each one adds to
+// a gust energy that decays over a few seconds, and the gust fronts keep sweeping while it lasts, so a
+// run of waves builds into a stronger, longer wind instead of restarting the gust
+function gust(strength = 1) {
   if (S.mode !== 'immersive' && S.mode !== 'focus') return;
-  const wd = SCENES[S.idx].wind.dir, l = Math.hypot(wd[0], wd[1]);
-  const base = (S.cam.pos.x * wd[0] + S.cam.pos.z * wd[1]) / l;
-  return tween(6.0, (e, k) => { S.gustFront = base + lerp(-60, 80, k); S.gustAmp = Math.sin(k * Math.PI) ** 0.7 * 1.3; }, { e: ease.lin });
+  S.gustE = Math.min(S.gustE + 0.85 * strength, 2.4);
 }
-function setWind(v) {
-  S.windTarget = v;
-  el.range.value = Math.round(v * 100);
-  el.range.style.setProperty('--p', `${el.range.value}%`);
+function updateGust(dt) {
+  S.gustE *= Math.exp(-dt / 2.4);
+  const target = 1.35 * Math.tanh(S.gustE * 1.1);
+  S.gustAmp += (target - S.gustAmp) * Math.min(1, dt * (target > S.gustAmp ? 3 : 1.2));
+  if (S.gustAmp < 1e-3 && S.gustE < 1e-3) S.gustAmp = S.gustE = 0;
+  S.gustFront += dt * 24;
 }
-el.range.addEventListener('input', () => setWind(el.range.value / 100));
+function setWind(v) { S.windTarget = v; }
 el.gustBtn.addEventListener('click', gust);
 el.sound.addEventListener('click', () => { audio.start(); el.sound.classList.toggle('on', audio.toggle()); });
 el.sound.classList.add('on');
@@ -435,6 +437,7 @@ function step(dt, draw = true) {
   }
   updateLook(dt);
   S.wind += (S.windTarget * S.windOn - S.wind) * Math.min(1, dt * 1.8);
+  updateGust(dt);
   const B = cur();
   if (B) {
     B.data.hotspots.forEach((hs) => {
@@ -455,7 +458,7 @@ function step(dt, draw = true) {
     const fh = S.focusId > 0 && B.data.hotspots.find((h) => h.id === S.focusId);
     if (fh) { U.uFocusPos.value.set(...fh.center); U.uFocusR.value = fh.radius; }
     U.uFocusDim.value = S.focusDim; U.uFocusId.value = S.focusId;
-    U.uGustFront.value = S.gustFront; U.uGustAmp.value = S.gustAmp;
+    U.uGustFront.value = S.gustFront % 90; U.uGustAmp.value = S.gustAmp;
     U.uWindDir.value.set(...sc.wind.dir).normalize();
     for (let i = 0; i < 8; i++) U.uHot.value[i] = S.hot[i];
     B.backdrop.material.uniforms.uOpacity.value = clamp((S.reveal - 0.05) / 0.6, 0, 1);
@@ -504,6 +507,8 @@ const app = {
 };
 app.eye = look;
 window.app = app;
+// hook for gesture input: call once per detected wave, e.g. monet.wave(speed / typicalSpeed)
+window.monet = { wave: (strength = 1) => gust(strength) };
 
 /* ---------------- boot ---------------- */
 let imgs = [], layerSets = [];
