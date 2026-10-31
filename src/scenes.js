@@ -164,11 +164,12 @@ const regatta = {
       { id: 'house_big', kind: 'house', hot: 2, depth: 1.9, fine: 0.28, box: [0.7899, 0.2939, 0.9477, 0.4807] },
       { id: 'grove_back', kind: 'tree', depth: 1.62, fine: 0.55, box: [0.4906, 0.3185, 0.8398, 0.5119] },
       { id: 'grove_front', kind: 'tree', depth: 1.44, box: [0.4508, 0.3728, 0.7113, 0.5268] },
-      { id: 'house_small', kind: 'house', depth: 1.3, fine: 0.28, box: [0.6129, 0.3527, 0.7146, 0.4978] },
-      { id: 'tree', kind: 'tree', hot: 3, depth: 1.18, fine: 0.42, box: [0.5794, 0.2366, 0.648, 0.5037] },
+      { id: 'house_small', kind: 'house', depth: 1.54, fine: 0.28, box: [0.6129, 0.3527, 0.7146, 0.4978] },
+      { id: 'tree', kind: 'tree', hot: 3, depth: 1.5, fine: 0.42, box: [0.5794, 0.2366, 0.648, 0.5037] },
     ].map((c) => ({ ...c, src: `assets/regatta/${c.id}.webp` })),
-    // shrubs in front of the tall tree and the small house, hiding where their cards meet the ground
-    hedges: [{ src: 'grove_front', box: [0.468, 0.452, 0.742, 0.536], depth: 1.1, fine: 0.5, seed: 3 }],
+    // shrubs on the front grove's card; the tall tree and the small house stand just behind it, so the
+    // shrubs hide their feet and slide with the grove
+    hedges: [{ src: 'grove_front', box: [0.468, 0.452, 0.742, 0.536], fine: 0.5, seed: 3 }],
     // beyond the frame (coarser strokes than in the frame): [azimuth°, distance (sails: metres on the river; trees: x shore distance), height m, mirrored]
     extras: [
       { id: 'x_sail_side', kind: 'sail', at: [[-42, 95, 7, 0]] },
