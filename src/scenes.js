@@ -199,4 +199,58 @@ const regatta = {
   ],
 };
 
-export const SCENES = [poppies, regatta];
+/* ============================================================
+ *  03  The water-lily pond and the Japanese bridge, Giverny
+ * ============================================================ */
+const bridgePoly = [[0.462, 0.34], [0.52, 0.285], [0.62, 0.265], [0.71, 0.285], [0.795, 0.35], [0.795, 0.53], [0.462, 0.53]];
+
+const bridge = {
+  id: 'bridge',
+  image: 'assets/paintings/bridge.jpg',
+  info: {
+    index: '03',
+    titleCn: '睡莲池与日本桥',
+    titleFr: 'Le Bassin aux nymphéas, Giverny',
+    meta: '吉维尼 · 莫奈的水上花园<br>可切换三种色调',
+    desc: '1893 年，莫奈在吉维尼的家旁引水造池，种下睡莲，架起一座日本式的拱桥。此后二十多年，他一遍遍画这同一座桥、同一池水：清晨与黄昏，盛夏与深秋，光一变，整座花园就换了一种颜色。',
+    thumbLabel: '睡莲池与日本桥',
+  },
+  // no hotspots or cards here: the interaction is the colour mood
+  hint: '拖动环顾四周 · 右下角切换色调',
+  cam: { f: 0.45, h: 1.6, vH: 0.42, maxD: 120, dolly: 1.0, sky: 420, parallax: 2.0 },
+  grade: { gamma: 0.98, expo: 1.03, wb: [1, 1, 1.01], sat: 1.04, lift: 0.08, contrast: 1.03, clean: 0 },
+  wind: { dir: [1, 0.3], base: 0.5 },
+  // the gallery picture is the first mood; the others are learnt from reference paintings of the same motif
+  tones: [
+    { cn: '晴光', en: 'Clear Light', swatch: ['#9cc6e8', '#e9d36a', '#9bbf5a'] },
+    { cn: '盛夏', en: 'Green Harmony', ref: 'assets/paintings/bridge_green.jpg', expo: 1.04, swatch: ['#2f6b3c', '#7fa860', '#cfe0c6'] },
+    { cn: '秋暮', en: 'Autumn Glow', ref: 'assets/paintings/bridge_autumn.jpg', expo: 1.12, swatch: ['#b8341c', '#e98a2b', '#f5c45a'] },
+  ],
+  unified: {
+    // where the pond meets the banks: the near left bank reaches the bottom edge, the far edge runs under the bridge
+    water: [[0, 1.02], [0.13, 0.98], [0.17, 0.88], [0.21, 0.78], [0.26, 0.67], [0.31, 0.6], [0.36, 0.55], [0.42, 0.525], [0.76, 0.525], [0.8, 0.57], [0.85, 0.64], [0.9, 0.71], [0.95, 0.79], [1, 0.84]],
+    land: [[-0.01, -0.01], [1.01, -0.01], [1.01, 1.02], [-0.01, 1.02]],
+    boats: [],
+    alphaMul: { low: 1.0, mid: 0.98, high: 0.98 },
+    landMinLayer: 1,
+    // the frame spans 96 degrees: keep strokes fine across it and let them grow behind the viewer
+    falloff: [0.7, 2.4, 1.4],
+    // only the blue gaps high in the canopy are sky; pale blue flowers lower down belong to the banks
+    skyLike: (r, g, b, v) => v < 0.32 && b > r + 0.03 && b >= g - 0.02 && 0.3 * r + 0.59 * g + 0.11 * b > 0.6,
+    skyClean: 2,
+    landCls: (u, v, r, g, b) => (inPoly(u, v, bridgePoly) && luma(r, g, b) > 0.55 && Math.max(r, g, b) - Math.min(r, g, b) < 0.2 ? CLS.STATIC : CLS.TREE),
+    // the bridge stands where it meets the far edge; foliage steps back behind it, the higher the further
+    landCard: (u, v, dv) => (u >= 0 && inPoly(u, v, bridgePoly) ? 1 : 1 + 0.55 * Math.min(1, Math.max(0, (dv - 0.03) / 0.27))),
+    waterAllBase: true,
+    bankAngular: 0.85,
+    crown: [0.03, 0.16, 5],
+    landPool: [[1.0, 0.79], [0.46, 0.0]],
+    farPool: [[0.0, 0.46], [0.79, 1.0]],
+    farRate: 1,
+    backDist: 26,
+    skyRange: [0.5, 0.98],
+  },
+  hotspots: [],
+};
+
+export const SCENES = [poppies, regatta, bridge];

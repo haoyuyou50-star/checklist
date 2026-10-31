@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { SCENES } from './scenes.js';
 import { buildScene, loadImage, QUALITY, smooth } from './generator.js';
 import { loadLayerSet } from './layered.js';
-import { SplatCloud, makeBackdrop } from './splats.js';
+import { SplatCloud, makeBackdrop, gradeColor } from './splats.js';
+import { buildToneLUT, toneStrokes, tonePainting, toneColor } from './tones.js';
 import { WindAudio } from './audio.js';
 
 const params = new URLSearchParams(location.search);
@@ -20,6 +21,7 @@ const el = {
   gustBtn: $('.w-gust'), sound: $('.w-sound'), markers: $('.markers'),
   cIdx: $('.c-idx'), cTitle: $('.c-title'), cSub: $('.c-sub'), cText: $('.c-text'), cBack: $('.c-back'),
   cursor: $('#cursor'), ldBar: $('.ld-bar i'),
+  tones: $('.h-tones'), toneTitle: $('.tone-title'), toneWash: $('.tone-wash'),
 };
 const labelParts = [el.idx, el.titleCn, el.titleFr, $('.rule'), el.meta, el.desc, el.enter];
 
@@ -135,9 +137,10 @@ function applyCamera() {
 }
 
 /* ---------------- gallery content ---------------- */
+const artOf = (i) => (built[i] && built[i].toneArt ? built[i].toneArt[built[i].tone] : SCENES[i].image);
 function setGalleryContent(i) {
   const sc = SCENES[i];
-  el.art.src = sc.image;
+  el.art.src = artOf(i);
   el.idx.innerHTML = `<b>${sc.info.index}</b><span>/ 0${SCENES.length}</span>`;
   el.titleCn.textContent = sc.info.titleCn;
   el.titleCn.classList.toggle('long', sc.info.titleCn.length > 5);
@@ -223,6 +226,7 @@ async function enter() {
   const B = cur(), sc = SCENES[S.idx];
   built.forEach((b) => { if (b) { b.cloud.mesh.visible = b === B; b.backdrop.visible = b === B; } });
   buildMarkers();
+  buildTones();
   layoutGallery();
   S.galleryFr = galleryFrustum(B.data);
   const p = B.data.paint;
@@ -252,7 +256,8 @@ async function enter() {
   el.gallery.style.visibility = 'hidden';
   S.mode = 'immersive';
   el.hud.classList.add('on');
-  if (!S.hintShown) {
+  el.hint.textContent = sc.hint || '拖动环顾四周 · 点击发光之处走近细看';
+  if (!S.hintShown || sc.hint) {
     S.hintShown = true;
     el.hint.style.opacity = 0;
     tween(1.2, (e) => { el.hint.style.opacity = e; }, { e: ease.out });
@@ -263,7 +268,7 @@ async function enter() {
 function nearestYaw(y) { return y - Math.round(y / (Math.PI * 2)) * Math.PI * 2; }
 
 async function exit() {
-  if (S.mode !== 'immersive') return;
+  if (S.mode !== 'immersive' || toneBusy) return;
   S.mode = 'exiting';
   el.hud.classList.remove('on');
   const B = cur(), sc = SCENES[S.idx], dolly = sc.cam.dolly;
@@ -272,6 +277,7 @@ async function exit() {
   const from = { pos: S.cam.pos.clone(), yaw: S.cam.yaw, pitch: S.cam.pitch, fov: S.cam.fov };
   const homePos = new THREE.Vector3(0, 0, -dolly);
   tween(0.7, (e) => { el.hud.style.opacity = 1 - e; S.markers = 1 - e; S.hotBase = 0.38 * (1 - e); });
+  if (B.toneArt) el.art.src = artOf(S.idx);
   tween(1.6, (e) => { S.windOn = 1 - e; });
   await tween(1.5, (e) => {
     S.cam.pos.lerpVectors(from.pos, homePos, e);
@@ -352,6 +358,46 @@ async function unfocus() {
   el.card.classList.remove('on');
   S.focusId = -1;
   S.mode = 'immersive';
+}
+
+/* ---------------- colour moods ---------------- */
+function buildTones() {
+  const B = cur(), sc = SCENES[S.idx];
+  el.tones.innerHTML = '';
+  el.tones.style.display = sc.tones ? '' : 'none';
+  if (!sc.tones) return;
+  const U = B.cloud.uniforms;
+  U.uToneA.value = U.uToneB.value = B.tone; U.uToneT.value = 0;
+  setBackdropTone(B, B.tone, B.tone, 0);
+  el.tones.innerHTML = sc.tones.map((t, k) => `<button class="t-chip${k === B.tone ? ' on' : ''}" type="button" data-k="${k}"><i style="background:linear-gradient(135deg,${t.swatch.join(',')})"></i><span>${t.cn}<em>${t.en}</em></span></button>`).join('');
+  [...el.tones.children].forEach((b) => b.addEventListener('click', () => setTone(+b.dataset.k)));
+}
+function setBackdropTone(B, a, b, k) {
+  const u = B.backdrop.material.uniforms, A = B.toneBg[a], Bb = B.toneBg[b];
+  [['uZenith', 'zenith'], ['uHorizon', 'horizon'], ['uGround', 'ground'], ['uNear', 'near']].forEach(([n, key]) => u[n].value.setRGB(...A[key].map((x, j) => lerp(x, Bb[key][j], k))));
+}
+let toneBusy = false;
+const fwd = new THREE.Vector3();
+async function setTone(k) {
+  const B = cur(), sc = SCENES[S.idx];
+  if (!sc.tones || !B.toneBg || toneBusy || k === B.tone || (S.mode !== 'immersive' && S.mode !== 'focus')) return;
+  toneBusy = true;
+  const from = B.tone, U = B.cloud.uniforms, t = sc.tones[k];
+  [...el.tones.children].forEach((b, j) => b.classList.toggle('on', j === k));
+  camera.getWorldDirection(fwd);
+  U.uToneDir.value.copy(fwd);
+  U.uToneA.value = from; U.uToneB.value = k;
+  // the mood's name surfaces with the wave, a soft wash of its colour spreads from the centre
+  el.toneTitle.innerHTML = `<b>${t.cn}</b><i>${t.en}</i>`;
+  el.toneWash.style.background = `radial-gradient(circle at 50% 50%, ${t.swatch[1]}66 0%, ${t.swatch[0]}22 38%, transparent 70%)`;
+  tween(2.2, (e, r) => { el.toneWash.style.opacity = (Math.sin(r * Math.PI) * 0.55).toFixed(3); el.toneWash.style.transform = `scale(${0.6 + 1.2 * e})`; }, { e: ease.out });
+  tween(1.1, (e) => { el.toneTitle.style.opacity = e; el.toneTitle.style.letterSpacing = `${0.9 - 0.3 * e}em`; el.toneTitle.style.filter = `blur(${(1 - e) * 8}px)`; }, { delay: 0.35, e: ease.out });
+  tween(1.2, (e) => { el.toneTitle.style.opacity = 1 - e; el.toneTitle.style.filter = `blur(${e * 6}px)`; }, { delay: 2.6, e: ease.in });
+  await tween(3.6, (e) => { U.uToneT.value = Math.max(e, 1e-4); setBackdropTone(B, from, k, e); }, { e: ease.sine });
+  B.tone = k;
+  U.uToneA.value = k; U.uToneT.value = 0;
+  el.art.src = artOf(S.idx);
+  toneBusy = false;
 }
 
 /* ---------------- wind ---------------- */
@@ -479,7 +525,7 @@ function cursorTick() {
   cursor.node.style.transform = `translate(${cursor.x.toFixed(1)}px, ${cursor.y.toFixed(1)}px)`;
 }
 const app = {
-  S, el, built, ease, tween, wait, enter, exit, focusHotspot, unfocus, gust, setWind, selectPainting,
+  S, el, built, ease, tween, wait, enter, exit, focusHotspot, unfocus, gust, setWind, selectPainting, setTone,
   cursor: {
     show(x, y) { cursor.x = x; cursor.y = y; cursor.on = true; el.cursor.classList.add('on'); cursor.node.style.opacity = 0; return tween(0.6, (e) => { cursor.node.style.opacity = e; }); },
     hide() { return tween(0.5, (e) => { cursor.node.style.opacity = 1 - e; }); },
@@ -508,17 +554,29 @@ const app = {
 app.eye = look;
 window.app = app;
 // hook for gesture input: call once per detected wave, e.g. monet.wave(speed / typicalSpeed)
-window.monet = { wave: (strength = 1) => gust(strength) };
+window.monet = { wave: (strength = 1) => gust(strength), tone: (k) => setTone(k) };
 
 /* ---------------- boot ---------------- */
-let imgs = [], layerSets = [];
+let imgs = [], layerSets = [], toneRefs = [];
 function buildOne(i) {
-  const data = buildScene(SCENES[i], imgs[i], Q, layerSets[i]);
-  const cloud = new SplatCloud(SCENES[i].id, data, { syncSort: CAPTURE, grade: SCENES[i].grade });
-  const backdrop = makeBackdrop(data.bg, SCENES[i].grade);
+  const sc = SCENES[i];
+  const data = buildScene(sc, imgs[i], Q, layerSets[i]);
+  let luts = null;
+  if (sc.tones) {
+    const t0 = performance.now();
+    luts = sc.tones.map((t, k) => (toneRefs[i][k] ? buildToneLUT(imgs[i], toneRefs[i][k]) : null));
+    data.tones = luts.map((l, k) => (l ? toneStrokes(l, data.D, data.count, sc.tones[k].expo) : null));
+    console.log(`[monet] ${sc.id}: ${luts.filter(Boolean).length} colour moods in ${Math.round(performance.now() - t0)}ms`);
+  }
+  const cloud = new SplatCloud(sc.id, data, { syncSort: CAPTURE, grade: sc.grade });
+  const backdrop = makeBackdrop(data.bg, sc.grade);
   cloud.mesh.visible = false; backdrop.visible = false;
   scene3.add(backdrop, cloud.mesh);
-  built[i] = { data, cloud, backdrop };
+  built[i] = { data, cloud, backdrop, tone: 0 };
+  if (luts) {
+    built[i].toneArt = luts.map((l, k) => (l ? tonePainting(l, imgs[i], sc.tones[k].expo) : sc.image));
+    built[i].toneBg = luts.map((l, k) => Object.fromEntries(Object.entries(data.bg).map(([key, c]) => [key, gradeColor(l ? toneColor(l, ...c, [0, 0, 0], sc.tones[k].expo) : c, sc.grade)])));
+  }
   console.log(`[monet] ${SCENES[i].id}: ${data.count.toLocaleString()} splats`);
 }
 
@@ -529,9 +587,10 @@ async function boot() {
     return;
   }
   buildPicker();
-  [imgs, layerSets] = await Promise.all([
+  [imgs, layerSets, toneRefs] = await Promise.all([
     Promise.all(SCENES.map((sc) => loadImage(sc.image))),
     Promise.all(SCENES.map((sc) => (sc.layered ? loadLayerSet(sc.layered, loadImage) : null))),
+    Promise.all(SCENES.map((sc) => Promise.all((sc.tones || []).map((t) => (t.ref ? loadImage(t.ref) : null))))),
   ]);
   imgs.forEach((img, i) => { SCENES[i].asp = img.naturalHeight / img.naturalWidth; });
   setGalleryContent(0);
