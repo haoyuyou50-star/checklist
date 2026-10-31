@@ -439,10 +439,15 @@ export function buildUnified(scene, img, Q) {
   const horizCol = meanRows(b1, vH - 0.12, vH - 0.02, FAM_SKY);
   const topCol = meanRows(b1, 0, 0.06, FAM_SKY);
   const zenCol = lerp3(topCol, [topCol[0] * 0.94, topCol[1] * 0.98, Math.min(1, topCol[2] * 1.05)], 0.6);
+  // each row's clean sky, from its brighter half: Monet's darker cloud patches would drag a plain mean down
   const skyRowCol = [];
   for (let y = 0; y < H; y++) {
+    const ls = [];
+    for (let x = 0; x < W; x++) if (skyOK[y * W + x]) ls.push(lum[y * W + x]);
+    ls.sort((a, b) => a - b);
+    const med = ls.length ? ls[ls.length >> 1] : 0;
     const m = [0, 0, 0]; let n = 0;
-    for (let x = 0; x < W; x++) { const i = y * W + x; if (!skyOK[i]) continue; m[0] += b1[i * 3]; m[1] += b1[i * 3 + 1]; m[2] += b1[i * 3 + 2]; n++; }
+    for (let x = 0; x < W; x++) { const i = y * W + x; if (!skyOK[i] || lum[i] < med) continue; m[0] += b1[i * 3]; m[1] += b1[i * 3 + 1]; m[2] += b1[i * 3 + 2]; n++; }
     skyRowCol.push(n ? [m[0] / n, m[1] / n, m[2] / n] : null);
   }
   for (let y = 1; y < H; y++) if (!skyRowCol[y]) skyRowCol[y] = skyRowCol[y - 1];
@@ -453,6 +458,8 @@ export function buildUnified(scene, img, Q) {
     const img = r.img[r.soft && rand() < r.soft ? 0 : lvl], i = (r.y * W + r.x) * 3;
     let c = [img[i], img[i + 1], img[i + 2]];
     if (r.soft) c = lerp3(c, skyRowCol[r.y], r.soft * 0.93);
+    // a darker cloud patch reads as a grey stain once the sky surrounds the viewer (and repeats around)
+    if (r.cls === CLS.SKY) { const dk = lumOf(skyRowCol[r.y]) - lumOf(c); if (dk > 0.025) c = lerp3(c, skyRowCol[r.y], 0.85 * smooth(0.025, 0.09, dk)); }
     if (r.zen) c = lerp3(c, lerp3(c, zenCol, 0.75), r.zen);
     if (r.haze) c = lerp3(c, horizCol, r.haze);
     return c;
