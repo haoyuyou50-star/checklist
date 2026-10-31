@@ -46,11 +46,12 @@ export async function runDemo(app) {
 
   await visitHotspot(app, 1, 3.2);
 
-  const r = app.el.range.getBoundingClientRect();
-  await app.cursor.moveTo(r.left + r.width * 0.55, r.top + r.height / 2, 1.3);
-  await app.wait(0.3);
-  const w0 = app.S.windTarget;
-  await app.tween(1.6, (e) => { app.setWind(w0 + (0.95 - w0) * e); app.cursor.moveTo(r.left + r.width * (0.55 + 0.4 * e), r.top + r.height / 2, 0.001); });
+  // a run of waves, as the gesture input would send them
+  await press(app, app.el.gustBtn, () => app.gust(), { move: 1.3, dwell: 0.4 });
+  for (let k = 0; k < 3; k++) {
+    await app.wait(0.45);
+    await Promise.all([app.cursor.click(), (async () => { await app.wait(0.12); app.gust(); })()]);
+  }
   app.cursor.moveTo(W * 0.42, H * 0.5, 2.0);
   await app.wait(4.6);
 
