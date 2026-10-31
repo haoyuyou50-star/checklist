@@ -12,7 +12,7 @@ uniform sampler2D tA, tB, tC, tD, tE;
 uniform vec2 uViewport;
 uniform float uTime, uMorph, uReveal, uWind, uFlash, uFocusDim, uFocusId, uGustFront, uGustAmp, uOpacity, uH, uUnified;
 uniform vec2 uWindDir;
-uniform vec3 uFront;
+uniform vec3 uFront, uEye0;
 uniform float uHot[8];
 uniform float uGrade, uGamma, uExpo, uSat, uLift, uContrast;
 uniform vec3 uWB;
@@ -78,6 +78,19 @@ void main() {
   float sizeMul = 1.0;
   float emit = 0.0;
   float settled = 1.0;
+
+  // reflection (flex = -m): its object's mirror image sits at world * m below the river. Generated
+  // reflections are laid out for the origin; painted ones look right from the resting (dollied) eye
+  // uEye0. Follow only the eye's offset from that reference, so reflections stay under their objects.
+  if (cls == 6 && flex < -1.0 && uUnified > 0.5) {
+    vec3 mir = world * -flex, e0 = ext > 0.5 ? vec3(0.0) : uEye0;
+    vec3 d1 = mir - cameraPosition, d0 = mir - e0;
+    vec3 p1 = cameraPosition + d1 * ((cameraPosition.y + uH) / max(-d1.y, 1e-3));
+    vec3 p0 = e0 + d0 * ((e0.y + uH) / max(-d0.y, 1e-3));
+    float sc = length(p1 - cameraPosition) / max(length(p0 - e0), 1e-3);
+    axis *= sc; minor *= sc;
+    world += p1 - p0;
+  }
 
   if (ext < 0.5) {
     float m = clamp(uMorph * 1.6 - delay * 0.6, 0.0, 1.0);
@@ -292,9 +305,9 @@ export class SplatCloud {
       uViewport: { value: new THREE.Vector2(1, 1) },
       uTime: { value: 0 }, uMorph: { value: 0 }, uReveal: { value: 0 }, uWind: { value: 0 }, uFlash: { value: 1 },
       uFocusDim: { value: 0 }, uFocusId: { value: -1 }, uGustFront: { value: -999 }, uGustAmp: { value: 0 },
-      uOpacity: { value: 1 }, uH: { value: 2 }, uUnified: { value: data.unified ? 1 : 0 },
+      uOpacity: { value: 1 }, uH: { value: data.h || 2 }, uUnified: { value: data.unified ? 1 : 0 },
       uWindDir: { value: new THREE.Vector2(1, 0) },
-      uFront: { value: new THREE.Vector3(...data.front) },
+      uFront: { value: new THREE.Vector3(...data.front) }, uEye0: { value: new THREE.Vector3() },
       uHot: { value: new Array(8).fill(0) },
       uFocusPos: { value: new THREE.Vector3() }, uFocusR: { value: 1 },
       uGrade: { value: 0 }, uGamma: { value: grade.gamma }, uExpo: { value: grade.expo }, uSat: { value: grade.sat },

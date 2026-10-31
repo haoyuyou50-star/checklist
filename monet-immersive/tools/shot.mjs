@@ -52,10 +52,15 @@ if (args.focus) {
     await step(2.2);
   }
 }
-for (const y of args.focus ? [] : yaws) {
-  await page.evaluate((y, p, fov) => { const S = window.app.S; S.cam.yaw = y; if (p !== null) S.cam.pitch = p; if (fov) S.cam.fov = fov; S.vel.yaw = S.vel.pitch = 0; }, y, pitch, args.fov ? Number(args.fov) : 0);
+// --look "-1,0;1,0" pins the parallax eye offset (x,y in -1..1) for each shot
+const looks = args.look ? String(args.look).split(';').map((s) => s.split(',').map(Number)) : [null];
+for (const y of args.focus ? [] : yaws) for (const lk of looks) {
+  await page.evaluate((y, p, fov, lk) => {
+    const S = window.app.S; S.cam.yaw = y; if (p !== null) S.cam.pitch = p; if (fov) S.cam.fov = fov; S.vel.yaw = S.vel.pitch = 0;
+    window.app.eye.force = lk || [0, 0];
+  }, y, pitch, args.fov ? Number(args.fov) : 0, lk);
   await step(0.3);
-  const f = path.join(out, `${tag}y${y}.jpg`);
+  const f = path.join(out, `${tag}y${y}${lk ? `_l${lk.join('_')}` : ''}.jpg`);
   await page.screenshot({ path: f, type: 'jpeg', quality: 90 });
   console.log('shot', f);
 }
