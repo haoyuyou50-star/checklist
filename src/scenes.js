@@ -111,14 +111,15 @@ const poppies = {
 /* ============================================================
  *  02  Régates à Argenteuil, c.1872
  * ============================================================ */
-const regattaWater = polyline([[0, 0.612], [0.45, 0.615], [0.5, 0.64], [0.65, 0.66], [1, 0.66]]);
-const regattaSails = [
-  { poly: [[0.03, 0.605], [0.071, 0.292], [0.12, 0.605]], depth: 37, hot: 0 },
-  { poly: [[0.172, 0.612], [0.19, 0.478], [0.207, 0.612]], depth: 44, hot: 0 },
-  { poly: [[0.195, 0.615], [0.255, 0.352], [0.318, 0.615]], depth: 33, hot: 0 },
-  { poly: [[0.312, 0.62], [0.36, 0.148], [0.472, 0.62]], depth: 30, hot: 1 },
+// boats: generous outlines, the colour test picks the actual sail/hull pixels; contact = where the hull meets the water
+const regattaBoats = [
+  { poly: [[0.022, 0.616], [0.03, 0.4], [0.06, 0.29], [0.09, 0.29], [0.128, 0.58], [0.132, 0.616]], contact: 0.612 },
+  { poly: [[0.168, 0.624], [0.172, 0.5], [0.184, 0.47], [0.2, 0.5], [0.212, 0.624]], contact: 0.62 },
+  { poly: [[0.184, 0.642], [0.198, 0.6], [0.222, 0.4], [0.256, 0.352], [0.322, 0.6], [0.33, 0.642]], contact: 0.636 },
+  { poly: [[0.312, 0.648], [0.318, 0.55], [0.352, 0.14], [0.372, 0.13], [0.48, 0.59], [0.49, 0.648]], contact: 0.64 },
 ];
-const regattaLand = [[0.44, 0.63], [0.465, 0.5], [0.53, 0.43], [0.553, 0.27], [0.585, 0.245], [0.618, 0.3], [0.69, 0.33], [0.785, 0.295], [0.94, 0.355], [1, 0.365], [1, 0.67], [0.44, 0.67]];
+const regattaLand = [[0.44, 0.66], [0.452, 0.5], [0.53, 0.42], [0.552, 0.24], [0.6, 0.15], [0.632, 0.25], [0.69, 0.3], [0.78, 0.27], [0.8, 0.28], [0.95, 0.3], [1, 0.32], [1, 0.66]];
+const inR = (u, v, u0, v0, u1, v1) => u >= u0 && u <= u1 && v >= v0 && v <= v1;
 
 const regatta = {
   id: 'regatta',
@@ -131,36 +132,33 @@ const regatta = {
     desc: '塞纳河流经阿让特伊时变得开阔，这里是巴黎人周末驾帆的去处。莫奈用快速并置的色块画水：白帆、红屋与绿岸，被河水打碎成一片颤动的倒影。他不再描摹物体的轮廓，而是捕捉光落在水面上转瞬即逝的那一刻。',
     thumbLabel: '阿让特伊的帆船赛',
   },
-  cam: { f: 0.866, h: 1.6, vH: 0.55, maxD: 62, dolly: 1.4, sky: 520 },
+  cam: { f: 0.866, h: 1.6, vH: 0.55, maxD: 450, dolly: 1.4, sky: 520 },
   grade: { gamma: 0.9, expo: 1.1, wb: [0.94, 1.0, 1.1], sat: 1.28, lift: 0.28, contrast: 1.06 },
   wind: { dir: [1, 0.22], base: 0.5 },
-  classify(u, v, r, g, b, rand) {
-    const cam = this.cam, asp = this.asp;
-    const L = luma(r, g, b);
-    const wl = regattaWater(u);
-    if (v >= wl) {
-      const hot = inRect(u, v, 0.6, 0.665, 0.97, 0.93) ? 4 : 0;
-      return { cls: CLS.WATER, depth: groundDepth(cam, asp, v), hot, flex: 0.5 + rand() * 0.5 };
-    }
-    for (const s of regattaSails) {
-      if (inPoly(u, v, s.poly) && L > 0.5) {
-        const bottom = s.poly[0][1], top = s.poly[1][1];
-        return { cls: CLS.SAIL, depth: s.depth, hot: s.hot, flex: (bottom - v) / (bottom - top) };
-      }
-    }
-    if (u < 0.475 && v > wl - 0.03 && L > 0.5) return { cls: CLS.STATIC, depth: 33, hot: 0, flex: 0 };
-    if (inRect(u, v, 0.462, 0.515, 0.648, 0.625) && L > 0.55) return { cls: CLS.STATIC, depth: 29, hot: 0, flex: 0 };
-    if (inPoly(u, v, regattaLand)) {
-      const skyLike = b >= r && b >= g - 0.01 && L > 0.55;
-      if (!skyLike) {
-        const hot = inRect(u, v, 0.775, 0.295, 0.95, 0.49) ? 2 : inRect(u, v, 0.545, 0.245, 0.625, 0.47) ? 3 : 0;
-        const green = g > r * 1.04 && g >= b;
-        const depth = 28 + (u - 0.45) * 6;
-        if (green) return { cls: CLS.TREE, depth, hot, flex: Math.min(1, Math.max(0, (wl - v) / 0.3)) };
-        return { cls: CLS.STATIC, depth, hot, flex: 0 };
-      }
-    }
-    return { cls: CLS.SKY, depth: cam.sky, hot: 0, flex: 0 };
+  unified: {
+    water: [[0, 0.556], [0.44, 0.557], [0.465, 0.62], [0.5, 0.642], [0.68, 0.64], [1, 0.645]],
+    farBank: { top: 0.542, uMax: 0.445 },
+    boats: regattaBoats,
+    land: regattaLand,
+    // column ranges walked outward from the frame edge (the red house and the tall tree stay unique)
+    landPool: [[1.0, 0.955], [0.79, 0.665]],
+    farPool: [[0.0, 0.43]],
+    farRate: 1,
+    backDist: 140,
+    hot(u, v, c) {
+      if (c === CLS.WATER) return inR(u, v, 0.6, 0.665, 0.97, 0.93) ? 4 : 0;
+      if (c === CLS.SAIL && u > 0.31 && u < 0.49) return 1;
+      if (c === CLS.SKY) return 0;
+      if (inR(u, v, 0.775, 0.295, 0.95, 0.49)) return 2;
+      if (c === CLS.TREE && inR(u, v, 0.545, 0.17, 0.625, 0.47)) return 3;
+      return 0;
+    },
+    // [azimuth°, distance m, mast height m, source boat]
+    boatsOut: [[-48, 45, 8, 2], [-88, 55, 10, 3], [-135, 50, 7, 0], [-172, 70, 9, 2], [130, 55, 7, 1], [76, 34, 6, 0]],
+    // the unpainted canvas edge and the signature are not texture to continue
+    skyBad: (u, v) => u > 0.972 && v < 0.5,
+    skyRange: [0.004, 0.97],
+    waterBad: (u, v) => u > 0.72 && v > 0.92,
   },
   hotspots: [
     { id: 1, cn: '白帆', en: 'The Sails', zoom: 2.0,
@@ -172,12 +170,6 @@ const regatta = {
     { id: 4, cn: '碎裂的倒影', en: 'Broken Reflections', zoom: 1.35,
       text: '这是整幅画最大胆的部分：倒影由一道道水平的色块组成，彼此并不相连。站远一些，它们便在眼中融成荡漾的水光——观者的眼睛，替画家完成了最后一笔。' },
   ],
-  ext: {
-    kind: 'water',
-    boats: [[-55, 40, 9], [-98, 64, 10], [-150, 50, 8], [118, 44, 7], [-20, 70, 6]],
-    houses: [[48, 0], [76, 0], [-122, 0], [158, 0]],
-    bankTrees: [[33, 31, 6.8, 6], [38, 32, 8.5, 5], [44, 33, 6, 7], [52, 34, 7.5, 6], [60, 37, 6.5, 8], [68, 40, 8, 6], [84, 46, 7, 9], [96, 52, 9, 7]],
-  },
 };
 
 export const SCENES = [poppies, regatta];

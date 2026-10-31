@@ -1,4 +1,5 @@
 import { CLS } from './scenes.js';
+import { buildUnified } from './unified.js';
 
 /* ---------------- deterministic helpers ---------------- */
 export function makeRng(seed) {
@@ -10,13 +11,13 @@ export function makeRng(seed) {
     return s / 4294967296;
   };
 }
-const fract = (x) => x - Math.floor(x);
-const lerp3 = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
-const clamp = (x, a, b) => (x < a ? a : x > b ? b : x);
-const lerp = (a, b, t) => a + (b - a) * t;
-const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+export const fract = (x) => x - Math.floor(x);
+export const lerp3 = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+export const clamp = (x, a, b) => (x < a ? a : x > b ? b : x);
+export const lerp = (a, b, t) => a + (b - a) * t;
+export const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 const hash3 = (x, y, z) => fract(Math.sin(x * 127.1 + y * 311.7 + z * 74.7) * 43758.5453);
-function vnoise3(x, y, z) {
+export function vnoise3(x, y, z) {
   const ix = Math.floor(x), iy = Math.floor(y), iz = Math.floor(z);
   const fx = x - ix, fy = y - iy, fz = z - iz;
   const ux = fx * fx * (3 - 2 * fx), uy = fy * fy * (3 - 2 * fy), uz = fz * fz * (3 - 2 * fz);
@@ -25,15 +26,15 @@ function vnoise3(x, y, z) {
   const x01 = lerp(h(0, 0, 1), h(1, 0, 1), ux), x11 = lerp(h(0, 1, 1), h(1, 1, 1), ux);
   return lerp(lerp(x00, x10, uy), lerp(x01, x11, uy), uz);
 }
-const vnoise2 = (x, y) => vnoise3(x, y, 0.5);
-function fbm3(x, y, z, oct = 4) {
+export const vnoise2 = (x, y) => vnoise3(x, y, 0.5);
+export function fbm3(x, y, z, oct = 4) {
   let a = 0.5, s = 0, n = 0;
   for (let i = 0; i < oct; i++) { s += a * vnoise3(x, y, z); n += a; x *= 2.03; y *= 2.03; z *= 2.03; a *= 0.5; }
   return s / n;
 }
-const fbm2 = (x, y, oct) => fbm3(x, y, 0.37, oct);
+export const fbm2 = (x, y, oct) => fbm3(x, y, 0.37, oct);
 
-function blur1(src, W, H, r) {
+export function blur1(src, W, H, r) {
   const tmp = new Float32Array(W * H), out = new Float32Array(W * H);
   const n = 2 * r + 1;
   for (let y = 0; y < H; y++) {
@@ -54,7 +55,7 @@ function blur1(src, W, H, r) {
   }
   return out;
 }
-function blurRGB(rgb, W, H, r) {
+export function blurRGB(rgb, W, H, r) {
   const N = W * H, out = new Float32Array(N * 3);
   for (let c = 0; c < 3; c++) {
     const ch = new Float32Array(N);
@@ -66,7 +67,7 @@ function blurRGB(rgb, W, H, r) {
 }
 
 // blur that ignores pixels where mask is 0 (falls back to the plain blur where nothing is left)
-function blurMasked(rgb, mask, fallback, W, H, r) {
+export function blurMasked(rgb, mask, fallback, W, H, r) {
   const N = W * H, out = new Float32Array(N * 3);
   const blur2 = (a) => blur1(blur1(a, W, H, r), W, H, Math.max(1, r >> 1));
   const wt = blur2(mask);
@@ -80,7 +81,7 @@ function blurMasked(rgb, mask, fallback, W, H, r) {
 }
 
 /* ---------------- splat buffer ---------------- */
-class Builder {
+export class Builder {
   constructor(cap) { this.n = 0; this.alloc(cap); }
   alloc(cap) {
     const grow = (old) => { const a = new Float32Array(cap * 4); if (old) a.set(old.subarray(0, this.n * 4)); return a; };
@@ -100,9 +101,9 @@ class Builder {
 }
 
 export const QUALITY = {
-  high: { analysisW: 760, layers: [11, 5.6, 2.9], detail: 2.0, extGround: 90000, extWater: 150000, extSky: 44000, treeDensity: 4.2, nearTree: 15, motes: 900, glints: 1800, shore: 16000 },
-  mid: { analysisW: 640, layers: [11, 5.8, 3.1], detail: 2.3, extGround: 60000, extWater: 88000, extSky: 27000, treeDensity: 3.0, nearTree: 11, motes: 600, glints: 1200, shore: 11000 },
-  low: { analysisW: 520, layers: [12, 6.6, 3.6], detail: 2.8, extGround: 34000, extWater: 60000, extSky: 17000, treeDensity: 1.9, nearTree: 8, motes: 500, glints: 700, shore: 6000 },
+  high: { uniAlpha: 0.0059, analysisW: 760, layers: [11, 5.6, 2.9], detail: 2.0, extGround: 90000, extWater: 150000, extSky: 44000, treeDensity: 4.2, nearTree: 15, motes: 900, glints: 1800, shore: 16000 },
+  mid: { uniAlpha: 0.006, analysisW: 640, layers: [11, 5.8, 3.1], detail: 2.3, extGround: 60000, extWater: 88000, extSky: 27000, treeDensity: 3.0, nearTree: 11, motes: 600, glints: 1200, shore: 11000 },
+  low: { uniAlpha: 0.0071, analysisW: 520, layers: [12, 6.6, 3.6], detail: 2.8, extGround: 34000, extWater: 60000, extSky: 17000, treeDensity: 1.9, nearTree: 8, motes: 500, glints: 700, shore: 6000 },
 };
 
 export async function loadImage(src) {
@@ -115,6 +116,7 @@ export async function loadImage(src) {
 
 /* ============================================================ */
 export function buildScene(scene, img, Q) {
+  if (scene.unified) return buildUnified(scene, img, Q);
   const rand = makeRng(scene.id.length * 7919 + 1873);
   const asp = img.naturalHeight / img.naturalWidth;
   scene.asp = asp;
