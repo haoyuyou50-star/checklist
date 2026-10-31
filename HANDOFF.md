@@ -17,11 +17,14 @@
 | 项 | 状态 |
 |---|---|
 | 完整流程（展厅 → 转场 → 沉浸 → 热点 → 返回 → 切换第二幅） | ✅ 可用 |
-| 帆船场景画面 | ✅ 已改为**统一笔触场**（`src/unified.js`）：画内与画外由同一套代码生成，没有画框接缝；分层边界改为颜色分割 + 物体掩膜；mid 档约 29 万、high 档约 29.9 万笔触；纸片书式层次（视差 + 岸的深度卡片 + 补底 + 倒影跟随视点） |
-| 罂粟场景画面 | ✅ 已按帆船的标准打磨一轮：画内罂粟清晰（不再糊成橙雾）、草地成片有明暗、圆形花点、树受光、人物特写清晰、背后无破洞 |
-| 演示视频渲染工具 `tools/render.mjs` | ✅ 一条命令出 2:00 成片（含风声） |
+| 帆船场景画面 | ✅ **美术分层（PSD）+ 统一笔触场**：底图（天空、河、远岸、草岸）由 `src/unified.js` 生成，画内画外同源无接缝；房子、树、帆是 `src/layered.js` 生成的独立深度卡片，视差时前后滑动；前排树丛卡片上加了灌木带挡住树和小房子的落脚点；帆的倒影是莫奈式断续色块；画外补了 7 艘帆、13 处树；天空 9 只海鸥随机游荡 |
+| 展厅 | ✅ 显示原画（`assets/paintings/regatta.jpg`），转场从原画展开 |
+| 风 | ✅ 去掉了风力滑杆；起风唯一入口 `window.monet.wave(strength)`，为手势挥手预留，连续挥手可叠加（4.2B） |
+| 聚焦 | ✅ 周围压暗到约一半并去饱和 |
+| 罂粟场景画面 | ✅ 已按帆船的标准打磨一轮（仍是旧生成器，未改分层） |
+| 演示视频渲染工具 `tools/render.mjs` | ✅ 一条命令出约 2:00 成片（含风声） |
 | 在线链接 | ✅ githack（见第 3 节） |
-| 实时性能 | 🟡 帆船 low/mid/high ≈ 20.5/28.8/29.7 万笔触（控制在 20–30 万）；罂粟仍是旧生成器，约 29–30 万。弱显卡可用 `?q=low` |
+| 实时性能 | 🟡 帆船 low/mid/high ≈ 24.2/28.3/28.8 万笔触；罂粟约 29–30 万。弱显卡可用 `?q=low` |
 
 已交付给用户的产物（云端 artifacts，接手者可能拿不到，仅供参考）：
 - 项目压缩包 `monet-immersive.zip`
@@ -32,8 +35,9 @@
 
 - 仓库：`haoyuyou50-star/checklist`，目录 `monet-immersive/`，分支 `cursor/monet-immersive-demo-21be`，PR：https://github.com/haoyuyou50-star/checklist/pull/2
 - 独立分支 `cursor/monet-immersive-standalone-21be`：仓库根目录就是本项目，适合直接迁到新仓库（见第 10 节）。
-- 在线打开（需在提示页点一次 "Open the page"）：
-  `https://raw.githack.com/haoyuyou50-star/checklist/cursor/monet-immersive-demo-21be/monet-immersive/index.html`
+- 在线打开（跟随分支最新提交；githack 有缓存，刚推送后可能要等几分钟，需在提示页点一次 "Open the page"）：
+  `https://raw.githack.com/haoyuyou50-star/checklist/cursor/monet-immersive-standalone-21be/index.html`
+  - 固定版本：`https://rawcdn.githack.com/haoyuyou50-star/checklist/<独立分支提交 SHA>/index.html`
 - 本地运行：必须通过 http 服务打开。ES Module 和读取画作像素都不支持 `file://`，代码里有检测，会给出中文提示。
   ```bash
   cd monet-immersive
@@ -54,7 +58,8 @@ index.html / style.css   DOM 层：#wall 展墙、canvas#gl、#gallery 展厅、
 src/main.js              状态机 + 时钟/补间 + 相机/投影 + 转场编排 + 交互 + 帧循环 + window.app（给 demo/工具用）
 src/scenes.js            每幅画的配置：相机 cam、风 wind、调色 grade、热点 hotspots；罂粟用 classify + ext，帆船用 unified
 src/generator.js         旧生成器（画内分层采样 + 全景扩展，罂粟仍在用）+ 公共工具函数。QUALITY 档位定义在这里
-src/unified.js           ★ 统一笔触场生成器（帆船）：整个球面一套规则，画内画外同源
+src/unified.js           ★ 统一笔触场生成器（帆船底图 + 海鸥）：整个球面一套规则，画内画外同源
+src/layered.js           ★ PSD 元素卡片（房子/树/帆）、灌木带、帆的倒影、画外多余元素
 src/splats.js            渲染：实例化三角形 + 5 张 RGBA32F 数据纹理；顶点着色器做转场/风/各类动效/调色/聚焦；片元着色器画笔触形状
 src/sort.js              视锥剔除 + 16 位计数排序（按对数视深，从后往前）
 src/sortWorker.js        实时模式下在 Worker 里排序
@@ -62,6 +67,7 @@ src/demo.js              自动演示脚本（约 2:00）
 src/audio.js             实时 WebAudio 风声
 tools/render.mjs         ★ 演示视频渲染（内置服务器 + puppeteer 逐帧 + ffmpeg + 风声合成）
 tools/shot.mjs           ★ 画面调试截图：进入指定画作，按朝向截图（--fov 可放大局部），或用 --focus 截热点特写
+tools/export_layers.py   PSD → assets/regatta/（base.jpg、composite.jpg、元素 webp、manifest.json）
 tools/segdump.mjs        ★ 导出统一生成器的分割图与各族填充图（cls/sky/water/land.png），查分层边界用
 tools/capture.mjs        旧版逐帧导出（被 render.mjs 取代，保留）
 tools/wind_audio.py      旧版风声合成（numpy/scipy，被 render.mjs 内置实现取代）
@@ -79,10 +85,11 @@ tools/fonts.py           Google Fonts 子集下载 → assets/fonts/
    - C = 长轴向量 + 短轴长度
    - D = 颜色 + alpha
    - E = hot（热点 id）, flex（受风系数）, delay（转场延迟）, ext（0 画内 / 1 扩展）
+   - 特殊约定：倒影 `flex < -1`；帆的画内倒影 `ext = 0.25`（着色器以原点为参照重投影，`ext > 0.1` 都按此处理），`hot` 存负的帆受风系数；海鸥的 B 通道存翼段、活动半径、速度。
 3. **类别 CLS**（`scenes.js`）：
    - `SKY 0, GRASS 1, FLOWER 2, TREE 3, STATIC 4, FIGURE 5, WATER 6, SAIL 7`
-   - `PETAL 8, MOTE 9, HALO 10, GLINT 11`
-   - 着色器按类别分支做动效。
+   - `PETAL 8, MOTE 9, HALO 10, GLINT 11, GULL 12`
+   - 着色器按类别分支做动效。MOTE、PETAL、GULL 排序时不做视锥剔除（`sort.js`）。
 4. **分层顺序靠深度**：排序只按视深。画内四层（粗/中/细/细节）在深度上依次错开 1.4%（`depth * (1 + 0.014*(3-li))`），粗底色永远在细笔触后面。这是解决“糊”的关键，不要去掉。
 5. **无缝画框**（旧生成器；帆船已改用统一笔触场，见 4.2）：
    - 画内笔触在边缘 `EDGE_IN` 内随机溶解。
@@ -127,7 +134,7 @@ tools/fonts.py           Google Fonts 子集下载 → assets/fonts/
 
 美术给的源文件在 `assets/layers/`：`export.psd`（10 个图层），以及两包多余的白帆和树木素材。用 `python3 tools/export_layers.py` 导出网页资产到 `assets/regatta/`（需要 `pip install psd-tools pillow numpy`）：
 - `base.jpg`：去掉所有元素的干净底图。
-- `composite.jpg`：所有图层合成，展厅和转场起点用它。
+- `composite.jpg`：所有图层合成，只作对齐参考（展厅用原画）。
 - 每个元素一张裁好的 `*.webp`，外加 `manifest.json`，里面是画布坐标框。
 
 搭建方式：
@@ -142,18 +149,18 @@ tools/fonts.py           Google Fonts 子集下载 → assets/fonts/
 - **展厅原画**：展厅和转场起点显示原画 `assets/paintings/regatta.jpg`（与 PSD 合成图对齐，长宽比相差 0.1%）。
 - **天空**：天空以两层粗笔为主（细层大部分跳过），笔触更长、接近水平（仰望时逐渐恢复原方向，避免绕天顶成环），取色最多用到第 2 级模糊，整体不再细碎。
 - **画外**：`layered.extras` 把 7 艘多余帆船摆在水面上，把 4 种多余树木按 13 处摆在右岸和背后，配置格式是 `[方位角, 距离, 高度, 是否镜像]`。
-- **预算**：底图笔触按 `unified.alphaMul`（low 1.15 / mid 1.26 / high 1.27）放粗。总数：low 约 24.3 万，mid 约 28.4 万，high 约 29.0 万。控制台会输出每张卡片的笔触数（`[monet] layer cards ...`）。
-
-### 4.2C 海鸥
-
-`unified.gulls` 配置海鸥，每只是 `[方位角°, 距离 m, 高度 m, 活动半径 m]`。每只海鸥 4 笔（每侧内翼、外翼，翼尖偏灰，在亮天空上也看得清），类别 `CLS.GULL = 12`。着色器让它在活动半径内随机游荡（每只鸟频率不同的几组正弦叠加，`gullPath`，航向取路径切线）、阵发性扇翅、其余时间 M 形滑翔，起风时飞得更快。B 通道（画外笔触不用）存翼段、活动半径和速度。排序时海鸥不做视锥剔除（真实位置离存的圆心最远有一个半径）。
+- **预算**：底图笔触按 `unified.alphaMul`（low 1.15 / mid 1.26 / high 1.27）放粗。总数：low 约 24.2 万，mid 约 28.3 万，high 约 28.8 万。控制台会输出每张卡片的笔触数（`[monet] layer cards ...`）。
 
 ### 4.2B 风与手势
 
 - 界面上不再有风力滑杆，底风固定为 `scene.wind.base`。
 - 起风只有一个入口：`window.monet.wave(strength = 1)`（按钮「掀起一阵风」也调它）。手势识别每检测到一次挥手就调用一次，`strength` 可按挥手速度给 0–1.5。
-- 连续挥手会叠加：每次挥手往“阵风能量”里加一份，能量按约 2.4 s 衰减，阵风强度随能量平滑升降（上限饱和），风带以 24 m/s 持续扫过（着色器里是周期 90 m 的风带）。所以连续挥手是风越来越大、持续更久，而不是一次次重启。
+- 连续挥手会叠加：每次挥手往“阵风能量”里加 `0.85×strength`（上限 2.4），能量按约 2.4 s 衰减，阵风强度 `1.35·tanh(1.1·E)` 随能量平滑升降，风带以 24 m/s 持续扫过（着色器里是周期 90 m 的风带）。所以连续挥手是风越来越大、持续更久，而不是一次次重启。
 - 聚焦热点时，周围压暗到约一半亮度并去饱和（`splats.js` 里的 `uFocusDim`）。
+
+### 4.2C 海鸥
+
+`unified.gulls` 配置海鸥，每只是 `[方位角°, 距离 m, 高度 m, 活动半径 m]`。每只海鸥 4 笔（每侧内翼、外翼，翼尖偏灰，在亮天空上也看得清），类别 `CLS.GULL = 12`。着色器让它在活动半径内随机游荡（每只鸟频率不同的几组正弦叠加，`gullPath`，航向取路径切线）、阵发性扇翅、其余时间 M 形滑翔，起风时飞得更快，转场结束后才渐显。B 通道（画外笔触不用）存翼段、活动半径和速度。排序时海鸥不做视锥剔除（真实位置离存的圆心最远有一个半径）。
 
 ### 4.3 罂粟场景（`ext.kind === 'field'`）的要点
 
@@ -220,9 +227,17 @@ node tools/render.mjs --headless   # 无窗口（软件渲染，云端约 1 小�
 | 人物特写时背后有绿色或蓝色色块 | 人物像素位置没有草地底层，镜头移动后露出空洞；阳伞边缘被分到草地。修复：补草（4.3）、阳伞椭圆 |
 | 扩展天空有细密划痕 | 天空笔触太小，片元刷痕形成条纹。修复：笔触加大，天空 `vBr=0` |
 | 用户电脑卡到打不开 | 默认画质从 high 改成 mid；启动时只生成第一幅画，第二幅在切换时才生成 |
+| 帆的倒影是斜的 | 画内倒影按原点视角铺，却以当前眼睛位置重投影。修复：画内倒影 `ext = 0.25`，着色器以原点为参照 |
+| 白帆倒影时有时无 | 只在细层、只给大帆生成。修复：所有帆（含画外）按同一概率生成 |
+| 树的剪影长出“翅膀” | 给每个元素脚下单独加草裙。修复：改成放在前排树丛卡片上的灌木带 |
+| 树脚灌木带视差穿帮 | 灌木带用了自己的深度，和树丛错位。修复：灌木带放在 `grove_front` 卡片上，树和小房子退到树丛后面，并从树丛里抠掉 |
+| 拉近后岸边露缝 | `landMinLayer: 2` 只剩一层笔触覆盖不满。保持 1 |
+| 笔触数超预算 | 画外树 `spMul 0.85` 时单棵树就有 4.9 万笔。保持 1.0，用 `alphaMul` 调总量 |
+| 天顶出现一圈圈的笔触 | 天空笔触强制水平。修复：按仰角渐弱 |
 
 ## 8. 待办 / 建议的下一步（按优先级）
 
+0. **手势起风**：手势模块检测到挥手时调用 `window.monet.wave(速度映射到 0–1.5)` 即可，无需改渲染代码。
 1. **罂粟场景（可选的继续打磨）**：
    - 画内右侧的草地是原画的淡紫灰色，扩展草地偏绿，正前方向右转约 0.6 rad 时能看出冷暖差异。可以考虑放宽 `groundBins` 的取色条件（`g >= r*0.97`）。
    - 扩展地平线是平的，原画远处有缓坡，可以加一点起伏。
