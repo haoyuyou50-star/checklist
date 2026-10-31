@@ -52,12 +52,13 @@ export function buildUnified(scene, img, Q, X = null) {
 
   /* ---------------- segmentation: class + where each pixel meets the water ---------------- */
   const wl = polyline(U.water);
+  const skyBad = U.skyBad || (() => false), waterBad = U.waterBad || (() => false);
   const groundZ = (v) => { const y = -(v - vH) * asp; return y >= -1e-5 ? cam.maxD : Math.min(cam.maxD, (h * f) / -y); };
-  const skyLike = (r, g, b) => {
+  const skyLike = U.skyLike || ((r, g, b) => {
     const L = 0.3 * r + 0.59 * g + 0.11 * b, ch = Math.max(r, g, b) - Math.min(r, g, b);
     // Monet's sky here is a near-neutral grey (sometimes faintly warm); sails, roofs and foliage all carry chroma
     return ch < 0.125 && L > 0.42 && b > r - 0.11;
-  };
+  });
   const boats = U.boats.map((b, i) => ({ ...b, i, top: Math.min(...b.poly.map((p) => p[1])) }));
   const boatsByNear = [...boats].sort((a, b) => b.contact - a.contact);
 
@@ -125,17 +126,17 @@ export function buildUnified(scene, img, Q, X = null) {
     const L = 0.3 * r + 0.59 * g + 0.11 * b, ch = Math.max(r, g, b) - Math.min(r, g, b);
     return ch < 0.09 && L > 0.42 && L < 0.8 && b > r - 0.05;
   };
-  const inFarBank = (r, g, b, v) => v >= U.farBank.top && v < wl(0) + 0.002 && 0.3 * r + 0.59 * g + 0.11 * b < 0.64;
+  const inFarBank = (r, g, b, v) => !!U.farBank && v >= U.farBank.top && v < wl(0) + 0.002 && 0.3 * r + 0.59 * g + 0.11 * b < 0.64;
   const boatMasks = boats.map((bt) => objectMask(bt.poly, (r, g, b, v) => v < bt.contact + 0.003 && !skyNearSail(r, g, b) && !greenish(r, g, b) && !inFarBank(r, g, b, v), 2, 4000));
-  const landMask = objectMask(U.land, (r, g, b, v) => !skyLike(r, g, b), 1, 24);
+  const landMask = objectMask(U.land, (r, g, b, v) => !skyLike(r, g, b, v), 1, 24);
   // the bank stands as paper cards: the shore strip in front, trees a step back, buildings further back,
   // so a moving eye sees them slide past one another (dv: height above the waterline in canvas units)
-  const landCard = (dv, built) => 1 + (built ? 1.3 : 0.35) * smooth(0.035, 0.06, dv) + 0.15 * smooth(0.07, 0.25, dv);
+  const landCard0 = (dv, built) => 1 + (built ? 1.3 : 0.35) * smooth(0.035, 0.06, dv) + 0.15 * smooth(0.07, 0.25, dv);
   // buildings: warm roofs and pale walls, smoothed into solid regions so foliage highlights stay on the tree card
   const warm = new Float32Array(N);
   for (let i = 0; i < N; i++) {
     const r = b1[i * 3], g = b1[i * 3 + 1], b = b1[i * 3 + 2];
-    warm[i] = !skyLike(r, g, b) && (r > g * 1.06 || (0.3 * r + 0.59 * g + 0.11 * b > 0.62 && r >= g)) ? 1 : 0;
+    warm[i] = !skyLike(r, g, b, (((i / W) | 0) + 0.5) / H) && (r > g * 1.06 || (0.3 * r + 0.59 * g + 0.11 * b > 0.62 && r >= g)) ? 1 : 0;
   }
   const builtMap = blur1(warm, W, H, 4);
   const cls = new Uint8Array(N), depZ = new Float32Array(N), hot = new Uint8Array(N), flex = new Float32Array(N);
@@ -153,10 +154,10 @@ export function buildUnified(scene, img, Q, X = null) {
       d = groundZ(boat.contact); k = boat.i;
       fl = c === CLS.SAIL ? clamp((boat.contact - v) / (boat.contact - boat.top), 0, 1) : 0;
     } else if (v < vw && landMask(x, y)) {
-      c = green(r, g, b) ? CLS.TREE : CLS.STATIC;
-      d = groundZ(vw) * landCard(vw - v, builtMap[i] > 0.55);
+      c = U.landCls ? U.landCls(u, v, r, g, b) : green(r, g, b) ? CLS.TREE : CLS.STATIC;
+      d = groundZ(vw) * (U.landCard ? U.landCard(u, v, vw - v) : landCard0(vw - v, builtMap[i] > 0.55));
       if (y / H < colTopV[x]) colTopV[x] = y / H;
-    } else if (u < U.farBank.uMax && v >= U.farBank.top && v < vw) {
+    } else if (U.farBank && u < U.farBank.uMax && v >= U.farBank.top && v < vw) {
       c = CLS.STATIC; d = groundZ(vw);
       if (y / H < colTopV[x]) colTopV[x] = y / H;
     } else if (v >= vw || v > vH + 0.002) {
@@ -165,7 +166,7 @@ export function buildUnified(scene, img, Q, X = null) {
       c = CLS.SKY; d = 0;
     }
     cls[i] = c; depZ[i] = d; flex[i] = fl; comp[i] = k;
-    hot[i] = U.hot(u, v, c);
+    hot[i] = U.hot ? U.hot(u, v, c) : 0;
     fam[i] = c === CLS.SKY ? FAM_SKY : c === CLS.WATER ? FAM_WATER : k >= 0 ? FAM_BOAT : FAM_LAND;
   }
   for (let x = 0; x < W; x++) if (colTopV[x] > 1) colTopV[x] = wl((x + 0.5) / W);
@@ -191,7 +192,7 @@ export function buildUnified(scene, img, Q, X = null) {
   };
   const famImg = [0, 1, 2, 3].map((fm) => {
     const m = new Float32Array(N);
-    for (let i = 0; i < N; i++) m[i] = fam[i] === fm && !(fm === FAM_SKY && U.skyBad((i % W + 0.5) / W, ((i / W) | 0) / H)) ? 1 : 0;
+    for (let i = 0; i < N; i++) m[i] = fam[i] === fm && !(fm === FAM_SKY && skyBad((i % W + 0.5) / W, ((i / W) | 0) / H)) ? 1 : 0;
     const big = inpaint(m);
     const l6 = blurMasked(rgb, m, big, W, H, 6), l3 = blurMasked(rgb, m, big, W, H, 3);
     const fine = new Float32Array(N * 3);
@@ -211,7 +212,8 @@ export function buildUnified(scene, img, Q, X = null) {
     return Math.abs(lum[i] - rowMed[y]) > 0.09 || Math.max(...c) - Math.min(...c) > 0.16 || c[2] < c[0] - 0.05;
   };
   const baseMask = new Float32Array(N);
-  for (let i = 0; i < N; i++) baseMask[i] = cls[i] === CLS.WATER && !isRefl(i) ? 1 : 0;
+  // a pond full of lilies has no clean water to tell reflections from: all of it is the base
+  for (let i = 0; i < N; i++) baseMask[i] = cls[i] === CLS.WATER && (U.waterAllBase || !isRefl(i)) ? 1 : 0;
   // a painted reflection belongs to the object above it: flex = -(object distance / water distance)
   // marks it so the shader can mirror it about the river for any eye position
   for (let x = 0; x < W; x++) {
@@ -231,8 +233,8 @@ export function buildUnified(scene, img, Q, X = null) {
 
   // clean sources: sky well away from any object (Monet lightens the sky around sails), water without reflections
   const notSky = new Float32Array(N), notBase = new Float32Array(N);
-  for (let i = 0; i < N; i++) { notSky[i] = fam[i] === FAM_SKY && !U.skyBad((i % W + 0.5) / W, ((i / W) | 0) / H) ? 0 : 1; notBase[i] = baseMask[i] ? 0 : 1; }
-  const nearObj = blur1(notSky, W, H, 6), nearRefl = blur1(notBase, W, H, 1);
+  for (let i = 0; i < N; i++) { notSky[i] = fam[i] === FAM_SKY && !skyBad((i % W + 0.5) / W, ((i / W) | 0) / H) ? 0 : 1; notBase[i] = baseMask[i] ? 0 : 1; }
+  const nearObj = blur1(notSky, W, H, U.skyClean ?? 6), nearRefl = blur1(notBase, W, H, 1);
   const skyOK = new Uint8Array(N), waterOK = new Uint8Array(N);
   for (let i = 0; i < N; i++) { skyOK[i] = nearObj[i] < 1e-4 ? 1 : 0; waterOK[i] = nearRefl[i] < 1e-4 ? 1 : 0; }
   // nearest clean pixel along the same row keeps neighbouring strokes coherent
@@ -255,6 +257,17 @@ export function buildUnified(scene, img, Q, X = null) {
     }
     const l = rowList(ok, y);
     return l.length ? l[Math.floor(rand() * l.length)] : -1;
+  };
+  // a clean sky pixel for (x, y): along the row first, then the nearest rows that have any
+  const skyPix = (x, y) => {
+    const cx = cleanInRow(skyOK, x, y);
+    if (cx >= 0) return [cx, y];
+    for (let k = 1; k < H; k++) for (const yy of [y - k, y + k]) {
+      if (yy < 0 || yy >= H) continue;
+      const l = rowList(skyOK, yy);
+      if (l.length) return [l[Math.floor(rand() * l.length)], yy];
+    }
+    return [x, y];
   };
   if (globalThis.__monetDebug) globalThis.__monetDebug = { W, H, cls, sky: famImg[FAM_SKY][2], sky6: famImg[FAM_SKY][0], water: waterBaseImg[2], land: famImg[FAM_LAND][2] };
 
@@ -316,6 +329,8 @@ export function buildUnified(scene, img, Q, X = null) {
     s += 0.6 * (fbm2(s * 0.7 + (land ? 3.3 : 8.1), 1.7, 3) - 0.5) * smooth(0.6, 2, s);
     return { u: ch.at(tri(s)), flip: triFlip(s) };
   };
+  // extra canopy height above the frame's top edge (canvas units), varying round the viewer
+  const crownV = (th) => (U.crown ? U.crown[0] + (U.crown[1] - U.crown[0]) * smooth(0.25, 0.75, fbm2(Math.cos(th) * U.crown[2] + 4.2, Math.sin(th) * U.crown[2] - 2.7, 3)) : 0);
   const landAt = (th) => { const p = pLand(th); return p > 0.2 && vnoise2(Math.cos(th) * 1.7 + 11, Math.sin(th) * 1.7 + 4) * 0.85 + rand() * 0.15 < p; };
   const xOf = (u) => clamp(Math.floor(u * W), 0, W - 1), yOf = (v) => clamp(Math.floor(v * H), 0, H - 1);
   const softCap = (v, a, b) => (v <= a ? v : a + (b - a) * (1 - Math.exp(-(v - a) / (b - a))));
@@ -367,13 +382,24 @@ export function buildUnified(scene, img, Q, X = null) {
       let sy = y;
       if (c === CLS.SKY && p[1] < 0.2) {
         sy = yOf(skyRow(p[1]));
-        if (!skyOK[sy * W + x]) x = Math.max(0, cleanInRow(skyOK, x, sy));
+        if (!skyOK[sy * W + x]) [x, sy] = skyPix(x, sy);
       } else if (c === CLS.WATER && p[1] > 0.8) sy = yOf(waterRow(p[1]));
-      if (c === CLS.SKY && U.skyBad(p[0], p[1])) x = Math.max(0, cleanInRow(skyOK, x, sy));
+      if (c === CLS.SKY && skyBad(p[0], p[1])) [x, sy] = skyPix(x, sy);
       const soft = c === CLS.SKY ? smooth(0.2, 0.02, p[1]) : 0;
       return { P: [d[0] * t, d[1] * t, d[2] * t], cls: c, x, y: sy, flip: false, img: famImg[fam[i]], hot: hot[i], flex: flex[i], comp: comp[i], uv: p, soft };
     }
     const th = Math.atan2(d[0], -d[2]), el = Math.asin(clamp(d[1], -1, 1)), ce = Math.cos(el);
+    // foliage cut by the frame's top edge grows on above it, mirrored from its own top rows
+    if (p && p[1] < 0 && p[0] >= 0 && p[0] <= 1) {
+      const x = xOf(p[0]), top = colTopV[x];
+      if (top < 0.03 && -p[1] < crownV(th) * (1 - top / 0.03)) {
+        const sy = yOf(top + Math.min(-p[1], 0.25)), i = sy * W + x;
+        if (cls[i] !== CLS.SKY && cls[i] !== CLS.WATER) {
+          const t = depZ[yOf(top) * W + x] / -d[2];
+          return { P: [d[0] * t, d[1] * t, d[2] * t], cls: cls[i] === CLS.SAIL ? CLS.STATIC : cls[i], x, y: sy, flip: false, img: famImg[FAM_LAND], hot: 0, flex: 1, comp: -1 };
+        }
+      }
+    }
     const S = shoreS(th), land = landAt(th);
     const pu = poolU(th, land), x = xOf(pu.u), hw = d[1] < -1e-4 ? (h / -d[1]) * ce : Infinity;
     if (hw < S) {
@@ -405,30 +431,35 @@ export function buildUnified(scene, img, Q, X = null) {
       let ys = yOf(vs);
       if (!shoreBand) {
         const cx = cleanInRow(waterOK, xs, ys);
-        if (cx >= 0 && !U.waterBad(cx / W, ys / H)) xs = cx;
-        else for (let k = 0; k < 10 && (!waterOK[ys * W + xs] || U.waterBad(xs / W, ys / H)); k++) { xs = xOf(rand()); ys = yOf(Math.max(vs, colWl[xs] + 0.004)); }
+        if (cx >= 0 && !waterBad(cx / W, ys / H)) xs = cx;
+        else for (let k = 0; k < 10 && (!waterOK[ys * W + xs] || waterBad(xs / W, ys / H)); k++) { xs = xOf(rand()); ys = yOf(Math.max(vs, colWl[xs] + 0.004)); }
       }
       return { P: [d[0] * t, d[1] * t, d[2] * t], cls: CLS.WATER, x: xs, y: ys, flip, img, hot: 0, flex: shoreBand ? -S / hw : 0.5 + rand() * 0.5, comp: -1, haze: 0, near };
     }
     const tb = S / ce, yb = d[1] * tb;
-    const hb = colHb[x] * (land ? lerp(1, 0.85, smooth(40, 140, S)) : 1);
-    if (yb > -h && yb + h <= hb) {
+    let hb = colHb[x] * (land ? lerp(1, 0.85, smooth(40, 140, S)) : 1);
+    // a garden all round keeps its columns' angular height, so trees behind are trees, not a low hedge
+    if (U.bankAngular) hb = h + (hb - h) * lerp(1, S / colD[x], U.bankAngular);
+    const crown = colTopV[x] < 0.03 ? (crownV(th) * asp * S) / f : 0;
+    // straight above or below the frame the painting's own columns (and their canopy) are the bank
+    const overFrame = !!U.crown && p && p[0] >= 0 && p[0] <= 1;
+    if (!overFrame && yb > -h && yb + h <= hb + crown) {
       const fr = (yb + h) / Math.max(hb, 1e-3);
-      const vs = colWl[x] - fr * (colWl[x] - colTopV[x]);
+      let vs = colWl[x] - fr * (colWl[x] - colTopV[x]);
+      if (vs < 0) vs = Math.min(-vs, 0.25);
       const ys = yOf(vs), i = ys * W + x;
       if (cls[i] !== CLS.SKY && cls[i] !== CLS.WATER) {
         const c = cls[i] === CLS.SAIL ? CLS.STATIC : cls[i];
-        const k = land ? 1 + 0.3 * smooth(0.12, 0.25, fr) + (builtMap[i] > 0.55 ? 0.35 * smooth(0.15, 0.3, fr) : 0) + 0.35 * smooth(0.3, 0.9, fr) : 1;
-        return { P: [d[0] * tb * k, yb * k, d[2] * tb * k], cls: c, x, y: ys, flip: pu.flip, img: famImg[fam[i] === FAM_BOAT ? FAM_LAND : fam[i]], hot: 0, flex: c === CLS.TREE ? fr : 0, comp: -1, haze: land ? smooth(30, 150, S) * 0.5 : 0, far: smooth(40, 120, S), thin: hb / S, ridge: fr > 0.45 ? [th, el] : null };
+        const k = U.landCard ? U.landCard(-1, vs, Math.max(0, colWl[x] - colTopV[x]) * Math.min(fr, 1)) : land ? 1 + 0.3 * smooth(0.12, 0.25, fr) + (builtMap[i] > 0.55 ? 0.35 * smooth(0.15, 0.3, fr) : 0) + 0.35 * smooth(0.3, 0.9, fr) : 1;
+        return { P: [d[0] * tb * k, yb * k, d[2] * tb * k], cls: c, x, y: ys, flip: pu.flip, img: famImg[fam[i] === FAM_BOAT ? FAM_LAND : fam[i]], hot: 0, flex: c === CLS.TREE ? Math.min(fr, 1) : 0, comp: -1, haze: land ? smooth(30, 150, S) * 0.5 : 0, far: smooth(40, 120, S), thin: (hb + crown) / S, ridge: fr > 0.45 ? [th, el] : null };
       }
     }
     return skyAt(d, th, el);
   };
   const skyAt = (d, th, el) => {
     const s = skySrc(th, el);
-    let sy = yOf(s.v), sx = cleanInRow(skyOK, xOf(s.u), sy);
-    for (let k = 0; sx < 0 && k < 40; k++) { sy = Math.max(0, sy - 2); sx = cleanInRow(skyOK, xOf(s.u), sy); }
-    return { P: [d[0] * R, d[1] * R, d[2] * R], cls: CLS.SKY, x: Math.max(0, sx), y: sy, flip: s.flip, img: famImg[FAM_SKY], hot: 0, flex: 0, comp: -1, zen: s.zen, soft: s.soft };
+    const [sx, sy] = skyPix(xOf(s.u), yOf(s.v));
+    return { P: [d[0] * R, d[1] * R, d[2] * R], cls: CLS.SKY, x: sx, y: sy, flip: s.flip, img: famImg[FAM_SKY], hot: 0, flex: 0, comp: -1, zen: s.zen, soft: s.soft };
   };
 
   /* ---------------- colour references ---------------- */
@@ -470,7 +501,8 @@ export function buildUnified(scene, img, Q, X = null) {
   const B = new Builder(320000);
   const hotAcc = new Map();
   const alpha0 = Q.uniAlpha * (typeof U.alphaMul === 'object' ? U.alphaMul[Q.tier] || 1 : U.alphaMul || 1);
-  const gOf = (psi) => 1 + 1.0 * smooth(0.5, 2.6, psi);
+  const [gA, gB, gM] = U.falloff || [0.5, 2.6, 1.0];
+  const gOf = (psi) => 1 + gM * smooth(gA, gB, psi);
   const sC = 3.0 / f;
   const up = [0, 1, 0];
   const frontDir = front;
@@ -548,12 +580,12 @@ export function buildUnified(scene, img, Q, X = null) {
       const wx = cleanInRow(waterOK, x, y);
       return { P: [d[0] * t, d[1] * t, d[2] * t], cls: CLS.WATER, x: wx < 0 ? x : wx, y, flip: false, img: waterBaseImg, hot: 0, flex: 0.7, comp: -1 };
     }
-    if (p[0] < U.farBank.uMax && p[1] >= U.farBank.top) {
+    if (U.farBank && p[0] < U.farBank.uMax && p[1] >= U.farBank.top) {
       const t = colD[x] / -d[2];
       return { P: [d[0] * t, d[1] * t, d[2] * t], cls: CLS.STATIC, x, y, flip: false, img: famImg[FAM_LAND], hot: 0, flex: 0, comp: -1 };
     }
-    const sx = cleanInRow(skyOK, x, y);
-    return { P: [d[0] * R, d[1] * R, d[2] * R], cls: CLS.SKY, x: sx < 0 ? x : sx, y, flip: false, img: famImg[FAM_SKY], hot: 0, flex: 0, comp: -1 };
+    const [sx, sy] = skyPix(x, y);
+    return { P: [d[0] * R, d[1] * R, d[2] * R], cls: CLS.SKY, x: sx, y: sy, flip: false, img: famImg[FAM_SKY], hot: 0, flex: 0, comp: -1 };
   };
 
   // what a sideways step uncovers behind a bank card: sky over its ridge, the bank's own rear card inside it
