@@ -22,7 +22,7 @@ const browser = await puppeteer.launch({
   defaultViewport: { width: W, height: H, deviceScaleFactor: 1 },
 });
 const page = await browser.newPage();
-page.on('pageerror', (e) => console.log('[pageerror]', e.message));
+page.on('pageerror', (e) => console.log('[pageerror]', e.stack || e.message));
 page.on('console', (m) => console.log('[page]', m.text()));
 await page.goto(`http://localhost:8123/index.html?capture=1&nodemo=1&q=${args.q || 'mid'}`, { waitUntil: 'load' });
 await page.waitForFunction('window.__ready === true', { timeout: 300000 });
