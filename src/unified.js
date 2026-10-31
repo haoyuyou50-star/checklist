@@ -317,6 +317,11 @@ export function buildUnified(scene, img, Q) {
   };
   const landAt = (th) => { const p = pLand(th); return p > 0.2 && vnoise2(Math.cos(th) * 1.7 + 11, Math.sin(th) * 1.7 + 4) * 0.85 + rand() * 0.15 < p; };
   const xOf = (u) => clamp(Math.floor(u * W), 0, W - 1), yOf = (v) => clamp(Math.floor(v * H), 0, H - 1);
+  const softCap = (v, a, b) => (v <= a ? v : a + (b - a) * (1 - Math.exp(-(v - a) / (b - a))));
+  // the painting's top and bottom edge rows are darker; inside and outside the frame alike, rows past
+  // these limits ease towards the open sky / water instead, so no grey band rings the viewer
+  const skyRow = (v) => (v >= 0.2 ? v : 0.2 - 0.1 * (1 - Math.exp(-(0.2 - v) / 0.1)));
+  const waterRow = (v) => softCap(v, 0.8, 0.93);
 
   // one coordinate running from the right edge round the back to the left edge, closing on an even tile
   const kSky = Math.round((1 + span * duEdge) / 2) * 2 - 1;
@@ -333,10 +338,17 @@ export function buildUnified(scene, img, Q) {
     }
     const cth = Math.cos(clamp(th, -thE, thE));
     const vv = vH - (Math.tan(Math.min(el, 1.45)) / cth) * f / asp;
-    const band = 0.22;
-    const vs = vv >= 0 ? Math.min(vv, vH - 0.01) : band * tri(-vv / band);
-    const [lo, hi] = U.skyRange;
-    return { u: Math.abs(th) <= thE ? uv : lo + tri(uv) * (hi - lo), v: vs, flip: !triFlip(uv), zen: smooth(0, -2.2, vv) };
+    const [lo, hi] = U.skyRange, zen = smooth(0, -2.2, vv);
+    // above the frame, rows never fold back off the top edge: repeated folds showed the darker top rows as grey arcs
+    if (vv < 0 && rand() < smooth(0, -0.3, vv)) {
+      // high up every azimuth converges: sample a ceiling by position so no seam runs to the zenith
+      const cot = 1 / Math.tan(Math.max(el, 0.05)), cx = cot * Math.sin(th), cz = cot * Math.cos(th);
+      const su = tri(cx * 0.45 + 0.5 + 0.6 * (fbm2(cx * 0.7 + 3.1, cz * 0.7, 3) - 0.5));
+      const sv = tri(cz * 0.4 + 0.3 + 0.6 * (fbm2(cx * 0.7, cz * 0.7 + 6.2, 3) - 0.5));
+      return { u: lo + su * (hi - lo), v: lerp(0.14, 0.38, sv), flip: false, zen, soft: 1 };
+    }
+    const vs = skyRow(Math.min(vv, vH - 0.01));
+    return { u: Math.abs(th) <= thE ? uv : lo + tri(uv) * (hi - lo), v: vs, flip: !triFlip(uv), zen, soft: smooth(0.2, -0.1, vv) };
   };
   const reflAt = (x, y) => isRefl(y * W + x);
 
@@ -351,8 +363,14 @@ export function buildUnified(scene, img, Q) {
       let x = xOf(p[0]);
       const y = yOf(p[1]), i = y * W + x, c = cls[i];
       const t = c === CLS.SKY ? R : depZ[i] / -d[2];
-      if (c === CLS.SKY && U.skyBad(p[0], p[1])) x = Math.max(0, cleanInRow(skyOK, x, y));
-      return { P: [d[0] * t, d[1] * t, d[2] * t], cls: c, x, y, flip: false, img: famImg[fam[i]], hot: hot[i], flex: flex[i], comp: comp[i], uv: p };
+      let sy = y;
+      if (c === CLS.SKY && p[1] < 0.2) {
+        sy = yOf(skyRow(p[1]));
+        if (!skyOK[sy * W + x]) x = Math.max(0, cleanInRow(skyOK, x, sy));
+      } else if (c === CLS.WATER && p[1] > 0.8) sy = yOf(waterRow(p[1]));
+      if (c === CLS.SKY && U.skyBad(p[0], p[1])) x = Math.max(0, cleanInRow(skyOK, x, sy));
+      const soft = c === CLS.SKY ? smooth(0.2, 0.02, p[1]) : 0;
+      return { P: [d[0] * t, d[1] * t, d[2] * t], cls: c, x, y: sy, flip: false, img: famImg[fam[i]], hot: hot[i], flex: flex[i], comp: comp[i], uv: p, soft };
     }
     const th = Math.atan2(d[0], -d[2]), el = Math.asin(clamp(d[1], -1, 1)), ce = Math.cos(el);
     const S = shoreS(th), land = landAt(th);
@@ -372,13 +390,16 @@ export function buildUnified(scene, img, Q) {
         const su = tri(px / 11 + 0.9 * (fbm2(px * 0.04 + 2.1, pz * 0.04, 3) - 0.5));
         const sw = tri(pz / 8 + 0.9 * (fbm2(px * 0.04, pz * 0.04 + 5.3, 3) - 0.5));
         xs = xOf(0.12 + su * 0.76 + (rand() - 0.5) * 0.04); flip = false; img = waterBaseImg;
-        vs = lerp(0.76, 0.92, sw) + (rand() - 0.5) * 0.02;
+        vs = vH + (h * f) / (hw * Math.cos(thE) * asp) + (sw - 0.5) * 0.03;
       } else {
         const sv = skySrc(th, 0);
         xs = xOf(sv.u); flip = sv.flip; img = waterBaseImg;
         vs = vH + (h * f) / (hw * Math.cos(thE) * asp);
       }
-      if (vs > 1) vs = 2 - vs;
+      // rows nearer than the painting's bottom edge ease into the clean lower water instead of folding
+      // back at the edge, whose darker rows would otherwise ring the viewer
+      if (!shoreBand) vs = waterRow(vs);
+      else if (vs > 1) vs = 2 - vs;
       vs = Math.max(vs, colWl[xs] + 0.004);
       let ys = yOf(vs);
       if (!shoreBand) {
@@ -406,7 +427,7 @@ export function buildUnified(scene, img, Q) {
     const s = skySrc(th, el);
     let sy = yOf(s.v), sx = cleanInRow(skyOK, xOf(s.u), sy);
     for (let k = 0; sx < 0 && k < 40; k++) { sy = Math.max(0, sy - 2); sx = cleanInRow(skyOK, xOf(s.u), sy); }
-    return { P: [d[0] * R, d[1] * R, d[2] * R], cls: CLS.SKY, x: Math.max(0, sx), y: sy, flip: s.flip, img: famImg[FAM_SKY], hot: 0, flex: 0, comp: -1, zen: s.zen };
+    return { P: [d[0] * R, d[1] * R, d[2] * R], cls: CLS.SKY, x: Math.max(0, sx), y: sy, flip: s.flip, img: famImg[FAM_SKY], hot: 0, flex: 0, comp: -1, zen: s.zen, soft: s.soft };
   };
 
   /* ---------------- colour references ---------------- */
@@ -418,9 +439,20 @@ export function buildUnified(scene, img, Q) {
   const horizCol = meanRows(b1, vH - 0.12, vH - 0.02, FAM_SKY);
   const topCol = meanRows(b1, 0, 0.06, FAM_SKY);
   const zenCol = lerp3(topCol, [topCol[0] * 0.94, topCol[1] * 0.98, Math.min(1, topCol[2] * 1.05)], 0.6);
+  const skyRowCol = [];
+  for (let y = 0; y < H; y++) {
+    const m = [0, 0, 0]; let n = 0;
+    for (let x = 0; x < W; x++) { const i = y * W + x; if (!skyOK[i]) continue; m[0] += b1[i * 3]; m[1] += b1[i * 3 + 1]; m[2] += b1[i * 3 + 2]; n++; }
+    skyRowCol.push(n ? [m[0] / n, m[1] / n, m[2] / n] : null);
+  }
+  for (let y = 1; y < H; y++) if (!skyRowCol[y]) skyRowCol[y] = skyRowCol[y - 1];
+  for (let y = H - 2; y >= 0; y--) if (!skyRowCol[y]) skyRowCol[y] = skyRowCol[y + 1] || topCol;
   const sampleCol = (r, lvl) => {
-    const img = r.img[lvl], i = (r.y * W + r.x) * 3;
+    // compressed and converging sky rows would stretch the painting's clouds into streaks: there the
+    // colour leans on the row's mean so only the vertical gradient survives
+    const img = r.img[r.soft && rand() < r.soft ? 0 : lvl], i = (r.y * W + r.x) * 3;
     let c = [img[i], img[i + 1], img[i + 2]];
+    if (r.soft) c = lerp3(c, skyRowCol[r.y], r.soft * 0.93);
     if (r.zen) c = lerp3(c, lerp3(c, zenCol, 0.75), r.zen);
     if (r.haze) c = lerp3(c, horizCol, r.haze);
     return c;
