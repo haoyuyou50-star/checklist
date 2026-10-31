@@ -245,6 +245,17 @@ export function makeLayerEmitter(set, Q) {
         const cf = c.fine || fine;
         const wWork = Math.min(set.cards[k].naturalWidth * 1.6, Math.max(24, pxAng0 / (alpha0 * layers[3].k * cf * 0.55)));
         const s = readSprite(set.cards[k], wWork);
+        // an element painted over this one but standing behind it (so the shrubs can cover its foot)
+        // must not be hidden by this layer: cut its silhouette out
+        spec.cards.forEach((c2, j) => {
+          if (j <= k || cardDepth(c2, groundZ, wl) <= D) return;
+          const P2 = pixels(set.cards[j]), [a0, b0, a1, b1] = c2.box;
+          for (let y = 0; y < s.h; y++) for (let x = 0; x < s.w; x++) {
+            const u = u0 + ((x + 0.5) / s.w) * (u1 - u0), v = v0 + ((y + 0.5) / s.h) * (v1 - v0);
+            const px = Math.floor(((u - a0) / (a1 - a0)) * P2.w), py = Math.floor(((v - b0) / (b1 - b0)) * P2.h);
+            if (px >= 0 && py >= 0 && px < P2.w && py < P2.h && P2.d[(py * P2.w + px) * 4 + 3] > 100) s.m[y * s.w + x] = 0;
+          }
+        });
         const kd = kindOf[c.kind];
         const toW = (u, v) => { const z = D; return [(u - 0.5) * z / f, -(v - vH) * asp * z / f, -z]; };
         const n = emitSprite(s, {
@@ -252,13 +263,14 @@ export function makeLayerEmitter(set, Q) {
           place: (sx, sy) => toW(u0 + (sx / s.w) * (u1 - u0), v0 + (sy / s.h) * (v1 - v0)),
           cls: kd.cls, angle: kd.angle, refl: kd.refl,
         });
-        stats.push(`${c.id}:${n}`);
+        stats.push(`${c.id}:${n}@${D.toFixed(0)}m`);
       });
 
       /* ---- shrubs in front of the bank elements' feet ---- */
       (spec.hedges || []).forEach((hd, k) => {
         const [u0, v0, u1, v1] = hd.box;
-        const D = groundZ(wl((u0 + u1) / 2)) * hd.depth;
+        // on the grove's own card, so it slides with the grove and not with the elements behind it
+        const D = cardDepth(spec.cards.find((q) => q.id === hd.src), groundZ, wl) * 0.995;
         const pxA = (u1 - u0) / f, hf = hd.fine || fine;
         const wPx = Math.max(24, pxA / (alpha0 * layers[3].k * hf * 0.55));
         const cvs = makeHedge(set.cards[spec.cards.findIndex((q) => q.id === hd.src)], hd, Math.round(wPx), Math.max(8, Math.round((wPx * (v1 - v0) * asp) / (u1 - u0))));
@@ -268,7 +280,7 @@ export function makeLayerEmitter(set, Q) {
           place: (sx, sy) => { const u = u0 + (sx / ss.w) * (u1 - u0), v = v0 + (sy / ss.h) * (v1 - v0); return [(u - 0.5) * D / f, -(v - vH) * asp * D / f, -D]; },
           cls: () => CLS.TREE, angle: kindOf.tree.angle, refl: 0, flexMul: 0.2,
         });
-        stats.push(`hedge${k}:${n}`);
+        stats.push(`hedge${k}:${n}@${D.toFixed(0)}m`);
       });
 
       /* ---- the extra sails and trees, staged around the viewer ---- */
