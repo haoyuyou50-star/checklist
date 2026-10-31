@@ -10,7 +10,7 @@ precision highp sampler2D;
 
 uniform sampler2D tA, tB, tC, tD, tE;
 uniform vec2 uViewport;
-uniform float uTime, uMorph, uReveal, uWind, uFlash, uFocusDim, uFocusId, uGustFront, uGustAmp, uOpacity, uH;
+uniform float uTime, uMorph, uReveal, uWind, uFlash, uFocusDim, uFocusId, uGustFront, uGustAmp, uOpacity, uH, uUnified;
 uniform vec2 uWindDir;
 uniform vec3 uFront;
 uniform float uHot[8];
@@ -77,10 +77,12 @@ void main() {
   vec3 pos = world;
   float sizeMul = 1.0;
   float emit = 0.0;
+  float settled = 1.0;
 
   if (ext < 0.5) {
     float m = clamp(uMorph * 1.6 - delay * 0.6, 0.0, 1.0);
     m = m * m * (3.0 - 2.0 * m);
+    settled = m;
     pos = mix(canv, world, m);
     float sc = length(pos) / max(length(world), 1e-4);
     axis *= sc; minor *= sc;
@@ -195,9 +197,10 @@ void main() {
   vec2 dPx = (ce.xy / ce.w - ndcC) * 0.5 * uViewport;
   float maj = length(dPx);
   float mn = minor * sizeMul * projectionMatrix[1][1] * 0.5 * uViewport.y / cc.w;
-  if (ext > 0.5 && (cls == 6 || cls == 11)) {
+  if (cls == 6 || cls == 11) {
     float graze = abs(pos.y - cameraPosition.y) / max(length(pos - cameraPosition), 1e-3);
-    mn *= clamp(graze * 3.2 + 0.12, 0.16, 1.0);
+    float fz = cls == 6 && uUnified > 0.5 ? clamp(graze * 3.0 + 0.4, 0.4, 1.0) : clamp(graze * 3.2 + 0.12, 0.16, 1.0);
+    if (cls == 11 || ext > 0.5 || uUnified > 0.5) mn *= mix(1.0, fz, settled);
   }
   vec2 dir = maj > 1e-4 ? dPx / maj : vec2(1.0, 0.0);
   maj = max(maj, mn);
@@ -289,7 +292,7 @@ export class SplatCloud {
       uViewport: { value: new THREE.Vector2(1, 1) },
       uTime: { value: 0 }, uMorph: { value: 0 }, uReveal: { value: 0 }, uWind: { value: 0 }, uFlash: { value: 1 },
       uFocusDim: { value: 0 }, uFocusId: { value: -1 }, uGustFront: { value: -999 }, uGustAmp: { value: 0 },
-      uOpacity: { value: 1 }, uH: { value: 2 },
+      uOpacity: { value: 1 }, uH: { value: 2 }, uUnified: { value: data.unified ? 1 : 0 },
       uWindDir: { value: new THREE.Vector2(1, 0) },
       uFront: { value: new THREE.Vector3(...data.front) },
       uHot: { value: new Array(8).fill(0) },

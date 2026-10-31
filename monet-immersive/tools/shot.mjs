@@ -53,7 +53,7 @@ if (args.focus) {
   }
 }
 for (const y of args.focus ? [] : yaws) {
-  await page.evaluate((y, p) => { const S = window.app.S; S.cam.yaw = y; if (p !== null) S.cam.pitch = p; S.vel.yaw = S.vel.pitch = 0; }, y, pitch);
+  await page.evaluate((y, p, fov) => { const S = window.app.S; S.cam.yaw = y; if (p !== null) S.cam.pitch = p; if (fov) S.cam.fov = fov; S.vel.yaw = S.vel.pitch = 0; }, y, pitch, args.fov ? Number(args.fov) : 0);
   await step(0.3);
   const f = path.join(out, `${tag}y${y}.jpg`);
   await page.screenshot({ path: f, type: 'jpeg', quality: 90 });
