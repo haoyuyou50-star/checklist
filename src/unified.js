@@ -128,6 +128,16 @@ export function buildUnified(scene, img, Q) {
   const inFarBank = (r, g, b, v) => v >= U.farBank.top && v < wl(0) + 0.002 && 0.3 * r + 0.59 * g + 0.11 * b < 0.64;
   const boatMasks = boats.map((bt) => objectMask(bt.poly, (r, g, b, v) => v < bt.contact + 0.003 && !skyNearSail(r, g, b) && !greenish(r, g, b) && !inFarBank(r, g, b, v), 2, 4000));
   const landMask = objectMask(U.land, (r, g, b, v) => !skyLike(r, g, b), 1, 24);
+  // the bank stands as paper cards: the shore strip in front, trees a step back, buildings further back,
+  // so a moving eye sees them slide past one another (dv: height above the waterline in canvas units)
+  const landCard = (dv, built) => 1 + (built ? 1.3 : 0.35) * smooth(0.035, 0.06, dv) + 0.15 * smooth(0.07, 0.25, dv);
+  // buildings: warm roofs and pale walls, smoothed into solid regions so foliage highlights stay on the tree card
+  const warm = new Float32Array(N);
+  for (let i = 0; i < N; i++) {
+    const r = b1[i * 3], g = b1[i * 3 + 1], b = b1[i * 3 + 2];
+    warm[i] = !skyLike(r, g, b) && (r > g * 1.06 || (0.3 * r + 0.59 * g + 0.11 * b > 0.62 && r >= g)) ? 1 : 0;
+  }
+  const builtMap = blur1(warm, W, H, 4);
   const cls = new Uint8Array(N), depZ = new Float32Array(N), hot = new Uint8Array(N), flex = new Float32Array(N);
   const comp = new Int8Array(N).fill(-1), fam = new Uint8Array(N);
   const colTopV = new Float32Array(W).fill(2);
@@ -144,7 +154,7 @@ export function buildUnified(scene, img, Q) {
       fl = c === CLS.SAIL ? clamp((boat.contact - v) / (boat.contact - boat.top), 0, 1) : 0;
     } else if (v < vw && landMask(x, y)) {
       c = green(r, g, b) ? CLS.TREE : CLS.STATIC;
-      d = groundZ(vw);
+      d = groundZ(vw) * landCard(vw - v, builtMap[i] > 0.55);
       if (y / H < colTopV[x]) colTopV[x] = y / H;
     } else if (u < U.farBank.uMax && v >= U.farBank.top && v < vw) {
       c = CLS.STATIC; d = groundZ(vw);
@@ -163,6 +173,10 @@ export function buildUnified(scene, img, Q) {
     const i = y * W + x;
     if (cls[i] === CLS.TREE) { const vw = wl((x + 0.5) / W); flex[i] = clamp((vw - y / H) / Math.max(0.02, vw - colTopV[x]), 0, 1); }
   }
+  // how far the near bank can slide over the sky when the eye moves sideways
+  const skyInd = new Float32Array(N);
+  for (let i = 0; i < N; i++) skyInd[i] = cls[i] === CLS.SKY ? 1 : 0;
+  const nearSky = blur1(skyInd, W, H, Math.round(W * 0.07));
 
   /* ---------------- per-family colour layers (no bleeding across boundaries) ---------------- */
   // fill everything outside a mask from progressively wider rings of the masked pixels only
@@ -197,6 +211,17 @@ export function buildUnified(scene, img, Q) {
   };
   const baseMask = new Float32Array(N);
   for (let i = 0; i < N; i++) baseMask[i] = cls[i] === CLS.WATER && !isRefl(i) ? 1 : 0;
+  // a painted reflection belongs to the object above it: flex = -(object distance / water distance)
+  // marks it so the shader can mirror it about the river for any eye position
+  for (let x = 0; x < W; x++) {
+    let above = 0;
+    for (let y = 0; y < H; y++) {
+      const i = y * W + x;
+      if (cls[i] === CLS.SKY) above = 0;
+      else if (cls[i] !== CLS.WATER) above = depZ[i];
+      else if (above > 0 && !baseMask[i]) { const m = above / depZ[i]; if (m > 1.02) flex[i] = -Math.min(m, 40); }
+    }
+  }
   const baseBig = inpaint(baseMask);
   const base6 = blurMasked(rgb, baseMask, baseBig, W, H, 6), base3 = blurMasked(rgb, baseMask, baseBig, W, H, 3);
   const baseFine = new Float32Array(N * 3);
@@ -353,7 +378,7 @@ export function buildUnified(scene, img, Q) {
         if (cx >= 0 && !U.waterBad(cx / W, ys / H)) xs = cx;
         else for (let k = 0; k < 10 && (!waterOK[ys * W + xs] || U.waterBad(xs / W, ys / H)); k++) { xs = xOf(rand()); ys = yOf(Math.max(vs, colWl[xs] + 0.004)); }
       }
-      return { P: [d[0] * t, d[1] * t, d[2] * t], cls: CLS.WATER, x: xs, y: ys, flip, img, hot: 0, flex: 0.5 + rand() * 0.5, comp: -1, haze: 0 };
+      return { P: [d[0] * t, d[1] * t, d[2] * t], cls: CLS.WATER, x: xs, y: ys, flip, img, hot: 0, flex: shoreBand ? -S / hw : 0.5 + rand() * 0.5, comp: -1, haze: 0 };
     }
     const tb = S / ce, yb = d[1] * tb;
     const hb = colHb[x] * (land ? lerp(1, 0.85, smooth(40, 140, S)) : 1);
@@ -363,9 +388,13 @@ export function buildUnified(scene, img, Q) {
       const ys = yOf(vs), i = ys * W + x;
       if (cls[i] !== CLS.SKY && cls[i] !== CLS.WATER) {
         const c = cls[i] === CLS.SAIL ? CLS.STATIC : cls[i];
-        return { P: [d[0] * tb, yb, d[2] * tb], cls: c, x, y: ys, flip: pu.flip, img: famImg[fam[i] === FAM_BOAT ? FAM_LAND : fam[i]], hot: 0, flex: c === CLS.TREE ? fr : 0, comp: -1, haze: land ? smooth(30, 150, S) * 0.5 : 0, far: smooth(40, 120, S), thin: hb / S };
+        const k = land ? 1 + 0.3 * smooth(0.12, 0.25, fr) + (builtMap[i] > 0.55 ? 0.35 * smooth(0.15, 0.3, fr) : 0) + 0.35 * smooth(0.3, 0.9, fr) : 1;
+        return { P: [d[0] * tb * k, yb * k, d[2] * tb * k], cls: c, x, y: ys, flip: pu.flip, img: famImg[fam[i] === FAM_BOAT ? FAM_LAND : fam[i]], hot: 0, flex: c === CLS.TREE ? fr : 0, comp: -1, haze: land ? smooth(30, 150, S) * 0.5 : 0, far: smooth(40, 120, S), thin: hb / S, ridge: fr > 0.45 ? [th, el] : null };
       }
     }
+    return skyAt(d, th, el);
+  };
+  const skyAt = (d, th, el) => {
     const s = skySrc(th, el);
     let sy = yOf(s.v), sx = cleanInRow(skyOK, xOf(s.u), sy);
     for (let k = 0; sx < 0 && k < 40; k++) { sy = Math.max(0, sy - 2); sx = cleanInRow(skyOK, xOf(s.u), sy); }
@@ -470,6 +499,17 @@ export function buildUnified(scene, img, Q) {
     return { P: [d[0] * R, d[1] * R, d[2] * R], cls: CLS.SKY, x: sx < 0 ? x : sx, y, flip: false, img: famImg[FAM_SKY], hot: 0, flex: 0, comp: -1 };
   };
 
+  // what a sideways step uncovers behind a bank card: sky over its ridge, the bank's own rear card inside it
+  const backfill = (r, d, li, sp, inF, p) => {
+    if (r.cls === CLS.SKY || r.cls === CLS.WATER) return;
+    if (inF) {
+      const i = r.y * W + r.x;
+      if (depZ[i] > 150) return;
+      if (nearSky[i] > 0) emit(behind(d, p), d, li, sp, true, p);
+      else { const s = (groundZ(colWl[r.x]) * 2.6) / depZ[i]; emit({ ...r, P: r.P.map((q) => q * s), hot: 0 }, d, li, sp, true, p); }
+    } else if (r.ridge) emit(skyAt(d, r.ridge[0], r.ridge[1]), d, li, sp, true, p);
+  };
+
   const fA = norm(cross(front, up)), fB = cross(fA, front);
   const counts = [0, 0, 0, 0];
   layers.forEach((L, li) => {
@@ -500,6 +540,7 @@ export function buildUnified(scene, img, Q) {
         emit(r, d, li, sp, !inF, p, sp / (alpha0 * L.k));
         counts[li]++;
         if (li <= 1 && inF && r.comp >= 0) emit(behind(d, p), d, li, sp, true, p);
+        else if (li <= 1) backfill(r, d, li, sp, inF, p);
       }
       psi += rowStep; row++;
     }
@@ -517,7 +558,7 @@ export function buildUnified(scene, img, Q) {
     const len = Math.hypot(axis[0], axis[1], axis[2]) * lerp(1.2, 1.9, rand()) * k;
     const cl = (col[0] + col[1] + col[2]) / 3;
     const c = [0, 1, 2].map((j) => clamp(lerp(cl + (col[j] - cl) * 1.3, baseWater[j], 0.18) * 0.86, 0, 1));
-    reflections.push([wm, [t[0] * len, 0, t[2] * len], minor * k * 1.4, c, alpha * 0.85]);
+    reflections.push([wm, [t[0] * len, 0, t[2] * len], minor * k * 1.4, c, alpha * 0.85, 1 / k]);
   };
   const toWorld = (u, v, z) => { const s = z / f; return [(u - 0.5) * s, -(v - vH) * asp * s, -z]; };
   (U.boatsOut || []).forEach(([deg, dist, Hh, si]) => {
@@ -553,9 +594,9 @@ export function buildUnified(scene, img, Q) {
       }
     }
   });
-  reflections.forEach(([w, axis, minor, col, a]) => {
+  reflections.forEach(([w, axis, minor, col, a, m]) => {
     if (inRect(proj(norm(w)))) return;
-    B.add(w, w, axis, minor, col, a, CLS.WATER, 0, 1, extDelay(w), 1, rand());
+    B.add(w, w, axis, minor, col, a, CLS.WATER, 0, -m, extDelay(w), 1, rand());
   });
 
   // sparkle on the river and drifting motes
@@ -597,6 +638,6 @@ export function buildUnified(scene, img, Q) {
     D: B.D.subarray(0, B.n * 4), E: B.E.subarray(0, B.n * 4),
     hotspots, front: frontDir, bg: { horizon: horizCol, zenith: zenCol, ground, near },
     paint: { f, vH, asp, xL: -0.5 / f, yT: (vH * asp) / f, yB: (-(1 - vH) * asp) / f },
-    unified: true,
+    unified: true, h,
   };
 }

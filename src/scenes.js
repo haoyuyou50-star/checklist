@@ -132,7 +132,7 @@ const regatta = {
     desc: '塞纳河流经阿让特伊时变得开阔，这里是巴黎人周末驾帆的去处。莫奈用快速并置的色块画水：白帆、红屋与绿岸，被河水打碎成一片颤动的倒影。他不再描摹物体的轮廓，而是捕捉光落在水面上转瞬即逝的那一刻。',
     thumbLabel: '阿让特伊的帆船赛',
   },
-  cam: { f: 0.866, h: 1.6, vH: 0.55, maxD: 450, dolly: 1.4, sky: 520 },
+  cam: { f: 0.866, h: 1.6, vH: 0.55, maxD: 450, dolly: 1.4, sky: 520, parallax: 2.4 },
   grade: { gamma: 0.9, expo: 1.1, wb: [0.94, 1.0, 1.1], sat: 1.28, lift: 0.28, contrast: 1.06 },
   wind: { dir: [1, 0.22], base: 0.5 },
   unified: {

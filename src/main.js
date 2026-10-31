@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { SCENES } from './scenes.js';
-import { buildScene, loadImage, QUALITY } from './generator.js';
+import { buildScene, loadImage, QUALITY, smooth } from './generator.js';
 import { SplatCloud, makeBackdrop } from './splats.js';
 import { WindAudio } from './audio.js';
 
@@ -124,7 +124,11 @@ function applyCamera() {
   camera.projectionMatrix.makePerspective(fr.l * n, fr.r * n, fr.t * n, fr.b * n, n, camera.far);
   camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
   const breathe = S.fMix * 0.03;
-  camera.position.set(S.cam.pos.x, S.cam.pos.y + Math.sin(clock * 0.55) * breathe, S.cam.pos.z);
+  // parallax: the eye slides sideways so near cards move against far ones
+  // only once the painting has opened up: the frame morph relies on the exact centre of projection
+  const pa = (SCENES[S.idx].cam.parallax || 0) * smooth(0.82, 1, S.fMix) * (S.mode === 'focus' ? 0.45 : 1);
+  const ox = look.x * pa, oy = look.y * pa * 0.3;
+  camera.position.set(S.cam.pos.x + Math.cos(S.cam.yaw) * ox, S.cam.pos.y + oy + Math.sin(clock * 0.55) * breathe, S.cam.pos.z - Math.sin(S.cam.yaw) * ox);
   camera.rotation.set(S.cam.pitch + Math.sin(clock * 0.31) * 0.002 * S.fMix, S.cam.yaw + Math.sin(clock * 0.23) * 0.003 * S.fMix, 0);
   camera.updateMatrixWorld();
 }
@@ -369,6 +373,19 @@ el.sound.classList.add('on');
 
 /* ---------------- look controls ---------------- */
 let drag = null;
+const look = { x: 0, y: 0, px: 0, py: 0, t: -99 };
+addEventListener('pointermove', (e) => {
+  look.px = (e.clientX / innerWidth - 0.5) * 2; look.py = -(e.clientY / innerHeight - 0.5) * 2; look.t = clock;
+});
+function updateLook(dt) {
+  if (look.force) { [look.x, look.y] = look.force; return; }
+  let tx = Math.sin(clock * 0.13) * 0.55 + Math.sin(clock * 0.071 + 1.3) * 0.3;
+  let ty = Math.sin(clock * 0.11 + 2.1) * 0.5;
+  const pointer = cursor.on ? [(cursor.x / innerWidth - 0.5) * 2, -(cursor.y / innerHeight - 0.5) * 2] : clock - look.t < 6 ? [look.px, look.py] : null;
+  if (pointer) { tx = tx * 0.25 + pointer[0] * 0.85; ty = ty * 0.25 + pointer[1] * 0.85; }
+  const k = Math.min(1, dt * 1.6);
+  look.x += (clamp(tx, -1, 1) - look.x) * k; look.y += (clamp(ty, -1, 1) - look.y) * k;
+}
 el.canvas.addEventListener('pointerdown', (e) => {
   if (S.mode !== 'immersive') return;
   drag = { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, t: performance.now() };
@@ -415,6 +432,7 @@ function step(dt, draw = true) {
     S.cam.yaw += S.vel.yaw * damp; S.cam.pitch = clamp(S.cam.pitch + S.vel.pitch * damp, -0.9, 0.95);
     S.vel.yaw *= damp; S.vel.pitch *= damp;
   }
+  updateLook(dt);
   S.wind += (S.windTarget * S.windOn - S.wind) * Math.min(1, dt * 1.8);
   const B = cur();
   if (B) {
@@ -430,6 +448,7 @@ function step(dt, draw = true) {
     renderer.getDrawingBufferSize(vp);
     U.uViewport.value.copy(vp);
     U.uTime.value = clock;
+    U.uEye0.value.copy(S.cam.pos);
     U.uMorph.value = S.morph; U.uReveal.value = S.reveal; U.uWind.value = S.wind; U.uFlash.value = S.flash;
     U.uGrade.value = S.grade;
     const fh = S.focusId > 0 && B.data.hotspots.find((h) => h.id === S.focusId);
@@ -482,6 +501,7 @@ const app = {
     }, { e: ease.sine });
   },
 };
+app.eye = look;
 window.app = app;
 
 /* ---------------- boot ---------------- */
