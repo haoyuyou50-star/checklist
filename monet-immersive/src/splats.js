@@ -14,7 +14,7 @@ uniform float uTime, uMorph, uReveal, uWind, uFlash, uFocusDim, uFocusId, uGustF
 uniform vec2 uWindDir;
 uniform vec3 uFront, uEye0;
 uniform float uHot[8];
-uniform float uGrade, uGamma, uExpo, uSat, uLift, uContrast;
+uniform float uGrade, uGamma, uExpo, uSat, uLift, uContrast, uClean;
 uniform vec3 uWB;
 uniform vec3 uFocusPos;
 uniform float uFocusR;
@@ -33,8 +33,24 @@ float vnoise(vec2 p) {
   vec2 u = f * f * (3.0 - 2.0 * f);
   return mix(mix(hash(i), hash(i + vec2(1, 0)), u.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), u.x), u.y);
 }
+// warm, mid-dark, low-chroma colours read as mud once saturated: olive turns to a cooler fresh green,
+// ochre and brown lift to a light clean warm, and shadows lean cool like the sky and river
+vec3 cleanMud(vec3 g) {
+  float l = dot(g, vec3(0.299, 0.587, 0.114));
+  float yel = 0.5 * (g.r + g.g) - g.b;
+  float m = smoothstep(0.02, 0.16, yel) * (1.0 - smoothstep(0.55, 0.85, l)) * uClean;
+  float gr = smoothstep(-0.05, 0.05, g.g - g.r);
+  vec3 fresh = vec3(g.r * 0.86, g.g * 1.02, g.b * 1.06 + 0.03);
+  vec3 warm = vec3(g.r * 1.02 + 0.03, g.g * 1.02 + 0.04, g.b * 1.04 + 0.05);
+  g = mix(g, mix(warm, fresh, gr), m);
+  float ch = max(g.r, max(g.g, g.b)) - min(g.r, min(g.g, g.b));
+  float greyWarm = (1.0 - smoothstep(0.04, 0.11, ch)) * smoothstep(-0.01, 0.04, yel) * uClean;
+  g += vec3(-0.02, 0.0, 0.035) * greyWarm;
+  g += vec3(-0.015, 0.0, 0.04) * (1.0 - smoothstep(0.1, 0.55, l)) * uClean;
+  return g;
+}
 vec3 grade(vec3 c) {
-  vec3 g = pow(max(c, vec3(0.0)), vec3(uGamma)) * uExpo * uWB;
+  vec3 g = cleanMud(pow(max(c, vec3(0.0)), vec3(uGamma)) * uExpo * uWB);
   float l = dot(g, vec3(0.299, 0.587, 0.114));
   g = max(mix(vec3(l), g, uSat), vec3(0.0));
   g = mix(g, (1.0 - exp(-g * 1.8)) / (1.0 - exp(-1.8)), uLift);
@@ -272,8 +288,21 @@ function dataTex(src, count) {
 }
 
 export const NO_GRADE = { gamma: 1, expo: 1, wb: [1, 1, 1], sat: 1, lift: 0, contrast: 1 };
+const sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+function cleanMud([r, g, b], k) {
+  const l = 0.299 * r + 0.587 * g + 0.114 * b;
+  const m = sstep(0.02, 0.16, 0.5 * (r + g) - b) * (1 - sstep(0.55, 0.85, l)) * k;
+  const gr = sstep(-0.05, 0.05, g - r);
+  const fresh = [r * 0.86, g * 1.02, b * 1.06 + 0.03], warm = [r * 1.02 + 0.03, g * 1.02 + 0.04, b * 1.04 + 0.05];
+  const v = [r, g, b].map((x, j) => x + (warm[j] + (fresh[j] - warm[j]) * gr - x) * m);
+  const ch = Math.max(...v) - Math.min(...v);
+  const gw = (1 - sstep(0.04, 0.11, ch)) * sstep(-0.01, 0.04, 0.5 * (r + g) - b) * k;
+  const sh = (1 - sstep(0.1, 0.55, l)) * k;
+  return v.map((x, j) => x + [-0.02, 0, 0.035][j] * gw + [-0.015, 0, 0.04][j] * sh);
+}
+
 export function gradeColor(c, g) {
-  let v = c.map((x, k) => Math.pow(Math.max(x, 0), g.gamma) * g.expo * g.wb[k]);
+  let v = cleanMud(c.map((x, k) => Math.pow(Math.max(x, 0), g.gamma) * g.expo * g.wb[k]), g.clean || 0);
   const l = 0.299 * v[0] + 0.587 * v[1] + 0.114 * v[2];
   const n = 1 - Math.exp(-1.8);
   v = v.map((x) => Math.max(l + (x - l) * g.sat, 0)).map((x) => x + ((1 - Math.exp(-x * 1.8)) / n - x) * g.lift);
@@ -311,7 +340,7 @@ export class SplatCloud {
       uHot: { value: new Array(8).fill(0) },
       uFocusPos: { value: new THREE.Vector3() }, uFocusR: { value: 1 },
       uGrade: { value: 0 }, uGamma: { value: grade.gamma }, uExpo: { value: grade.expo }, uSat: { value: grade.sat },
-      uLift: { value: grade.lift }, uContrast: { value: grade.contrast }, uWB: { value: new THREE.Vector3(...grade.wb) },
+      uLift: { value: grade.lift }, uContrast: { value: grade.contrast }, uClean: { value: grade.clean || 0 }, uWB: { value: new THREE.Vector3(...grade.wb) },
     };
     this.material = new THREE.ShaderMaterial({
       glslVersion: THREE.GLSL3,

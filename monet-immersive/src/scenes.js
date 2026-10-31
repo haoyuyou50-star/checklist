@@ -61,7 +61,7 @@ const poppies = {
     thumbLabel: '罂粟花田',
   },
   cam: { f: 0.866, h: 2.4, vH: 0.505, maxD: 92, dolly: 1.8, sky: 620 },
-  grade: { gamma: 0.96, expo: 1.04, wb: [0.97, 1.0, 1.05], sat: 1.2, lift: 0.1, contrast: 1.12 },
+  grade: { gamma: 0.96, expo: 1.04, wb: [0.97, 1.0, 1.05], sat: 1.2, lift: 0.1, contrast: 1.12, clean: 0.8 },
   wind: { dir: [0.86, 0.5], base: 0.55 },
   classify(u, v, r, g, b, rand) {
     const cam = this.cam, asp = this.asp;
@@ -133,7 +133,7 @@ const regatta = {
     thumbLabel: '阿让特伊的帆船赛',
   },
   cam: { f: 0.866, h: 1.6, vH: 0.55, maxD: 450, dolly: 1.4, sky: 520, parallax: 2.4 },
-  grade: { gamma: 0.9, expo: 1.1, wb: [0.94, 1.0, 1.1], sat: 1.28, lift: 0.28, contrast: 1.06 },
+  grade: { gamma: 0.9, expo: 1.1, wb: [0.94, 1.0, 1.1], sat: 1.18, lift: 0.34, contrast: 1.06, clean: 1 },
   wind: { dir: [1, 0.22], base: 0.5 },
   unified: {
     water: [[0, 0.556], [0.44, 0.557], [0.465, 0.62], [0.5, 0.642], [0.68, 0.64], [1, 0.645]],
