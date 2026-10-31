@@ -136,8 +136,8 @@ const regatta = {
     // the clean plate has no boats: every element comes from its own layer card (see layered)
     boats: [],
     landMinLayer: 1,
-    // gulls circling over the river: [azimuth°, distance m, height m, circle radius m]
-    gulls: [[-18, 70, 30, 16], [8, 95, 40, 22], [24, 60, 24, 12], [-40, 85, 26, 20], [62, 75, 20, 14], [140, 80, 24, 18], [-120, 70, 19, 15], [-170, 90, 28, 22], [95, 55, 15, 10]],
+    // gulls roaming over the river: [azimuth°, distance m, height m, roaming radius m]
+    gulls: [[-18, 70, 30, 24], [8, 95, 40, 30], [24, 60, 24, 20], [-40, 85, 26, 28], [62, 75, 20, 22], [140, 80, 24, 26], [-120, 70, 19, 22], [-170, 90, 28, 30], [95, 55, 15, 16]],
     land: regattaLand,
     // column ranges walked outward from the frame edge (the red house and the tall tree stay unique)
     landPool: [[1.0, 0.955], [0.79, 0.665]],

@@ -675,11 +675,12 @@ export function buildUnified(scene, img, Q, X = null) {
     B.add([x, y, z], [x, y, z], [s, 0, 0], s * 0.85, [1, 0.84, 0.55], 0.55, CLS.MOTE, 0, 0, extDelay([x, y, z]), 1, rand());
   }
 
-  // gulls: each bird is four strokes (inner and outer wing on each side) that the shader flies round a
-  // circle and flaps. B (unused by strokes beyond the frame) carries wing segment, circle radius and turn rate
+  // gulls: each bird is four strokes (inner and outer wing on each side) that the shader flies on a
+  // wandering path round its home point and flaps. B (unused by strokes beyond the frame) carries wing
+  // segment, roaming radius and pace
   (U.gulls || []).forEach(([deg, dist, alt, rad]) => {
     const th = (deg * Math.PI) / 180, c = [dist * Math.sin(th), -h + alt, -dist * Math.cos(th)];
-    const turn = (rand() < 0.5 ? -1 : 1) * (7 + rand() * 3) / rad, seed = rand(), span = 2.4 + rand() * 0.8;
+    const turn = (12 + rand() * 5) / rad, seed = rand(), span = 2.4 + rand() * 0.8;
     [-2, -1, 1, 2].forEach((seg) => {
       const col = Math.abs(seg) === 2 ? [0.42, 0.44, 0.5] : [0.97, 0.96, 0.92];
       B.add(c, [seg, rad, turn], [span, 0, 0], span * 0.09, col, 0.95, CLS.GULL, 0, 0, extDelay(c), 1, seed);
