@@ -192,6 +192,23 @@ void main() {
     vec2 e2 = abs(rel.xz) / (box.xz * 0.5);
     alpha *= (1.0 - smoothstep(0.7, 1.0, max(e2.x, e2.y))) * (0.45 + 0.55 * sin(uTime * 1.7 + seed * 30.0));
     emit = 1.0;
+  } else if (cls == 12) {                    // gulls circling and flapping
+    float seg = canv.x, side = sign(seg), rad = canv.y;
+    float ang = seed * 6.2832 + uTime * canv.z * (1.0 + 0.35 * uGustAmp);
+    vec3 radial = vec3(cos(ang), 0.0, sin(ang));
+    vec3 fwd = vec3(-sin(ang), 0.0, cos(ang)) * sign(canv.z);
+    vec3 lat = cross(vec3(0.0, 1.0, 0.0), fwd);
+    vec3 body = world + radial * rad + vec3(0.0, sin(uTime * 0.37 + seed * 9.0) * 1.2, 0.0);
+    // flap in bursts, then glide with the wings held in a shallow M
+    float burst = smoothstep(0.2, 0.6, sin(uTime * 0.45 + seed * 17.0));
+    float flap = sin(uTime * (7.0 + seed * 2.0) + seed * 30.0) * burst;
+    float span = length(axis);
+    vec3 dIn = normalize(lat * side + vec3(0.0, 0.3 + 0.55 * flap, 0.0) + fwd * 0.12);
+    vec3 dOut = normalize(lat * side + vec3(0.0, -0.3 + 0.9 * flap, 0.0) - fwd * 0.18);
+    vec3 elbow = body + dIn * span * 0.45;
+    if (abs(seg) < 1.5) { pos = body + dIn * span * 0.225; axis = dIn * span * 0.225; }
+    else { pos = elbow + dOut * span * 0.2; axis = dOut * span * 0.2; }
+    alpha *= smoothstep(0.0, 0.3, uReveal);
   } else if (cls == 11) {                    // glints on water
     float tw = pow(max(sin(uTime * (1.6 + seed * 2.0) + seed * 50.0), 0.0), 10.0);
     alpha *= tw * (0.4 + w);

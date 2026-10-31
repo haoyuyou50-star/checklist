@@ -4,7 +4,7 @@ const starts = new Uint32Array(BUCKETS);
 let keys = null;
 let vis = null;
 
-const CLS_PETAL = 8, CLS_MOTE = 9;
+const CLS_PETAL = 8, CLS_MOTE = 9, CLS_GULL = 12;
 
 /**
  * View-frustum cull + back-to-front counting sort on log view depth.
@@ -38,7 +38,7 @@ export function sortSplats(S, view, morph, reveal, out) {
     const px = x - cx, py = y - cy, pz = z - cz;
     const d = px * fx + py * fy + pz * fz;
     const cls = B[o + 3];
-    const cullable = cls !== CLS_MOTE && cls !== CLS_PETAL && (!ext || cullExt);
+    const cullable = cls !== CLS_MOTE && cls !== CLS_PETAL && cls !== CLS_GULL && (!ext || cullExt);
     if (cullable) {
       if (d < 0.05) continue;
       const size = Math.sqrt(C[o] * C[o] + C[o + 1] * C[o + 1] + C[o + 2] * C[o + 2]) * 2.5 + 0.6 + d * 0.03;
