@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { SCENES } from './scenes.js';
 import { buildScene, loadImage, QUALITY, smooth } from './generator.js';
+import { loadLayerSet } from './layered.js';
 import { SplatCloud, makeBackdrop } from './splats.js';
 import { WindAudio } from './audio.js';
 
@@ -505,9 +506,9 @@ app.eye = look;
 window.app = app;
 
 /* ---------------- boot ---------------- */
-let imgs = [];
+let imgs = [], layerSets = [];
 function buildOne(i) {
-  const data = buildScene(SCENES[i], imgs[i], Q);
+  const data = buildScene(SCENES[i], imgs[i], Q, layerSets[i]);
   const cloud = new SplatCloud(SCENES[i].id, data, { syncSort: CAPTURE, grade: SCENES[i].grade });
   const backdrop = makeBackdrop(data.bg, SCENES[i].grade);
   cloud.mesh.visible = false; backdrop.visible = false;
@@ -523,7 +524,10 @@ async function boot() {
     return;
   }
   buildPicker();
-  imgs = await Promise.all(SCENES.map((sc) => loadImage(sc.image)));
+  [imgs, layerSets] = await Promise.all([
+    Promise.all(SCENES.map((sc) => loadImage(sc.image))),
+    Promise.all(SCENES.map((sc) => (sc.layered ? loadLayerSet(sc.layered, loadImage) : null))),
+  ]);
   imgs.forEach((img, i) => { SCENES[i].asp = img.naturalHeight / img.naturalWidth; });
   setGalleryContent(0);
   resize();
