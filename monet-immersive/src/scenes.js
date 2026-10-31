@@ -111,19 +111,12 @@ const poppies = {
 /* ============================================================
  *  02  Régates à Argenteuil, c.1872
  * ============================================================ */
-// boats: generous outlines, the colour test picks the actual sail/hull pixels; contact = where the hull meets the water
-const regattaBoats = [
-  { poly: [[0.022, 0.616], [0.03, 0.4], [0.06, 0.29], [0.09, 0.29], [0.128, 0.58], [0.132, 0.616]], contact: 0.612 },
-  { poly: [[0.168, 0.624], [0.172, 0.5], [0.184, 0.47], [0.2, 0.5], [0.212, 0.624]], contact: 0.62 },
-  { poly: [[0.184, 0.642], [0.198, 0.6], [0.222, 0.4], [0.256, 0.352], [0.322, 0.6], [0.33, 0.642]], contact: 0.636 },
-  { poly: [[0.312, 0.648], [0.318, 0.55], [0.352, 0.14], [0.372, 0.13], [0.48, 0.59], [0.49, 0.648]], contact: 0.64 },
-];
 const regattaLand = [[0.44, 0.66], [0.452, 0.5], [0.53, 0.42], [0.552, 0.24], [0.6, 0.15], [0.632, 0.25], [0.69, 0.3], [0.78, 0.27], [0.8, 0.28], [0.95, 0.3], [1, 0.32], [1, 0.66]];
 const inR = (u, v, u0, v0, u1, v1) => u >= u0 && u <= u1 && v >= v0 && v <= v1;
 
 const regatta = {
   id: 'regatta',
-  image: 'assets/paintings/regatta.jpg',
+  image: 'assets/regatta/composite.jpg',
   info: {
     index: '02',
     titleCn: '阿让特伊的帆船赛',
@@ -138,7 +131,10 @@ const regatta = {
   unified: {
     water: [[0, 0.556], [0.44, 0.557], [0.465, 0.62], [0.5, 0.642], [0.68, 0.64], [1, 0.645]],
     farBank: { top: 0.542, uMax: 0.445 },
-    boats: regattaBoats,
+    // the plate takes broader strokes so the element cards can be fine within the splat budget
+    alphaMul: { low: 1.2, mid: 1.3, high: 1.27 },
+    // the clean plate has no boats: every element comes from its own layer card (see layered)
+    boats: [],
     land: regattaLand,
     // column ranges walked outward from the frame edge (the red house and the tall tree stay unique)
     landPool: [[1.0, 0.955], [0.79, 0.665]],
@@ -146,19 +142,44 @@ const regatta = {
     farRate: 1,
     backDist: 140,
     hot(u, v, c) {
-      if (c === CLS.WATER) return inR(u, v, 0.6, 0.665, 0.97, 0.93) ? 4 : 0;
-      if (c === CLS.SAIL && u > 0.31 && u < 0.49) return 1;
-      if (c === CLS.SKY) return 0;
-      if (inR(u, v, 0.775, 0.295, 0.95, 0.49)) return 2;
-      if (c === CLS.TREE && inR(u, v, 0.545, 0.17, 0.625, 0.47)) return 3;
-      return 0;
+      return c === CLS.WATER && inR(u, v, 0.6, 0.665, 0.97, 0.93) ? 4 : 0;
     },
-    // [azimuth°, distance m, mast height m, source boat]
-    boatsOut: [[-48, 45, 8, 2], [-88, 55, 10, 3], [-135, 50, 7, 0], [-172, 70, 9, 2], [130, 55, 7, 1], [76, 34, 6, 0]],
     // the unpainted canvas edge and the signature are not texture to continue
     skyBad: (u, v) => u > 0.972 && v < 0.5,
     skyRange: [0.004, 0.97],
     waterBad: (u, v) => u > 0.72 && v > 0.92,
+  },
+  // the art team's layer split (assets/layers, exported by tools/export_layers.py)
+  layered: {
+    base: 'assets/regatta/base.jpg',
+    // stroke size on elements relative to the plate (per card where detail like windows must read)
+    fine: 0.5,
+    // PSD order, bottom to top; depth = card distance as a multiple of the shore under it
+    cards: [
+      { id: 'sail_r', kind: 'sail', hot: 1, fine: 0.42, box: [0.2777, 0.1637, 0.436, 0.6466] },
+      { id: 'sail_m', kind: 'sail', fine: 0.4, box: [0.1626, 0.3787, 0.2662, 0.6213] },
+      { id: 'sail_s', kind: 'sail', fine: 0.38, box: [0.1209, 0.4836, 0.1549, 0.6213] },
+      { id: 'sail_l', kind: 'sail', fine: 0.42, box: [0.0211, 0.2708, 0.1127, 0.6109] },
+      { id: 'house_big', kind: 'house', hot: 2, depth: 1.9, fine: 0.28, box: [0.7899, 0.2939, 0.9477, 0.4807] },
+      { id: 'grove_back', kind: 'tree', depth: 1.62, fine: 0.55, box: [0.4906, 0.3185, 0.8398, 0.5119] },
+      { id: 'grove_front', kind: 'tree', depth: 1.44, box: [0.4508, 0.3728, 0.7113, 0.5268] },
+      { id: 'house_small', kind: 'house', depth: 1.3, fine: 0.28, box: [0.6129, 0.3527, 0.7146, 0.4978] },
+      { id: 'tree', kind: 'tree', hot: 3, depth: 1.18, fine: 0.42, box: [0.5794, 0.2366, 0.648, 0.5037] },
+    ].map((c) => ({ ...c, src: `assets/regatta/${c.id}.webp` })),
+    // beyond the frame (coarser strokes than in the frame): [azimuth°, distance (sails: metres on the river; trees: x shore distance), height m, mirrored]
+    extras: [
+      { id: 'x_sail_side', kind: 'sail', at: [[-42, 95, 7, 0]] },
+      { id: 'x_boat_two', kind: 'sail', at: [[-62, 60, 9.5, 1]] },
+      { id: 'x_boat_side', kind: 'sail', at: [[-96, 42, 8, 0]] },
+      { id: 'x_sail_front', kind: 'sail', at: [[-140, 70, 9, 0]] },
+      { id: 'x_boat_oblique', kind: 'sail', at: [[172, 80, 10, 1]] },
+      { id: 'x_boat_1', kind: 'sail', at: [[132, 52, 8, 1]] },
+      { id: 'x_boat_2', kind: 'sail', at: [[76, 30, 7, 0]] },
+      { id: 'x_grove_1', kind: 'tree', at: [[44, 1.1, 9, 0], [92, 1.08, 10, 1], [150, 1.04, 13, 0]] },
+      { id: 'x_grove_2', kind: 'tree', at: [[64, 1.1, 9.5, 1], [116, 1.06, 11, 0], [-165, 1.04, 13, 1]] },
+      { id: 'x_tree_1', kind: 'tree', at: [[56, 1.18, 14, 0], [104, 1.14, 15, 1], [176, 1.06, 17, 0]] },
+      { id: 'x_tree_2', kind: 'tree', at: [[80, 1.16, 14, 0], [134, 1.1, 16, 1], [-150, 1.06, 16, 0]] },
+    ].map((e) => ({ spMul: e.kind === 'tree' ? 1.8 : 1.3, ...e, src: `assets/regatta/${e.id}.webp` })),
   },
   hotspots: [
     { id: 1, cn: '白帆', en: 'The Sails', zoom: 2.0,

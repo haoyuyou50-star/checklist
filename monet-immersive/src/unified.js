@@ -20,7 +20,7 @@ const norm = (v) => { const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] 
 const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 const lumOf = (c) => 0.3 * c[0] + 0.59 * c[1] + 0.11 * c[2];
 
-export function buildUnified(scene, img, Q) {
+export function buildUnified(scene, img, Q, X = null) {
   const t0 = performance.now();
   const rand = makeRng(scene.id.length * 7919 + 1872);
   const asp = img.naturalHeight / img.naturalWidth;
@@ -173,6 +173,7 @@ export function buildUnified(scene, img, Q) {
     const i = y * W + x;
     if (cls[i] === CLS.TREE) { const vw = wl((x + 0.5) / W); flex[i] = clamp((vw - y / H) / Math.max(0.02, vw - colTopV[x]), 0, 1); }
   }
+  if (X) X.occlude({ W, H, cls, depZ, groundZ, wl });
   // how far the near bank can slide over the sky when the eye moves sideways
   const skyInd = new Float32Array(N);
   for (let i = 0; i < N; i++) skyInd[i] = cls[i] === CLS.SKY ? 1 : 0;
@@ -468,7 +469,7 @@ export function buildUnified(scene, img, Q) {
   /* ---------------- stroke emission ---------------- */
   const B = new Builder(320000);
   const hotAcc = new Map();
-  const alpha0 = Q.uniAlpha;
+  const alpha0 = Q.uniAlpha * (typeof U.alphaMul === 'object' ? U.alphaMul[Q.tier] || 1 : U.alphaMul || 1);
   const gOf = (psi) => 1 + 1.0 * smooth(0.5, 2.6, psi);
   const sC = 3.0 / f;
   const up = [0, 1, 0];
@@ -648,6 +649,8 @@ export function buildUnified(scene, img, Q) {
     if (inRect(proj(norm(w)))) return;
     B.add(w, w, axis, minor, col, a, CLS.WATER, 0, -m, extDelay(w), 1, rand());
   });
+
+  if (X) X.emit({ B, rand, f, vH, asp, h, groundZ, wl, alpha0, layers, extDelay, proj, inRect, sC, hotAcc, shoreS, baseWater });
 
   // sparkle on the river and drifting motes
   for (let k = 0; k < Q.glints; k++) {

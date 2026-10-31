@@ -1,5 +1,6 @@
 import { CLS } from './scenes.js';
 import { buildUnified } from './unified.js';
+import { makeLayerEmitter } from './layered.js';
 
 /* ---------------- deterministic helpers ---------------- */
 export function makeRng(seed) {
@@ -101,9 +102,9 @@ export class Builder {
 }
 
 export const QUALITY = {
-  high: { uniAlpha: 0.0059, analysisW: 760, layers: [11, 5.6, 2.9], detail: 2.0, extGround: 90000, extWater: 150000, extSky: 44000, treeDensity: 4.2, nearTree: 15, motes: 900, glints: 1800, shore: 16000 },
-  mid: { uniAlpha: 0.006, analysisW: 640, layers: [11, 5.8, 3.1], detail: 2.3, extGround: 60000, extWater: 88000, extSky: 27000, treeDensity: 3.0, nearTree: 11, motes: 600, glints: 1200, shore: 11000 },
-  low: { uniAlpha: 0.0071, analysisW: 520, layers: [12, 6.6, 3.6], detail: 2.8, extGround: 34000, extWater: 60000, extSky: 17000, treeDensity: 1.9, nearTree: 8, motes: 500, glints: 700, shore: 6000 },
+  high: { tier: 'high', uniAlpha: 0.0059, analysisW: 760, layers: [11, 5.6, 2.9], detail: 2.0, extGround: 90000, extWater: 150000, extSky: 44000, treeDensity: 4.2, nearTree: 15, motes: 900, glints: 1800, shore: 16000 },
+  mid: { tier: 'mid', uniAlpha: 0.006, analysisW: 640, layers: [11, 5.8, 3.1], detail: 2.3, extGround: 60000, extWater: 88000, extSky: 27000, treeDensity: 3.0, nearTree: 11, motes: 600, glints: 1200, shore: 11000 },
+  low: { tier: 'low', uniAlpha: 0.0071, analysisW: 520, layers: [12, 6.6, 3.6], detail: 2.8, extGround: 34000, extWater: 60000, extSky: 17000, treeDensity: 1.9, nearTree: 8, motes: 500, glints: 700, shore: 6000 },
 };
 
 export async function loadImage(src) {
@@ -115,8 +116,8 @@ export async function loadImage(src) {
 }
 
 /* ============================================================ */
-export function buildScene(scene, img, Q) {
-  if (scene.unified) return buildUnified(scene, img, Q);
+export function buildScene(scene, img, Q, layerSet = null) {
+  if (scene.unified) return buildUnified(scene, layerSet ? layerSet.base : img, Q, layerSet ? makeLayerEmitter(layerSet, Q) : null);
   const rand = makeRng(scene.id.length * 7919 + 1873);
   const asp = img.naturalHeight / img.naturalWidth;
   scene.asp = asp;
