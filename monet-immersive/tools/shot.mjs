@@ -31,7 +31,12 @@ const step = (t, dt = 0.1) => page.evaluate(async (t, dt) => {
   window.__step(0.001, true);
 }, t, dt);
 await step(2);
-if (scene !== 0) { await page.evaluate((i) => { window.app.selectPainting(i); }, scene); await step(3); }
+if (scene !== 0) {
+  await page.evaluate((i) => { window.app.selectPainting(i); }, scene);
+  await step(3);
+  // a scene not built yet builds on selection
+  for (let k = 0; k < 60 && (await page.evaluate(() => window.app.S.mode)) !== 'gallery'; k++) await step(0.5);
+}
 if (args.gallery) await page.screenshot({ path: path.join(out, `${tag}gallery.jpg`), type: 'jpeg', quality: 90 });
 if (args.mid) {
   await page.evaluate(() => { window.app.enter(); });
@@ -62,6 +67,17 @@ if (args.series) {
   }
   await browser.close();
   process.exit(0);
+}
+// --tone 2 [--tonemid 0.8,1.6]: switch the colour mood (stills part-way through the wave, then the shots below)
+if (args.tone !== undefined) {
+  await page.evaluate(() => { window.app.eye.force = [0, 0]; });
+  await page.evaluate((k) => { window.app.setTone(k); }, Number(args.tone));
+  let t = 0;
+  for (const m of args.tonemid ? String(args.tonemid).split(',').map(Number) : []) {
+    await step(m - t); t = m;
+    await page.screenshot({ path: path.join(out, `${tag}tone${args.tone}_${m}.jpg`), type: 'jpeg', quality: 90 });
+  }
+  await step(Math.max(0.1, 4.2 - t));
 }
 // --look "-1,0;1,0" pins the parallax eye offset (x,y in -1..1) for each shot
 const looks = args.look ? String(args.look).split(';').map((s) => s.split(',').map(Number)) : [null];
