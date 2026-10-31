@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>莫奈 · 走进画境 — Monet Immersive</title>
+<link rel="icon" href="data:," />
+<link rel="stylesheet" href="assets/fonts/fonts.css" />
+<link rel="stylesheet" href="style.css" />
+<script type="importmap">
+  { "imports": { "three": "./vendor/three.module.min.js" } }
+</script>
+</head>
+<body>
+  <div id="wall"></div>
+  <canvas id="gl"></canvas>
+
+  <section id="gallery">
+    <header class="g-top">
+      <div class="brand">
+        <span class="brand-en">CLAUDE&nbsp;MONET</span>
+        <span class="brand-cn">克劳德·莫奈 <em>1840 — 1926</em></span>
+      </div>
+      <nav class="g-nav">
+        <a>生平</a><a>博物馆</a><a class="on">画作</a>
+      </nav>
+    </header>
+
+    <main class="hall">
+      <div class="art-wrap">
+        <div class="spot"></div>
+        <div class="frame">
+          <img class="art" alt="" />
+          <div class="frame-inner"></div>
+        </div>
+        <div class="art-floor"></div>
+      </div>
+
+      <aside class="label">
+        <div class="idx"><b>01</b><span>/ 02</span></div>
+        <h1 class="title-cn"></h1>
+        <div class="title-fr"></div>
+        <div class="rule"></div>
+        <div class="meta"></div>
+        <p class="desc"></p>
+        <button class="enter" type="button">
+          <span class="enter-ring"></span>
+          <span class="enter-txt">进入画境</span>
+          <span class="enter-sub">Step into the painting</span>
+        </button>
+      </aside>
+    </main>
+
+    <footer class="picker"></footer>
+  </section>
+
+  <section id="hud">
+    <div class="h-scrim"></div>
+    <div class="h-title"><b class="h-idx"></b><span class="h-cn"></span><i class="h-fr"></i></div>
+    <button class="h-exit" type="button"><span>离开画境</span><i>✕</i></button>
+    <div class="h-hint">拖动环顾四周 · 点击发光之处走近细看</div>
+    <div class="h-wind">
+      <div class="w-label">风<small>WIND</small></div>
+      <button class="w-gust" type="button">掀起一阵风</button>
+      <button class="w-sound" type="button" title="声音">♪</button>
+    </div>
+    <div class="h-tones"></div>
+    <div class="tone-wash"></div>
+    <div class="tone-title"></div>
+    <div class="markers"></div>
+  </section>
+
+  <section id="card">
+    <div class="c-idx"></div>
+    <h2 class="c-title"></h2>
+    <div class="c-sub"></div>
+    <div class="c-rule"></div>
+    <p class="c-text"></p>
+    <button class="c-back" type="button">← 回到画境</button>
+  </section>
+
+  <div id="fx"><div class="vignette"></div><div class="grain"></div></div>
+  <div id="cursor"><i></i></div>
+  <div id="loader"><div class="ld-mark">Monet</div><div class="ld-bar"><i></i></div><div class="ld-txt">正在调和光与色彩…</div></div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
