@@ -99,7 +99,7 @@ void main() {
   // reflections are laid out for the origin; painted ones look right from the resting (dollied) eye
   // uEye0. Follow only the eye's offset from that reference, so reflections stay under their objects.
   if (cls == 6 && flex < -1.0 && uUnified > 0.5) {
-    vec3 mir = world * -flex, e0 = ext > 0.5 ? vec3(0.0) : uEye0;
+    vec3 mir = world * -flex, e0 = ext > 0.1 ? vec3(0.0) : uEye0;
     vec3 d1 = mir - cameraPosition, d0 = mir - e0;
     vec3 p1 = cameraPosition + d1 * ((cameraPosition.y + uH) / max(-d1.y, 1e-3));
     vec3 p0 = e0 + d0 * ((e0.y + uH) / max(-d0.y, 1e-3));
@@ -166,10 +166,11 @@ void main() {
     pos += tang * sin(uTime * 0.8 + pos.z * 0.25 + seed * 3.0) * 0.01 * dist * (0.5 + w);
     axis *= 1.0 + (0.22 + 0.35 * w) * (0.5 + 0.5 * sin(uTime * 0.7 + pos.z * 0.35 + seed * 5.0));
     col *= 1.0 + 0.1 * sin(uTime * 2.3 + seed * 30.0) * (0.4 + w);
+    if (hot < -0.001) pos += wd3 * -hot * (0.25 + 0.55 * w) * (0.25 + 0.006 * dist);
   } else if (cls == 7) {                     // sails
     float b = flex * (0.25 + 0.55 * w);
     pos += wd3 * b * (0.25 + 0.006 * dist);
-    pos.y += sin(uTime * 0.9 + world.x * 0.08) * 0.06;
+    pos.y += sin(uTime * 0.9 + world.x * 0.08) * 0.06 * flex;
   } else if (cls == 5) {                     // figures
     pos += wd3 * flex * w * 0.03;
   } else if (cls == 8) {                     // petals riding the gusts
@@ -210,9 +211,10 @@ void main() {
     }
   }
   if (uFocusDim > 0.001) {
-    float fd = uFocusDim * smoothstep(uFocusR * 0.9, uFocusR * 2.6, distance(pos, uFocusPos));
+    float fd = uFocusDim * smoothstep(uFocusR * 0.85, uFocusR * 2.0, distance(pos, uFocusPos));
     float l = dot(col, vec3(0.3, 0.59, 0.11));
-    col = mix(col, vec3(l), 0.28 * fd) * (1.0 - 0.2 * fd);
+    col = mix(col, vec3(l) * vec3(0.95, 0.97, 1.04), 0.5 * fd) * (1.0 - 0.52 * fd);
+    emit *= 1.0 - fd;
   }
 
   vec4 vc = viewMatrix * vec4(pos, 1.0);

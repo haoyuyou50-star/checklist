@@ -456,7 +456,7 @@ export function buildUnified(scene, img, Q, X = null) {
   const sampleCol = (r, lvl) => {
     // compressed and converging sky rows would stretch the painting's clouds into streaks: there the
     // colour leans on the row's mean so only the vertical gradient survives
-    const img = r.img[r.soft && rand() < r.soft ? 0 : lvl], i = (r.y * W + r.x) * 3;
+    const img = r.img[r.soft && rand() < r.soft ? 0 : r.cls === CLS.SKY ? Math.min(lvl, 1) : lvl], i = (r.y * W + r.x) * 3;
     let c = [img[i], img[i + 1], img[i + 2]];
     if (r.soft) c = lerp3(c, skyRowCol[r.y], r.soft * 0.93);
     // a darker cloud patch reads as a grey stain once the sky surrounds the viewer (and repeats around)
@@ -496,6 +496,12 @@ export function buildUnified(scene, img, Q, X = null) {
     else if (c === CLS.SAIL) a = Math.PI / 2 + (rand() - 0.5) * 0.5;
     else a = rand() * Math.PI;
     if (c === CLS.SKY) a = lerp(a, (rand() - 0.5) * 0.35, smooth(1.05, 1.6, g));
+    // Monet lays this sky in long, nearly level drags: steep strokes read as a crumbled surface
+    // (overhead, level strokes would close into rings round the zenith)
+    if (c === CLS.SKY) {
+      const h0 = a - Math.PI * Math.round(a / Math.PI), hi = smooth(0.3, 0.75, r.P[1] / Math.hypot(r.P[0], r.P[1], r.P[2]));
+      a = lerp(h0 * 0.4 + (rand() - 0.5) * 0.12, h0, hi);
+    }
     if (r.far) a = lerp(a, (rand() - 0.5) * 0.5, r.far * 0.7);
     return r.flip ? Math.PI - a : a;
   };
@@ -507,7 +513,7 @@ export function buildUnified(scene, img, Q, X = null) {
     let maj = sp * lerp(L.maj[0], L.maj[1], rand()), mn = sp * lerp(L.min[0], L.min[1], rand());
     if (c === CLS.WATER) { maj *= li === 0 ? 0.9 : 1.1; mn *= lerp(0.72, 1.05, r.near || 0); maj *= lerp(1, 0.8, r.near || 0); }
     if (r.far) maj *= lerp(1, 0.7, r.far);
-    if (c === CLS.SKY && li === 0) maj *= 1.25;
+    if (c === CLS.SKY) { maj *= li === 0 ? 1.55 : 1.35; mn *= 1.08; }
     const dm = 1 + 0.014 * (3 - li);
     const P = [r.P[0] * dm, r.P[1] * dm, r.P[2] * dm];
     const dist = Math.hypot(P[0], P[1], P[2]);
@@ -584,7 +590,11 @@ export function buildUnified(scene, img, Q, X = null) {
           const l3 = r.img[1], dl = Math.abs(lum[i] - lumOf([l3[i * 3], l3[i * 3 + 1], l3[i * 3 + 2]]));
           if (dl > 0.2) continue;
         }
-        if (r.cls === CLS.SKY && li >= 2 && rand() < lerp(0.3, 0.6, smooth(0.8, 2.2, psi))) continue;
+        // the sky is carried by its broad passes; small strokes scattered over it read as crumbs
+        if (r.cls === CLS.SKY && li >= 1 && rand() < (li === 1 ? 0.3 : 0.85) * (r.uv ? 0.7 : 1)) continue;
+        // the bank is built from the mid passes up: the coarsest strokes are bigger than any of the
+        // element cards' and read as blocks next to them
+        if (li < (U.landMinLayer || 0) && r.cls !== CLS.SKY && r.cls !== CLS.WATER) continue;
         // a band thinner than the stroke only takes strokes that fit inside it
         if (r.thin !== undefined && ((li === 0 && r.thin < sp * 1.6) || (li === 1 && r.thin < sp * 0.9))) continue;
         const p = proj(d), inF = inRect(p);

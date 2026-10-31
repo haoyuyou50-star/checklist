@@ -329,7 +329,7 @@ async function focusHotspot(id) {
     S.cam.pos.lerpVectors(from.pos, tPos, e);
     S.cam.yaw = lerp(from.yaw, tYaw, e); S.cam.pitch = lerp(from.pitch, tPitch, e); S.cam.fov = lerp(from.fov, fov, e);
   }, { e: ease.inOut5 });
-  tween(1.4, (e) => { S.focusDim = 0.85 * e; }, { delay: 0.2 });
+  tween(1.4, (e) => { S.focusDim = e; }, { delay: 0.2 });
   el.card.classList.add('on');
   [el.cIdx, el.cTitle, el.cSub, $('.c-rule'), el.cText, el.cBack].forEach((n, k) => {
     fade(n, 0, 12);

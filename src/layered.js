@@ -1,5 +1,5 @@
 import { CLS } from './scenes.js';
-import { clamp, lerp, smooth, blur1, blurMasked } from './generator.js';
+import { clamp, lerp, smooth, blur1, blurMasked, fbm2 } from './generator.js';
 
 /*
  * Element cards from the art team's layer split.
@@ -23,7 +23,7 @@ export async function loadLayerSet(spec, loadImage) {
 // a sprite: an element image read at a working resolution, with masked colour levels and edge maps
 function readSprite(img, w, rgbOut = true) {
   w = Math.max(8, Math.round(w));
-  const h = Math.max(8, Math.round((w * img.naturalHeight) / img.naturalWidth)), N = w * h;
+  const h = Math.max(8, Math.round((w * (img.naturalHeight || img.height)) / (img.naturalWidth || img.width))), N = w * h;
   const cv = document.createElement('canvas');
   cv.width = w; cv.height = h;
   const cx = cv.getContext('2d', { willReadFrequently: true });
@@ -58,6 +58,71 @@ const solid = (s, r) => {
   if (!s.am.has(r)) s.am.set(r, blur1(blur1(s.m, s.w, s.h, r), s.w, s.h, Math.max(1, r >> 1)));
   return s.am.get(r);
 };
+
+const pixels = (img) => {
+  const w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+  const cv = document.createElement('canvas');
+  cv.width = w; cv.height = h;
+  const cx = cv.getContext('2d', { willReadFrequently: true });
+  cx.drawImage(img, 0, 0);
+  return { w, h, d: cx.getImageData(0, 0, w, h).data };
+};
+
+/*
+ * Bushes round an element's foot, painted from a grove layer's own pixels, so a house or a trunk stands
+ * in the shrubs as in the painting instead of ending on a hard edge in front of them.
+ * sk: { h: height (x element height), margin: spread past each side (x element width), below, seed }
+ * Returns a canvas plus where it sits in the element's pixel frame.
+ */
+function makeSkirt(img, src, sk) {
+  const E = pixels(img), G = pixels(src);
+  const cw = E.w, ch = E.h, mL = Math.round(cw * (sk.margin ?? 0.2)), seed = sk.seed ?? 1;
+  const hs = ch * sk.h, below = ch * (sk.below ?? 0.03);
+  // the element's lowest opaque row in every column of its lower half
+  const yb = new Float32Array(cw).fill(-1);
+  for (let x = 0; x < cw; x++) for (let y = ch - 1; y > ch * 0.5; y--) if (E.d[(y * cw + x) * 4 + 3] > 128) { yb[x] = y; break; }
+  let last = -1;
+  for (let x = 0; x < cw; x++) if (yb[x] >= 0) { if (last < 0) for (let k = 0; k < x; k++) yb[k] = yb[x]; else for (let k = last + 1; k < x; k++) yb[k] = lerp(yb[last], yb[x], (k - last) / (x - last)); last = x; }
+  if (last < 0) yb.fill(ch - 1); else for (let k = last + 1; k < cw; k++) yb[k] = yb[last];
+  const ybS = blur1(yb, cw, 1, Math.max(1, Math.round(cw * 0.04)));
+  const W = cw + 2 * mL, top = Math.max(0, Math.floor(Math.min(...ybS) - hs * 1.05)), bot = Math.ceil(Math.max(...ybS) + below);
+  const H = bot - top + 1;
+  // grove pixels by row, so a lookup can step to the nearest opaque one
+  const rows = [];
+  for (let y = 0; y < G.h; y++) { const r = []; for (let x = 0; x < G.w; x++) if (G.d[(y * G.w + x) * 4 + 3] > 160) r.push(x); rows.push(r); }
+  const g0 = Math.floor(G.h * 0.3), g1 = Math.floor(G.h * 0.92);
+  const out = document.createElement('canvas');
+  out.width = W; out.height = H;
+  const ox = out.getContext('2d');
+  const od = ox.createImageData(W, H);
+  const s = 9 / cw;
+  for (let X = 0; X < W; X++) {
+    const xe = X - mL, xc = clamp(xe, 0, cw - 1);
+    // full height under the element, easing to nothing past its sides
+    const side = xe < 0 ? -xe / mL : xe >= cw ? (xe - cw + 1) / mL : 0;
+    const env = 1 - smooth(0.15, 1, side);
+    const b = ybS[xc] + (side > 0 ? side * below : 0);
+    for (let Y = 0; Y < H; Y++) {
+      const yy = top + Y;
+      const lump = fbm2(X * s + seed * 3.1, yy * s * 1.3, 3), t = hs * env * (0.45 + 0.75 * lump);
+      if (yy < b - t || yy > b + below * env) continue;
+      // a coherent patch of the grove, moving through its lower band
+      const gy = clamp(Math.round(g0 + (fbm2(X * s * 0.7 + 7.7, yy * s * 0.7 + seed, 2) * 1.6 - 0.3) * (g1 - g0)), g0, g1);
+      const r = rows[gy];
+      if (!r.length) continue;
+      const want = ((X / W) * 0.7 + 0.15 + seed * 0.137) % 1 * G.w;
+      let gx = r[0];
+      for (const q of r) if (Math.abs(q - want) < Math.abs(gx - want)) gx = q;
+      const gi = (gy * G.w + gx) * 4, oi = (Y * W + X) * 4;
+      // tops of the bushes catch the light
+      const lit = 1 + 0.12 * smooth(0.5, 0, (yy - (b - t)) / Math.max(1, t));
+      for (let j = 0; j < 3; j++) od.data[oi + j] = clamp(G.d[gi + j] * lit, 0, 255);
+      od.data[oi + 3] = 255;
+    }
+  }
+  ox.putImageData(od, 0, 0);
+  return { canvas: out, x0: -mL / cw, x1: (cw + mL) / cw, y0: top / ch, y1: (bot + 1) / ch };
+}
 
 export function makeLayerEmitter(set, Q) {
   const spec = set.spec;
@@ -123,8 +188,8 @@ export function makeLayerEmitter(set, Q) {
               const col = [0, 1, 2].map((j) => clamp(img[i * 3 + j] * jit + (rand() - 0.5) * 0.02, 0, 1));
               const fy = 1 - (y + 0.5) / s.h;
               const lumP = 0.3 * col[0] + 0.59 * col[1] + 0.11 * col[2];
-              const c = o.cls(col, lumP, fy);
-              const flex = c === CLS.SAIL ? clamp((fy - o.hull) / (1 - o.hull), 0, 1) : c === CLS.TREE ? fy : 0;
+              const c = o.cls(col, lumP, fy, o.hull);
+              const flex = (c === CLS.SAIL ? clamp((fy - o.hull) / (1 - o.hull), 0, 1) : c === CLS.TREE ? fy : 0) * (o.flexMul ?? 1);
               let cpos = P, delay;
               if (!o.ext) {
                 const sc = sC * (1 + 0.004 * (3 - li)) * f / -d[2];
@@ -141,23 +206,25 @@ export function makeLayerEmitter(set, Q) {
                 acc.n++; acc.x += P[0]; acc.y += P[1]; acc.z += P[2];
                 if (rand() < 0.2) acc.pts.push(P);
               }
-              if (o.refl && li >= 1 && rand() < o.refl) n += reflect(P, axis, mn * dist, col, L.a, o.ext);
+              if (o.refl && rand() < o.refl) n += reflect(P, axis, mn * dist, col, L.a, o.ext, c === CLS.SAIL ? flex : 0);
             }
           }
         }
         return n;
       };
 
-      // a broken mirror image on the river; flex = -m lets the shader keep it under its object for any eye
-      const reflect = (P, axis, minor, col, alpha, ext) => {
+      // a broken mirror image on the river; flex = -m lets the shader keep it under its object for any eye.
+      // Laid out for the origin (ext 0.25 inside the frame tells the shader so); hot = -sail flex lets the
+      // image lean with its sail in the wind
+      const reflect = (P, axis, minor, col, alpha, ext, sway) => {
         const yRel = P[1] + h;
         if (yRel < 0.03) return 0;
         const k = (h / (h + yRel * 0.95)) * 0.995;
-        const w = [P[0] * k + (rand() - 0.5) * 0.25 * k, -h + 0.01, P[2] * k];
+        const w = [P[0] * k + (rand() - 0.5) * 0.4 * k, -h + 0.01, P[2] * k];
         const th = Math.atan2(w[0], -w[2]), t = [Math.cos(th), 0, Math.sin(th)];
         const len = Math.hypot(axis[0], axis[1], axis[2]) * lerp(1.1, 1.8, rand()) * k;
         const cl = (col[0] + col[1] + col[2]) / 3;
-        const c = [0, 1, 2].map((j) => clamp(lerp(cl + (col[j] - cl) * 1.2, baseWater[j], 0.22) * 0.9, 0, 1));
+        const c = [0, 1, 2].map((j) => clamp(lerp(cl + (col[j] - cl) * 1.2, baseWater[j], 0.28) * 0.9, 0, 1));
         const d = norm(w);
         let cpos = w, delay;
         if (!ext) {
@@ -169,16 +236,17 @@ export function makeLayerEmitter(set, Q) {
           if (inRect(proj(d))) return 0;
           delay = extDelay(w);
         }
-        B.add(w, cpos, [t[0] * len, 0, t[2] * len], minor * k * 1.3, c, alpha * 0.82, CLS.WATER, 0, -1 / k, delay, ext ? 1 : 0, rand());
+        B.add(w, cpos, [t[0] * len, 0, t[2] * len], minor * k * 1.3, c, alpha * 0.78, CLS.WATER, -sway, -1 / k, delay, ext ? 1 : 0.25, rand());
         return 1;
       };
 
-      const sailCls = (col, l, fy) => (l > 0.55 && col[0] >= col[2] * 0.92 ? CLS.SAIL : CLS.STATIC);
+      // the whole rig above the hull leans as one, shaded canvas included, so a gust never tears a sail apart
+      const sailCls = (col, l, fy, hull) => (fy > hull ? CLS.SAIL : CLS.STATIC);
       const sailAngle = (r) => Math.PI / 2 + (r() - 0.5) * 0.5;
       const treeAngle = (r) => r() * Math.PI;
       const flatAngle = (r) => (r() - 0.5) * 0.6;
       const kindOf = {
-        sail: { cls: sailCls, angle: sailAngle, refl: 0.55 },
+        sail: { cls: sailCls, angle: sailAngle, refl: 0.6 },
         tree: { cls: () => CLS.TREE, angle: treeAngle, refl: 0 },
         house: { cls: () => CLS.STATIC, angle: flatAngle, refl: 0 },
       };
@@ -199,6 +267,20 @@ export function makeLayerEmitter(set, Q) {
           cls: kd.cls, angle: kd.angle, refl: kd.refl,
         });
         stats.push(`${c.id}:${n}`);
+        if (c.skirt) {
+          const src = set.cards[spec.cards.findIndex((q) => q.id === c.skirt.src)];
+          const sk = makeSkirt(set.cards[k], src, c.skirt);
+          const su0 = u0 + sk.x0 * (u1 - u0), su1 = u0 + sk.x1 * (u1 - u0), sv0 = v0 + sk.y0 * (v1 - v0), sv1 = v0 + sk.y1 * (v1 - v0);
+          const pxA = (su1 - su0) / f, sf = cf * 1.15;
+          const ss = readSprite(sk.canvas, Math.min(sk.canvas.width * 1.6, Math.max(24, pxA / (alpha0 * layers[3].k * sf * 0.55))));
+          const Ds = D * 0.96;
+          const m = emitSprite(ss, {
+            ext: false, fine: sf, pxAng: pxA / ss.w, R: [1, 0, 0], U: [0, 1, 0], hot: 0, hull: 0,
+            place: (sx, sy) => { const u = su0 + (sx / ss.w) * (su1 - su0), v = sv0 + (sy / ss.h) * (sv1 - sv0); return [(u - 0.5) * Ds / f, -(v - vH) * asp * Ds / f, -Ds]; },
+            cls: () => CLS.TREE, angle: kindOf.tree.angle, refl: 0, flexMul: 0.2,
+          });
+          stats.push(`${c.id}.skirt:${m}`);
+        }
       });
 
       /* ---- the extra sails and trees, staged around the viewer ---- */
@@ -221,7 +303,7 @@ export function makeLayerEmitter(set, Q) {
               const xm = ((flip ? s.w - sx : sx) / s.w - 0.5) * Wm, ym = (1 - sy / s.h) * Hm;
               return [base[0] + Rv[0] * xm, base[1] + ym, base[2] + Rv[2] * xm];
             },
-            cls: kd.cls, angle: kd.angle, refl: e.kind === 'sail' ? 0.5 : 0.18,
+            cls: kd.cls, angle: kd.angle, refl: e.kind === 'sail' ? 0.6 : 0.3,
           });
           stats.push(`${e.id}@${deg}:${n}`);
         });
