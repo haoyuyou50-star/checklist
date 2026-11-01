@@ -234,7 +234,7 @@ const bridge = {
     land: [[-0.01, -0.01], [1.01, -0.01], [1.01, 1.02], [-0.01, 1.02]],
     boats: [],
     // the plate is mostly covered by element cards: broader strokes here pay for the fine ones on the cards
-    alphaMul: { low: 1.5, mid: 1.5, high: 1.5 },
+    alphaMul: { low: 1.7, mid: 1.7, high: 1.7 },
     landMinLayer: 1,
     // the frame spans 96 degrees: keep strokes fine across it and let them grow behind the viewer
     falloff: [0.7, 2.4, 1.4],
@@ -263,19 +263,23 @@ const bridge = {
   // the art team's layer split (assets/layers/莲花桥*.psd, exported by tools/export_bridge.py)
   layered: {
     base: 'assets/bridge/base.jpg',
-    fine: 0.8,
+    fine: 0.9,
     // how far the eye slides (m): anything buried deeper than that behind a nearer layer is not painted
     hideShift: 1.3,
-    // PSD order, bottom to top. z = [distance at the card's left, at its right] in metres; lilies lie on the pond
+    // Monet's broken colour: small touches over every layer, coloured from the finished picture (so they cross
+    // the joins between layers as the painting does), nudged warm or cool. k: size relative to the plate's strokes
+    dabs: { src: 'assets/bridge/composite.jpg', k: 0.36, tint: 0.07, sat: 1.12 },
+    // PSD order, bottom to top. z = [distance at the card's left, at its right] in metres; lilies lie on the pond;
+    // crown: how far (canvas heights) an element cut by the frame's top edge grows on above it
     cards: [
       { id: 'willow_far_r', kind: 'tree', z: [30, 30], box: [0.8084, 0.0557, 0.9409, 0.4171] },
       { id: 'willow_l', kind: 'tree', z: [17, 16], box: [0.0009, 0.0408, 0.2548, 0.553] },
-      { id: 'bush_l', kind: 'tree', z: [3.8, 9], box: [0.0018, 0.0, 0.3195, 0.9878] },
+      { id: 'bush_l', kind: 'tree', crown: 0.12, z: [3.8, 9], box: [0.0018, 0.0, 0.3195, 0.9878] },
       { id: 'willow_c2', kind: 'tree', z: [20, 20], box: [0.4894, 0.0299, 0.7567, 0.5829] },
-      { id: 'willow_r', kind: 'tree', z: [19, 19], box: [0.5337, 0.0082, 0.7285, 0.6386] },
-      { id: 'willow_big', kind: 'tree', z: [16, 15], box: [0.1597, 0.0122, 0.4926, 0.5788] },
+      { id: 'willow_r', kind: 'tree', crown: 0.12, z: [19, 19], box: [0.5337, 0.0082, 0.7285, 0.6386] },
+      { id: 'willow_big', kind: 'tree', crown: 0.12, z: [16, 15], box: [0.1597, 0.0122, 0.4926, 0.5788] },
       { id: 'willow_l2', kind: 'tree', z: [11.5, 11.5], box: [0.2225, 0.3098, 0.3763, 0.6155] },
-      { id: 'willow_weep', kind: 'tree', z: [15.5, 15.5], box: [0.3186, 0.0122, 0.5406, 0.5883] },
+      { id: 'willow_weep', kind: 'tree', crown: 0.12, z: [15.5, 15.5], box: [0.3186, 0.0122, 0.5406, 0.5883] },
       { id: 'lily_3', kind: 'lily', box: [0.3998, 0.5326, 0.7281, 0.6793] },
       { id: 'lily_7a', kind: 'lily', box: [0.4201, 0.8465, 0.6043, 0.9946] },
       { id: 'lily_5', kind: 'lily', box: [0.6519, 0.8601, 0.7816, 0.9823] },

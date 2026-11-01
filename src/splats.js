@@ -103,7 +103,9 @@ void main() {
   float tk = 0.0, tw = 0.0;
   if (uToneT > 0.0) {
     vec3 cB = uToneB < 0.5 ? D.rgb : uToneB < 1.5 ? texelFetch(tT1, tc, 0).rgb : texelFetch(tT2, tc, 0).rgb;
-    float along = dot(normalize(A.xyz - cameraPosition).xz, normalize(uWindDir));
+    // the front slants: it comes downwind and down from above, so it cuts across the view diagonally
+    vec2 wh = normalize(uWindDir) * 0.8;
+    float along = dot(normalize(A.xyz - cameraPosition), vec3(wh.x, -0.6, wh.y));
     float x = (uToneT * 2.9 - 1.3 - along + (hash(vec2(A.w, 3.7)) - 0.5) * 0.3) / 0.35;
     tk = smoothstep(0.0, 1.0, x);
     tw = sin(clamp(x, 0.0, 1.0) * 3.14159265);
@@ -157,9 +159,10 @@ void main() {
   float dist = length(pos);
   float w = windField(pos);
   if (tw > 0.001) {
-    float tl = tw * (0.6 + 0.8 * hash(vec2(seed, 9.1)));
+    // the pond only shivers: its broad strokes turned up on the crest read as shards of glass
+    float tl = tw * (0.6 + 0.8 * hash(vec2(seed, 9.1))) * (cls == 6 ? 0.3 : 1.0);
     float flut = sin(uTime * (9.0 + seed * 6.0) + seed * 50.0);
-    pos += (wd3 * (0.06 + 0.01 * dist) + vec3(0.0, 1.0, 0.0) * (0.25 + 0.004 * dist) * flut * 0.3) * tl;
+    pos += ((wd3 - vec3(0.0, 0.55, 0.0)) * (0.06 + 0.01 * dist) + vec3(0.0, 1.0, 0.0) * (0.25 + 0.004 * dist) * flut * 0.3) * tl;
     axis = rotAround(axis, normalize(cameraPosition - pos), tl * (0.6 * flut + (seed - 0.5) * 1.6));
     sizeMul *= 1.0 + 0.18 * tl;
     col = mix(col, col * 1.15 + vec3(0.05, 0.05, 0.03), tw * 0.5);
