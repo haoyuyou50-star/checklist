@@ -4,8 +4,11 @@ export const CLS = {
 };
 
 const lerp = (a, b, t) => a + (b - a) * t;
-// the water-lily pond is built from the PSD's layers; ?flat builds it from the finished picture alone, with a still eye
-const LAYERED = !(typeof location !== 'undefined' && new URLSearchParams(location.search).has('flat'));
+// the water-lily pond is painted from the two panoramas (assets/bridge_pano); ?psd builds it from the PSD's layers
+// instead, ?flat from the PSD's finished picture alone, with a still eye
+const QS = typeof location !== 'undefined' ? new URLSearchParams(location.search) : new URLSearchParams();
+const PANO = !QS.has('psd') && !QS.has('flat');
+const LAYERED = QS.has('psd');
 
 export function polyline(pts) {
   return (u) => {
@@ -273,9 +276,31 @@ const bridgeLayers = {
 /* ============================================================
  *  03  The water-lily pond and the Japanese bridge, Giverny
  * ============================================================ */
+const bridgePano = {
+  src: 'assets/bridge_pano/sphere.jpg',
+  analysisW: { low: 1536, mid: 2048, high: 2048 },
+  alphaMul: { low: 1.5, mid: 1.32, high: 1.16 },
+  // stroke spacing grows from the front ray towards the back: [from, to (radians), extra]
+  falloff: [0.9, 2.6, 0.55],
+  // share of the finest pass laid where the picture has edges
+  detail: 0.15,
+  // the pond, in degrees: its far edge [azimuth, elevation] and its near edge (-99: no pond / down to the feet).
+  // Behind the viewer (azimuth past -115 / 165) the bank comes right down to the eye's feet
+  pondTop: [[-180, -99], [-116, -99], [-110, -28], [-100, -18], [-80, -14], [-60, -10], [-40, -8], [40, -8], [60, -9], [80, -9], [100, -10], [150, -10], [160, -12], [166, -99], [180, -99]],
+  pondLow: [[-180, -99], [50, -99], [60, -30], [75, -18], [90, -16], [150, -16], [165, -14], [180, -99]],
+  // underfoot the pond's edge is a straight line on the ground: [azimuth of the pond side, offset] (as in make_pano.py)
+  underfoot: [-32, 0.22],
+  // the garden's distance round the pond (m)
+  shore: [[-180, 5], [-110, 7], [-80, 7], [-60, 9], [-40, 11], [40, 11], [60, 10], [90, 9], [150, 9], [180, 5]],
+  // broken colour: size relative to the plate's strokes, share laid, warm/cool tint, saturation, how far a touch
+  // may borrow its colour (touch sizes), how much of it falls on the sky, fade [from, to] radians off the front ray
+  // down to the share left behind the viewer
+  dabs: { k: 0.5, p: 0.22, tint: 0.07, sat: 1.12, jitter: 0.6, sky: 0.25, fade: [1.3, 2.6], back: 0.45 },
+};
+
 const bridge = {
   id: 'bridge',
-  image: 'assets/bridge/composite.jpg',
+  image: PANO ? 'assets/bridge_pano/view.jpg' : 'assets/bridge/composite.jpg',
   info: {
     index: '03',
     titleCn: '睡莲池与日本桥',
@@ -288,17 +313,20 @@ const bridge = {
   hint: '拖动环顾四周 · 右下角切换色调',
   // no parallax: the eye stays at the painting's viewpoint (no dolly, no sway), so straight ahead is the picture
   // itself (?flat only; the layered pond keeps the moving eye its cards were made for)
-  cam: LAYERED ? { f: 0.45, h: 1.6, vH: 0.42, maxD: 120, dolly: 1.0, sky: 420, parallax: 2.0 } : { f: 0.45, h: 1.6, vH: 0.42, maxD: 120, dolly: 0, sky: 420, parallax: 0, still: true },
+  cam: PANO ? { f: 0.5, h: 1.6, vH: 0.45, maxD: 120, dolly: 0, sky: 420, parallax: 0, still: true }
+    : LAYERED ? { f: 0.45, h: 1.6, vH: 0.42, maxD: 120, dolly: 1.0, sky: 420, parallax: 2.0 } : { f: 0.45, h: 1.6, vH: 0.42, maxD: 120, dolly: 0, sky: 420, parallax: 0, still: true },
   grade: { gamma: 0.98, expo: 1.03, wb: [1, 1, 1.01], sat: 1.04, lift: 0.08, contrast: 1.03, clean: 0 },
   wind: { dir: [1, 0.3], base: 0.5 },
   // the gallery picture is the first mood; the others are learnt from reference paintings of the same motif.
   // 盛夏 also has the art team's own warm green pond (the green PSD's plate), taken as it is
+  // (the PSD's green pond only fits the PSD's own plate)
   tones: [
     { cn: '晴光', en: 'Clear Light', swatch: ['#9cc6e8', '#e9d36a', '#9bbf5a'] },
-    { cn: '盛夏', en: 'Green Harmony', ref: 'assets/paintings/bridge_green.jpg', keepLight: 0.65, expo: 1.05, gamma: 0.94, water: 'assets/bridge/base_green.jpg', waterArt: 'assets/bridge/composite_green.jpg', waterMix: 0.6, swatch: ['#2f6b3c', '#7fa860', '#cfe0c6'] },
+    { cn: '盛夏', en: 'Green Harmony', ref: 'assets/paintings/bridge_green.jpg', keepLight: 0.65, expo: 1.05, gamma: 0.94, ...(PANO ? {} : { water: 'assets/bridge/base_green.jpg', waterArt: 'assets/bridge/composite_green.jpg', waterMix: 0.6 }), swatch: ['#2f6b3c', '#7fa860', '#cfe0c6'] },
     { cn: '秋暮', en: 'Autumn Glow', ref: 'assets/paintings/bridge_autumn.jpg', expo: 1.12, swatch: ['#b8341c', '#e98a2b', '#f5c45a'] },
   ],
-  unified: {
+  ...(PANO ? { pano: bridgePano } : {}),
+  unified: PANO ? null : {
     // the visible edge of the pond: near banks reach the bottom corners, the far edge runs under the bridge
     // (this shapes the garden beyond the frame). The layered plate's pond spans the whole width (plateWater),
     // its near banks are element cards
@@ -344,7 +372,7 @@ const bridge = {
     skyChroma: 0.08,
   },
   // default: the finished picture as one plate, with the pointillist touches over it (no element cards)
-  layered: LAYERED ? bridgeLayers : {
+  layered: PANO ? null : LAYERED ? bridgeLayers : {
     base: 'assets/bridge/composite.jpg',
     fine: 1,
     // jitter: how far (dab sizes) a touch may borrow its colour; one plate has no layers to keep it on the bridge

@@ -1,5 +1,6 @@
 import { CLS } from './scenes.js';
 import { buildUnified } from './unified.js';
+import { buildPano } from './pano.js';
 import { makeLayerEmitter } from './layered.js';
 
 /* ---------------- deterministic helpers ---------------- */
@@ -117,6 +118,7 @@ export async function loadImage(src) {
 
 /* ============================================================ */
 export function buildScene(scene, img, Q, layerSet = null) {
+  if (scene.pano) return buildPano(scene, layerSet, Q);
   if (scene.unified) return buildUnified(scene, layerSet ? layerSet.base : img, Q, layerSet ? makeLayerEmitter(layerSet, Q) : null);
   const rand = makeRng(scene.id.length * 7919 + 1873);
   const asp = img.naturalHeight / img.naturalWidth;
