@@ -44,7 +44,8 @@ export function buildToneLUT(baseImg, refImg) {
   return lut;
 }
 
-export function toneColor(lut, r, g, b, out = [0, 0, 0], expo = 1) {
+export function toneColor(lut, r, g, b, out = [0, 0, 0], adj = {}) {
+  const expo = adj.expo ?? 1, gam = adj.gamma ?? 1;
   const f = [r, g, b].map((x) => Math.min(N - 1.0001, Math.max(0, x * (N - 1))));
   const i0 = f.map(Math.floor), t = f.map((x, j) => x - i0[j]);
   out[0] = r; out[1] = g; out[2] = b;
@@ -54,23 +55,30 @@ export function toneColor(lut, r, g, b, out = [0, 0, 0], expo = 1) {
     const q = (((i0[0] + dx) * N + i0[1] + dy) * N + i0[2] + dz) * 3;
     for (let j = 0; j < 3; j++) out[j] += w * lut[q + j];
   }
-  for (let j = 0; j < 3; j++) out[j] = Math.min(1, Math.max(0, out[j] * expo));
+  // keepLight: take the reference's hue and chroma but keep (part of) the base painting's lightness
+  if (adj.keepLight) {
+    const Li = 0.3 * r + 0.59 * g + 0.11 * b, Lo = Math.max(1e-3, 0.3 * out[0] + 0.59 * out[1] + 0.11 * out[2]);
+    // scaling a dark stroke a long way up would blow its chroma out: the rest of the lift is neutral
+    const Lt = Lo + (Li - Lo) * adj.keepLight, s = Math.min(Lt / Lo, 1.5);
+    for (let j = 0; j < 3; j++) out[j] = out[j] * s + (Lt - Lo * s);
+  }
+  for (let j = 0; j < 3; j++) out[j] = Math.min(1, Math.pow(Math.max(0, out[j]), gam) * expo);
   return out;
 }
 
 // per-stroke colours of one mood, same layout as D (rgb + alpha)
-export function toneStrokes(lut, D, count, expo = 1) {
+export function toneStrokes(lut, D, count, adj) {
   const out = new Float32Array(count * 4), c = [0, 0, 0];
   for (let i = 0; i < count; i++) {
     const o = i * 4;
-    toneColor(lut, D[o], D[o + 1], D[o + 2], c, expo);
+    toneColor(lut, D[o], D[o + 1], D[o + 2], c, adj);
     out[o] = c[0]; out[o + 1] = c[1]; out[o + 2] = c[2]; out[o + 3] = D[o + 3];
   }
   return out;
 }
 
 // the gallery picture in a mood, so leaving the scene lands on a painting in the same colours
-export function tonePainting(lut, img, expo = 1) {
+export function tonePainting(lut, img, adj) {
   const w = img.naturalWidth, h = img.naturalHeight;
   const cv = document.createElement('canvas');
   cv.width = w; cv.height = h;
@@ -78,7 +86,7 @@ export function tonePainting(lut, img, expo = 1) {
   cx.drawImage(img, 0, 0);
   const id = cx.getImageData(0, 0, w, h), px = id.data, c = [0, 0, 0];
   for (let i = 0; i < w * h; i++) {
-    toneColor(lut, px[i * 4] / 255, px[i * 4 + 1] / 255, px[i * 4 + 2] / 255, c, expo);
+    toneColor(lut, px[i * 4] / 255, px[i * 4 + 1] / 255, px[i * 4 + 2] / 255, c, adj);
     px[i * 4] = c[0] * 255; px[i * 4 + 1] = c[1] * 255; px[i * 4 + 2] = c[2] * 255;
   }
   cx.putImageData(id, 0, 0);
