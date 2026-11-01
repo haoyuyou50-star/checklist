@@ -620,7 +620,7 @@ async function boot() {
   buildPicker();
   [imgs, layerSets, toneRefs] = await Promise.all([
     Promise.all(SCENES.map((sc) => loadImage(sc.image))),
-    Promise.all(SCENES.map((sc) => (sc.layered ? loadLayerSet(sc.layered, loadImage) : null))),
+    Promise.all(SCENES.map((sc) => (sc.layered ? loadLayerSet(sc.layered, loadImage) : sc.pano ? loadImage(sc.pano.src) : null))),
     Promise.all(SCENES.map((sc) => Promise.all((sc.tones || []).map(async (t) => {
       const [ref, water, art] = await Promise.all([t.ref, t.water, t.waterArt].map((s) => (s ? loadImage(s) : null)));
       return ref ? { ref, water, art } : null;
