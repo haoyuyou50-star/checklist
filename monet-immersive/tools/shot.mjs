@@ -1,5 +1,5 @@
 // Stills of one immersive scene at several yaw angles (for look-dev).
-//   node tools/shot.mjs --scene 1 --yaws 0,0.6,-0.6,3.1 --out shots --q mid
+//   node tools/shot.mjs --scene 1 --yaws 0,0.6,-0.6,3.1 --out shots --q mid [--params flat]
 import puppeteer from 'puppeteer-core';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -24,7 +24,7 @@ const browser = await puppeteer.launch({
 const page = await browser.newPage();
 page.on('pageerror', (e) => console.log('[pageerror]', e.stack || e.message));
 page.on('console', (m) => console.log('[page]', m.text()));
-await page.goto(`http://localhost:8123/index.html?capture=1&nodemo=1&q=${args.q || 'mid'}`, { waitUntil: 'load' });
+await page.goto(`http://localhost:8123/index.html?capture=1&nodemo=1&q=${args.q || 'mid'}${args.params ? `&${args.params}` : ''}`, { waitUntil: 'load' });
 await page.waitForFunction('window.__ready === true', { timeout: 300000 });
 const step = (t, dt = 0.1) => page.evaluate(async (t, dt) => {
   for (let k = 0; k < Math.round(t / dt); k++) { window.__step(dt, false); await new Promise((r) => setTimeout(r, 0)); }
