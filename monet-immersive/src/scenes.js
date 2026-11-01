@@ -278,6 +278,9 @@ const bridgeLayers = {
  * ============================================================ */
 const bridgePano = {
   src: 'assets/bridge_pano/sphere.jpg',
+  // the panorama is painted close to the bridge: the eye steps back until the bridge spans what it does in the
+  // painting (s: how much smaller straight ahead; turn: view azimuth of the bridge, degrees)
+  zoom: { s: 2.0, turn: 17 },
   analysisW: { low: 1536, mid: 2048, high: 2048 },
   alphaMul: { low: 1.5, mid: 1.32, high: 1.16 },
   // stroke spacing grows from the front ray towards the back: [from, to (radians), extra]
@@ -300,7 +303,7 @@ const bridgePano = {
 
 const bridge = {
   id: 'bridge',
-  image: PANO ? 'assets/bridge_pano/view.jpg' : 'assets/bridge/composite.jpg',
+  image: 'assets/bridge/composite.jpg',
   info: {
     index: '03',
     titleCn: '睡莲池与日本桥',
@@ -313,7 +316,7 @@ const bridge = {
   hint: '拖动环顾四周 · 右下角切换色调',
   // no parallax: the eye stays at the painting's viewpoint (no dolly, no sway), so straight ahead is the picture
   // itself (?flat only; the layered pond keeps the moving eye its cards were made for)
-  cam: PANO ? { f: 0.5, h: 1.6, vH: 0.45, maxD: 120, dolly: 0, sky: 420, parallax: 0, still: true }
+  cam: PANO ? { f: 0.45, h: 1.6, vH: 0.42, maxD: 160, dolly: 0, sky: 420, parallax: 0, still: true }
     : LAYERED ? { f: 0.45, h: 1.6, vH: 0.42, maxD: 120, dolly: 1.0, sky: 420, parallax: 2.0 } : { f: 0.45, h: 1.6, vH: 0.42, maxD: 120, dolly: 0, sky: 420, parallax: 0, still: true },
   grade: { gamma: 0.98, expo: 1.03, wb: [1, 1, 1.01], sat: 1.04, lift: 0.08, contrast: 1.03, clean: 0 },
   wind: { dir: [1, 0.3], base: 0.5 },

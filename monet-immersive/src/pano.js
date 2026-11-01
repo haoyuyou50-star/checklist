@@ -73,16 +73,27 @@ export function buildPano(scene, img, Q) {
     }
   }
 
+  // the eye stands further back than the panorama was painted from: a zoom out round the front (s times smaller
+  // there, larger behind), separable in azimuth and elevation so verticals stay vertical and the horizon level,
+  // and conformal along the horizon. turn: the view azimuth where the panorama's azimuth 0 (the bridge) lands
+  const zs = P.zoom.s, t2 = (a) => Math.tan(clamp(a, -Math.PI + 1e-6, Math.PI - 1e-6) / 2);
+  const G = (a) => 2 * Math.atan(zs * t2(a)), dG = (a) => { const t = t2(a); return (zs * (1 + t * t)) / (1 + zs * zs * t * t); };
+  const azOff = -G(P.zoom.turn * DEG);
+  const warp = (az, el) => {
+    const m = dG(az), te = Math.tan(clamp(el, -1.5707, 1.5707));
+    const ae = G(az) + azOff;
+    return { az: Math.atan2(Math.sin(ae), Math.cos(ae)), el: Math.atan(m * te), kx: 1 / m, ky: (1 + m * m * te * te) / (m * (1 + te * te)), m };
+  };
   const xOf = (az) => { const x = Math.floor((az / (2 * Math.PI) + 0.5) * W); return ((x % W) + W) % W; };
   const yOf = (el) => clamp(Math.floor((0.5 - el / Math.PI) * H), 0, H - 1);
   const resolve = (d) => {
-    const az = Math.atan2(d[0], -d[2]), el = Math.asin(clamp(d[1], -1, 1));
+    const vel = Math.asin(clamp(d[1], -1, 1)), w = warp(Math.atan2(d[0], -d[2]), vel), az = w.az, el = w.el;
     const x = xOf(az), y = yOf(el), i = y * W + x, c = cls[i];
     const hz = Math.hypot(d[0], d[2]) || 1e-6;
     let t, flex = 0;
     if (c === CLS.SKY) t = R;
     else {
-      const S = shoreD(az / DEG);
+      const S = shoreD(az / DEG) * w.m;
       if (c === CLS.WATER) { t = d[1] < -1e-3 ? Math.min(h / -d[1], cam.maxD) : cam.maxD; flex = 0.5 + rand() * 0.5; }
       else {
         // the garden stands round the pond at the shore's distance, nearer where it comes down to the eye's feet
@@ -90,7 +101,8 @@ export function buildPano(scene, img, Q) {
         flex = clamp((el / DEG + 12) / 45, 0.1, 1);
       }
     }
-    return { P: [d[0] * t, d[1] * t, d[2] * t], cls: c, i, x, y, az, el, flex };
+    // kx, ky: view arc per panorama radian across and up
+    return { P: [d[0] * t, d[1] * t, d[2] * t], cls: c, i, x, y, az, el, vel, kx: w.kx * Math.cos(vel), ky: w.ky, flex };
   };
 
   /* ---------------- colour references ---------------- */
@@ -125,7 +137,8 @@ export function buildPano(scene, img, Q) {
     { k: 1.0, a: 0.97, maj: [1.1, 2.0], min: [0.45, 0.7] },
     { k: 0.72, a: 0.96, maj: [1.0, 1.8], min: [0.42, 0.66], detail: true },
   ];
-  // the picture's brushwork direction at a pixel, turned from panorama pixels (squeezed by cos el) to the view
+  // the picture's brushwork direction at a pixel, turned from panorama pixels (one azimuth step is cos el of arc
+  // there) to the view
   const strokeAngle = (r) => {
     const i = r.i, c = r.cls, ce = Math.cos(r.el);
     if (c === CLS.WATER) return (rand() - 0.5) * 0.25;
@@ -134,10 +147,10 @@ export function buildPano(scene, img, Q) {
     const coh = Math.sqrt((sxx - syy) ** 2 + 4 * sxy * sxy) / (sxx + syy + 1e-6);
     if (ce > 0.35 && rand() < coh * 1.3) {
       const ap = 0.5 * Math.atan2(2 * sxy, sxx - syy) + Math.PI / 2;
-      a = Math.atan2(Math.sin(ap), Math.cos(ap) * ce);
+      a = Math.atan2(Math.sin(ap) * r.ky, Math.cos(ap) * r.kx);
     } else a = c === CLS.SKY ? (rand() - 0.5) * 0.6 : rand() * Math.PI;
     // Monet's sky goes on in long, nearly level drags (overhead they would close into rings: any direction there)
-    if (c === CLS.SKY) { const h0 = a - Math.PI * Math.round(a / Math.PI); a = lerp(h0 * 0.4 + (rand() - 0.5) * 0.12, h0, smooth(0.5, 1.1, r.el)); }
+    if (c === CLS.SKY) { const h0 = a - Math.PI * Math.round(a / Math.PI); a = lerp(h0 * 0.4 + (rand() - 0.5) * 0.12, h0, smooth(0.5, 1.1, r.vel)); }
     return a;
   };
   const counts = [0, 0, 0, 0, 0];

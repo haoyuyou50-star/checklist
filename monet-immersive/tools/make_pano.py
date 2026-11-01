@@ -1,4 +1,4 @@
-"""Merge the two painted panoramas of the water-lily pond into one full sphere, and render the gallery picture.
+"""Merge the two painted panoramas of the water-lily pond into one full sphere.
 
   python3 tools/make_pano.py BAND.jpg DOME.jpg
 
@@ -8,8 +8,7 @@ reaches are tiled from the dome's own sky and lilies by position (so no seam con
 picture's left/right seam is closed by mirror-continuing both edges and switching along a ragged line, and the
 generator's watermark is painted over from the rows above it.
 
-Writes assets/bridge_pano/sphere.jpg (equirectangular, azimuth 0 = the bridge at the centre column) and
-assets/bridge_pano/view.jpg (the gallery picture: the same sphere seen through the scene's pinhole camera).
+Writes assets/bridge_pano/sphere.jpg (equirectangular, azimuth 0 = the bridge at the centre column).
 """
 import sys
 import numpy as np
@@ -19,8 +18,6 @@ OUT = 'assets/bridge_pano'
 OW, OH = 4096, 2048
 # the bridge's centre column in each picture (azimuth 0)
 BAND_X0, DOME_X0 = 0.54, 0.596
-# gallery camera (keep in step with the scene's cam): rays (u - 0.5, -(v - vH) * asp, -f)
-VIEW_W, VIEW_H, VIEW_F, VIEW_VH = 1600, 1200, 0.5, 0.45
 
 rng = np.random.default_rng(7)
 
@@ -135,18 +132,7 @@ def main(band_p, dome_p):
     sphere = np.clip(col * 255 + 0.5, 0, 255).astype(np.uint8)
     Image.fromarray(sphere).save(f'{OUT}/sphere.jpg', quality=88, optimize=True)
 
-    # gallery picture: the same sphere through the scene's pinhole camera
-    asp = VIEW_H / VIEW_W
-    u = (np.arange(VIEW_W, dtype=np.float32) + 0.5) / VIEW_W
-    v = (np.arange(VIEW_H, dtype=np.float32) + 0.5) / VIEW_H
-    U, V = np.meshgrid(u, v)
-    dx, dy, dz = U - 0.5, -(V - VIEW_VH) * asp, -np.full_like(U, VIEW_F)
-    l = np.sqrt(dx * dx + dy * dy + dz * dz)
-    vaz = np.arctan2(dx, -dz)
-    vel = np.arcsin(dy / l)
-    view = bilinear(col, vaz / (2 * np.pi) + 0.5, 0.5 - vel / np.pi)
-    Image.fromarray(np.clip(view * 255 + 0.5, 0, 255).astype(np.uint8)).save(f'{OUT}/view.jpg', quality=90, optimize=True)
-    print('sphere', sphere.shape, 'view', view.shape)
+    print('sphere', sphere.shape)
 
 
 if __name__ == '__main__':
