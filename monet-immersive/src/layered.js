@@ -385,13 +385,18 @@ export function makeLayerEmitter(set, Q) {
           }
           return -1;
         };
+        // fold (canvas widths): the dabs also cover the mirrored band the plate continues in past the frame
+        const fold = spec.dabs.fold || 0, [e0, e1, ev] = spec.dabs.foldEdge || [0, 1, 1];
         let n = 0;
-        for (let v = 0; v < 1; ) {
+        for (let v = 0; v < 1 + fold / asp; ) {
           const ty = -(v - vH) * asp / f;
-          for (let u = rand() * f * sp; u < 1; ) {
+          for (let u = -fold + rand() * f * sp; u < 1 + fold; ) {
             const tx = (u - 0.5) / f;
-            const uu = u, vv = clamp(v + (rand() - 0.5) * sp * f / asp, 0, 0.9999);
+            const uo = u, vo = Math.max(0, v + (rand() - 0.5) * sp * f / asp);
             u += f * sp * (1 + tx * tx) * (0.85 + rand() * 0.3);
+            const out = Math.max(uo < e0 ? e0 - uo : uo > e1 ? uo - e1 : 0, vo > ev ? (vo - ev) * asp : 0);
+            if (out > 0 && rand() > 1 - smooth(fold * 0.35, fold, out)) continue;
+            const uu = clamp(uo < e0 ? 2 * e0 - uo : uo > e1 ? 2 * e1 - uo : uo, 0, 1), vv = clamp(vo > ev ? 2 * ev - vo : vo, 0, 0.9999);
             const j = topCard(uu, vv);
             let z, c, fl;
             if (j >= 0) {
@@ -412,8 +417,9 @@ export function makeLayerEmitter(set, Q) {
             const lm = 0.3 * col[0] + 0.59 * col[1] + 0.11 * col[2], tint = (rand() - 0.5) * 2 * spec.dabs.tint;
             const tc = tint > 0 ? [1, 0.45, -0.7] : [-0.6, -0.1, 1];
             for (let q = 0; q < 3; q++) col[q] = clamp(lm + (col[q] - lm) * spec.dabs.sat + tc[q] * Math.abs(tint), 0, 1);
+            if (vo > ev && c === CLS.WATER) z = groundZ(vo);
             const zz = z * 0.996;
-            const P = [(uu - 0.5) * zz / f, -(vv - vH) * asp * zz / f, -zz];
+            const P = [(uo - 0.5) * zz / f, -(vo - vH) * asp * zz / f, -zz];
             const dist = Math.hypot(P[0], P[1], P[2]);
             const a = c === CLS.WATER ? (rand() - 0.5) * 0.35 : c === CLS.TREE ? Math.PI / 2 + (rand() - 0.5) * 1.4 : rand() * Math.PI;
             let maj = sp * lerp(0.9, 1.5, rand()), mn = sp * lerp(0.5, 0.75, rand());
@@ -422,7 +428,8 @@ export function makeLayerEmitter(set, Q) {
             const axis = [Math.cos(a) * maj * dist, -Math.sin(a) * maj * dist, 0];
             const d = norm(P), sc = sC * f / -d[2];
             const p = proj(d), rad = Math.hypot(p[0] - 0.5, (p[1] - 0.5) * asp) / 0.62;
-            B.add(P, [d[0] * sc, d[1] * sc, d[2] * sc], axis, mn * dist, col, 0.92, c, 0, fl, clamp(rad * 0.62 + rand() * 0.38, 0, 1), 0, rand());
+            if (uo < 0 || uo > 1 || vo > 1) B.add(P, P, axis, mn * dist, col, 0.92, c, 0, fl, ctx.extDelay(P), 1, rand());
+            else B.add(P, [d[0] * sc, d[1] * sc, d[2] * sc], axis, mn * dist, col, 0.92, c, 0, fl, clamp(rad * 0.62 + rand() * 0.38, 0, 1), 0, rand());
             n++;
           }
           v += sp * f / asp * (1 + ty * ty) * 0.866;

@@ -278,7 +278,9 @@ const bridge = {
   },
   // no hotspots or cards here: the interaction is the colour mood
   hint: '拖动环顾四周 · 右下角切换色调',
-  cam: { f: 0.45, h: 1.6, vH: 0.42, maxD: 120, dolly: 1.0, sky: 420, parallax: 2.0 },
+  // no parallax: the eye stays at the painting's viewpoint (no dolly, no sway), so straight ahead is the picture
+  // itself; ?layered keeps the moving eye its cards were made for
+  cam: LAYERED ? { f: 0.45, h: 1.6, vH: 0.42, maxD: 120, dolly: 1.0, sky: 420, parallax: 2.0 } : { f: 0.45, h: 1.6, vH: 0.42, maxD: 120, dolly: 0, sky: 420, parallax: 0, still: true },
   grade: { gamma: 0.98, expo: 1.03, wb: [1, 1, 1.01], sat: 1.04, lift: 0.08, contrast: 1.03, clean: 0 },
   wind: { dir: [1, 0.3], base: 0.5 },
   // the gallery picture is the first mood; the others are learnt from reference paintings of the same motif.
@@ -300,7 +302,7 @@ const bridge = {
     alphaMul: LAYERED ? { low: 1.7, mid: 1.7, high: 1.7 } : { low: 1.25, mid: 1.15, high: 1.0 },
     landMinLayer: 1,
     // the frame spans 96 degrees: keep strokes fine across it and let them grow behind the viewer
-    falloff: LAYERED ? [0.7, 2.4, 1.4] : [0.9, 2.6, 1.0],
+    falloff: LAYERED ? [0.7, 2.4, 1.4] : [0.9, 2.6, 1.3],
     skyLike: (r, g, b, v) => {
       const L = 0.3 * r + 0.59 * g + 0.11 * b;
       // pale blue and white cloud, or a deep blue patch between the clouds
@@ -311,15 +313,20 @@ const bridge = {
     // the far bank steps back the higher it rises
     landCard: (u, v, dv) => 1 + 0.55 * Math.min(1, Math.max(0, (dv - 0.03) / 0.27)),
     waterAllBase: true,
-    bankAngular: 0.85,
+    bankAngular: LAYERED ? 0.85 : 0.3,
     // the bank round the pond is continued from plate columns whose own pond edge matches the line above
     // (the big tree at u 0.6 stays unique)
     // unlayered, each side first runs on with a little of its own edge (no element cards stand there), then
-    // with columns whose canopy reaches the top (others leave sky gaps that read as a row of poplars)
-    landPool: LAYERED ? [[0.75, 0.66], [0.54, 0.36]] : [[1.0, 0.975], [0.89, 0.85], [0.71, 0.6], [0.52, 0.2]],
-    farPool: LAYERED ? [[0.36, 0.54], [0.66, 0.75]] : [[0.0, 0.05], [0.19, 0.52], [0.6, 0.71]],
+    // with willow columns whose canopy reaches the top (others leave sky gaps that read as a row of poplars;
+    // the bridge's columns would repeat ghost bridges)
+    landPool: LAYERED ? [[0.75, 0.66], [0.54, 0.36]] : [[1.0, 0.975], [0.89, 0.85], [0.48, 0.19]],
+    farPool: LAYERED ? [[0.36, 0.54], [0.66, 0.75]] : [[0.0, 0.05], [0.19, 0.48]],
     // unlayered, the willows cut by the frame's top edge grow on above it: [min, max, variation]
     ...(LAYERED ? {} : { crown: [0.05, 0.16, 5] }),
+    // unlayered (still eye): the picture runs on past its sides and bottom as its own mirror image (fold, canvas
+    // widths), and the garden beyond stands back at sideDist instead of right beside the near bushes
+    // (about foldEdge: inside the canvas's pale border)
+    ...(LAYERED ? {} : { fold: 0.3, foldEdge: [0.004, 0.996, 0.985], sideDist: 18, bankCrown: false }),
     farRate: 1,
     backDist: 26,
     // clean sky is only the plate's top band (the left half has no tree reaching into it)
@@ -332,7 +339,7 @@ const bridge = {
     base: 'assets/bridge/composite.jpg',
     fine: 1,
     // jitter: how far (dab sizes) a touch may borrow its colour; one plate has no layers to keep it on the bridge
-    dabs: { src: 'assets/bridge/composite.jpg', k: 0.58, tint: 0.07, sat: 1.12, jitter: 0.5 },
+    dabs: { src: 'assets/bridge/composite.jpg', k: 0.62, tint: 0.07, sat: 1.12, jitter: 0.5, fold: 0.3, foldEdge: [0.004, 0.996, 0.985] },
     cards: [],
     extras: [],
   },

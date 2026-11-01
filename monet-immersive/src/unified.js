@@ -284,7 +284,8 @@ export function buildUnified(scene, img, Q, X = null) {
 
   /* ---------------- world outside the frame ---------------- */
   const thE = Math.atan(0.5 / f);
-  const S_R = colD[W - 1] / Math.cos(thE), S_L = colD[0] / Math.cos(thE), S_B = U.backDist;
+  // sideDist: the shore just past the frame's sides, when the frame's own edge columns are too near for it
+  const S_R = U.sideDist || colD[W - 1] / Math.cos(thE), S_L = U.sideDist || colD[0] / Math.cos(thE), S_B = U.backDist;
   const wrap = (th) => Math.atan2(Math.sin(th), Math.cos(th));
   const sideT = (th) => (Math.abs(th) - thE) / (Math.PI - thE);
   const shoreN = (th) => vnoise2(Math.cos(th) * 2.5 + 3, Math.sin(th) * 2.5 - 1);
@@ -380,6 +381,20 @@ export function buildUnified(scene, img, Q, X = null) {
   // resolve a viewing direction to a surface point and the painting pixel that colours it
   const resolve = (d) => {
     const p = proj(d);
+    // fold: just past the frame's sides and bottom the painting runs on as its own mirror image, thinning out
+    // into the garden further away (for an eye that never moves, only how it looks from here matters).
+    // It folds about foldEdge [u0, u1, v1], inside the canvas's pale border, so the border never shows
+    if (U.fold && p && p[1] >= 0) {
+      const [e0, e1, ev] = U.foldEdge || [0, 1, 1];
+      const ou = p[0] < e0 ? e0 - p[0] : p[0] > e1 ? p[0] - e1 : 0, ov = p[1] > ev ? (p[1] - ev) * asp : 0;
+      if ((ou > 0 || ov > 0) && rand() < 1 - smooth(U.fold * 0.35, U.fold, Math.max(ou, ov))) {
+        const fu = clamp(p[0] < e0 ? 2 * e0 - p[0] : p[0] > e1 ? 2 * e1 - p[0] : p[0], 0, 1), fv = clamp(p[1] > ev ? 2 * ev - p[1] : p[1], 0, 1);
+        const x = xOf(fu), y = yOf(fv), i = y * W + x, c = cls[i];
+        if (c === CLS.SKY) return { P: [d[0] * R, d[1] * R, d[2] * R], cls: c, x, y, flip: false, img: famImg[fam[i]], hot: 0, flex: 0, comp: -1 };
+        const t = c === CLS.WATER && d[1] < -1e-3 ? h / -d[1] : depZ[i] / Math.max(-d[2], 0.05);
+        return { P: [d[0] * t, d[1] * t, d[2] * t], cls: c === CLS.SAIL ? CLS.STATIC : c, x, y, flip: false, img: famImg[fam[i]], hot: 0, flex: c === CLS.WATER ? 0.5 + rand() * 0.5 : flex[i], comp: -1 };
+      }
+    }
     if (inRect(p)) {
       let x = xOf(p[0]);
       const y = yOf(p[1]), i = y * W + x, c = cls[i];
@@ -445,7 +460,8 @@ export function buildUnified(scene, img, Q, X = null) {
     let hb = colHb[x] * (land ? lerp(1, 0.85, smooth(40, 140, S)) : 1);
     // a garden all round keeps its columns' angular height, so trees behind are trees, not a low hedge
     if (U.bankAngular) hb = h + (hb - h) * lerp(1, S / colD[x], U.bankAngular);
-    const crown = colTopV[x] < 0.03 ? (crownV(th) * asp * S) / f : 0;
+    // bankCrown false: the canopy above the frame only, the bank round the viewer keeps the columns' own tops
+    const crown = colTopV[x] < 0.03 && U.bankCrown !== false ? (crownV(th) * asp * S) / f : 0;
     // straight above or below the frame the painting's own columns (and their canopy) are the bank
     const overFrame = !!U.crown && p && p[0] >= 0 && p[0] <= 1;
     if (!overFrame && yb > -h && yb + h <= hb + crown) {

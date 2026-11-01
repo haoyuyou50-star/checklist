@@ -126,7 +126,8 @@ function applyCamera() {
   const n = camera.near;
   camera.projectionMatrix.makePerspective(fr.l * n, fr.r * n, fr.t * n, fr.b * n, n, camera.far);
   camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
-  const breathe = S.fMix * 0.03;
+  // still: the eye never leaves the painting's own viewpoint
+  const breathe = SCENES[S.idx].cam.still ? 0 : S.fMix * 0.03;
   // parallax: the eye slides sideways so near cards move against far ones
   // only once the painting has opened up: the frame morph relies on the exact centre of projection
   const pa = (SCENES[S.idx].cam.parallax || 0) * smooth(0.82, 1, S.fMix) * (S.mode === 'focus' ? 0.45 : 1);
