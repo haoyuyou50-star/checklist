@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { SCENES } from './scenes.js';
+import { SCENES, CLS } from './scenes.js';
 import { buildScene, loadImage, QUALITY, smooth } from './generator.js';
 import { loadLayerSet } from './layered.js';
 import { SplatCloud, makeBackdrop, gradeColor } from './splats.js';
@@ -573,11 +573,15 @@ let imgs = [], layerSets = [], toneRefs = [];
 function buildOne(i) {
   const sc = SCENES[i];
   const data = buildScene(sc, imgs[i], Q, layerSets[i]);
-  let luts = null;
+  let luts = null, wluts = null;
   if (sc.tones) {
     const t0 = performance.now();
-    luts = sc.tones.map((t, k) => (toneRefs[i][k] ? buildToneLUT(imgs[i], toneRefs[i][k]) : null));
-    data.tones = luts.map((l, k) => (l ? toneStrokes(l, data.D, data.count, sc.tones[k]) : null));
+    const R = toneRefs[i];
+    luts = sc.tones.map((t, k) => (R[k] ? buildToneLUT(imgs[i], R[k].ref) : null));
+    // a mood with its own version of the pond (water: the plate with that pond) maps water strokes by it
+    wluts = sc.tones.map((t, k) => (R[k] && R[k].water ? buildToneLUT(layerSets[i].base, R[k].water, true) : null));
+    const isWater = (j) => data.B[j * 4 + 3] === CLS.WATER;
+    data.tones = luts.map((l, k) => (l ? toneStrokes(l, data.D, data.count, sc.tones[k], wluts[k] && { lut: wluts[k], adj: sc.tones[k].waterAdj || {}, mix: sc.tones[k].waterMix ?? 1, isWater }) : null));
     console.log(`[monet] ${sc.id}: ${luts.filter(Boolean).length} colour moods in ${Math.round(performance.now() - t0)}ms`);
   }
   const cloud = new SplatCloud(sc.id, data, { syncSort: CAPTURE, grade: sc.grade });
@@ -586,8 +590,15 @@ function buildOne(i) {
   scene3.add(backdrop, cloud.mesh);
   built[i] = { data, cloud, backdrop, tone: 0 };
   if (luts) {
-    built[i].toneArt = luts.map((l, k) => (l ? tonePainting(l, imgs[i], sc.tones[k]) : sc.image));
-    built[i].toneBg = luts.map((l, k) => Object.fromEntries(Object.entries(data.bg).map(([key, c]) => [key, gradeColor(l ? toneColor(l, ...c, [0, 0, 0], sc.tones[k]) : c, sc.grade)])));
+    built[i].toneArt = luts.map((l, k) => (l ? tonePainting(l, imgs[i], sc.tones[k], toneRefs[i][k].art, sc.tones[k].waterMix ?? 1) : sc.image));
+    // ground and near are the pond's colours
+    const bgTone = (k, key, c) => {
+      const m = toneColor(luts[k], ...c, [0, 0, 0], sc.tones[k]);
+      if (!wluts[k] || (key !== 'ground' && key !== 'near')) return m;
+      const w = toneColor(wluts[k], ...c, [0, 0, 0], sc.tones[k].waterAdj || {}), t = sc.tones[k].waterMix ?? 1;
+      return m.map((x, j) => x + (w[j] - x) * t);
+    };
+    built[i].toneBg = luts.map((l, k) => Object.fromEntries(Object.entries(data.bg).map(([key, c]) => [key, gradeColor(l ? bgTone(k, key, c) : c, sc.grade)])));
   }
   console.log(`[monet] ${SCENES[i].id}: ${data.count.toLocaleString()} splats`);
 }
@@ -602,7 +613,10 @@ async function boot() {
   [imgs, layerSets, toneRefs] = await Promise.all([
     Promise.all(SCENES.map((sc) => loadImage(sc.image))),
     Promise.all(SCENES.map((sc) => (sc.layered ? loadLayerSet(sc.layered, loadImage) : null))),
-    Promise.all(SCENES.map((sc) => Promise.all((sc.tones || []).map((t) => (t.ref ? loadImage(t.ref) : null))))),
+    Promise.all(SCENES.map((sc) => Promise.all((sc.tones || []).map(async (t) => {
+      const [ref, water, art] = await Promise.all([t.ref, t.water, t.waterArt].map((s) => (s ? loadImage(s) : null)));
+      return ref ? { ref, water, art } : null;
+    })))),
   ]);
   imgs.forEach((img, i) => { SCENES[i].asp = img.naturalHeight / img.naturalWidth; });
   setGalleryContent(0);

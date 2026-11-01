@@ -109,14 +109,15 @@ function makeHedge(src, hd, W, H) {
 export function makeLayerEmitter(set, Q) {
   const spec = set.spec;
   let occMap = null;
+  const pixCache = new Map();
+  const pix = (j) => { if (!pixCache.has(j)) pixCache.set(j, pixels(set.cards[j])); return pixCache.get(j); };
 
   return {
     // the plate's bank behind an element steps back behind that element's card
-    occlude({ W, H, cls, depZ, groundZ, wl }) {
+    occlude({ W, H, cls, depZ, groundZ, wl, f }) {
       occMap = new Float32Array(W * H);
       spec.cards.forEach((c, k) => {
-        if (c.kind === 'sail') return;
-        const d = cardDepth(c, groundZ, wl);
+        if (c.kind === 'sail' || c.kind === 'lily') return;
         const [u0, v0, u1, v1] = c.box;
         const s = readSprite(set.cards[k], Math.max(8, (u1 - u0) * W), false);
         for (let y = Math.floor(v0 * H); y < Math.ceil(v1 * H); y++) for (let x = Math.floor(u0 * W); x < Math.ceil(u1 * W); x++) {
@@ -124,10 +125,23 @@ export function makeLayerEmitter(set, Q) {
           const sx = Math.floor(((x + 0.5) / W - u0) / (u1 - u0) * s.w), sy = Math.floor(((y + 0.5) / H - v0) / (v1 - v0) * s.h);
           if (sx < 0 || sy < 0 || sx >= s.w || sy >= s.h || s.a[sy * s.w + sx] < 0.3) continue;
           const i = y * W + x;
-          occMap[i] = Math.max(occMap[i], d);
+          occMap[i] = Math.max(occMap[i], depthAt(c, (x + 0.5) / W, (y + 0.5) / H, groundZ, wl));
         }
       });
-      for (let i = 0; i < W * H; i++) if (occMap[i] > 0 && cls[i] !== CLS.SKY && cls[i] !== CLS.WATER) depZ[i] = Math.max(depZ[i], occMap[i] * 1.12);
+      // plate water too: a foot painted below the plate's own water line must not sink under the pond
+      for (let i = 0; i < W * H; i++) if (occMap[i] > 0 && cls[i] !== CLS.SKY) depZ[i] = Math.max(depZ[i], occMap[i] * 1.12);
+      // plate pixels so far inside the cards that no eye position (spec.hideShift) can see them
+      const shift = spec.hideShift ?? 0;
+      if (!shift) return null;
+      const hid = new Uint8Array(W * H);
+      const cov = (x, y) => x >= 0 && y >= 0 && x < W && y < H && occMap[y * W + x] > 0;
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+        const i = y * W + x, dc = occMap[i];
+        if (!(dc > 0) || cls[i] === CLS.SKY) continue;
+        const m = Math.ceil((shift * (1 / dc - 1 / depZ[i]) * f + 0.006) * W);
+        if (cov(x - m, y) && cov(x + m, y) && cov(x, y - m) && cov(x, y + m)) hid[i] = 1;
+      }
+      return hid;
     },
 
     emit(ctx) {
@@ -138,7 +152,8 @@ export function makeLayerEmitter(set, Q) {
       // one element: place(sx, sy) -> world point on its card; frame = { R, U } card axes; pxAng = radians per sprite pixel
       const emitSprite = (s, o) => {
         let n = 0;
-        for (let li = 0; li < 4; li++) {
+        // thin, broken elements (lily pads) skip the broad passes, which would average them into one blot
+        for (let li = o.minLayer || 0; li < 4; li++) {
           const L = layers[li];
           const sp = alpha0 * L.k * (o.fine || fine) * (o.ext ? o.spMul || 1 : 1);
           const step = sp / o.pxAng;
@@ -235,6 +250,7 @@ export function makeLayerEmitter(set, Q) {
         sail: { cls: sailCls, angle: sailAngle, refl: 0.6 },
         tree: { cls: () => CLS.TREE, angle: treeAngle, refl: 0 },
         house: { cls: () => CLS.STATIC, angle: flatAngle, refl: 0 },
+        lily: { cls: () => CLS.STATIC, angle: flatAngle, refl: 0 },
       };
 
       /* ---- the painted elements, each on its own card inside the frame ---- */
@@ -246,22 +262,35 @@ export function makeLayerEmitter(set, Q) {
         const wWork = Math.min(set.cards[k].naturalWidth * 1.6, Math.max(24, pxAng0 / (alpha0 * layers[3].k * cf * 0.55)));
         const s = readSprite(set.cards[k], wWork);
         // an element painted over this one but standing behind it (so the shrubs can cover its foot)
-        // must not be hidden by this layer: cut its silhouette out
+        // must not be hidden by this layer: cut its silhouette out. Where one painted over it stands in
+        // front, only the part well inside that element's outline goes (no eye position can see it), so
+        // stacked foliage does not pay for strokes nobody sees
+        // hideShift: the furthest the eye travels (m); the margin is how far the two layers can slide apart
+        const shift = spec.hideShift ?? 0;
         spec.cards.forEach((c2, j) => {
-          if (j <= k || cardDepth(c2, groundZ, wl) <= D) return;
-          const P2 = pixels(set.cards[j]), [a0, b0, a1, b1] = c2.box;
+          const [a0, b0, a1, b1] = c2.box;
+          if (j <= k || a0 > u1 || a1 < u0 || b0 > v1 || b1 < v0) return;
+          const P2 = pix(j);
+          const solidAt = (u, v) => {
+            const px = Math.floor(((u - a0) / (a1 - a0)) * P2.w), py = Math.floor(((v - b0) / (b1 - b0)) * P2.h);
+            return px >= 0 && py >= 0 && px < P2.w && py < P2.h && P2.d[(py * P2.w + px) * 4 + 3] > 100;
+          };
           for (let y = 0; y < s.h; y++) for (let x = 0; x < s.w; x++) {
             const u = u0 + ((x + 0.5) / s.w) * (u1 - u0), v = v0 + ((y + 0.5) / s.h) * (v1 - v0);
-            const px = Math.floor(((u - a0) / (a1 - a0)) * P2.w), py = Math.floor(((v - b0) / (b1 - b0)) * P2.h);
-            if (px >= 0 && py >= 0 && px < P2.w && py < P2.h && P2.d[(py * P2.w + px) * 4 + 3] > 100) s.m[y * s.w + x] = 0;
+            if (!solidAt(u, v)) continue;
+            const dj = depthAt(c2, u, v, groundZ, wl), dk = depthAt(c, u, v, groundZ, wl);
+            if (dj > dk) { s.m[y * s.w + x] = 0; continue; }
+            if (!shift) continue;
+            const m = shift * (1 / dj - 1 / dk) * f + 0.006;
+            if (solidAt(u - m, v) && solidAt(u + m, v) && solidAt(u, v - m / asp) && solidAt(u, v + m / asp)) s.m[y * s.w + x] = 0;
           }
         });
         const kd = kindOf[c.kind];
-        const toW = (u, v) => { const z = D; return [(u - 0.5) * z / f, -(v - vH) * asp * z / f, -z]; };
+        const toW = (u, v) => { const z = depthAt(c, u, v, groundZ, wl); return [(u - 0.5) * z / f, -(v - vH) * asp * z / f, -z]; };
         const n = emitSprite(s, {
-          ext: false, fine: cf, pxAng: pxAng0 / s.w, R: [1, 0, 0], U: [0, 1, 0], hot: c.hot || 0, hull: c.hull ?? 0.12,
+          ext: false, fine: cf, pxAng: pxAng0 / s.w, R: [1, 0, 0], U: [0, 1, 0], hot: c.hot || 0, hull: c.hull ?? 0.12, minLayer: c.minLayer,
           place: (sx, sy) => toW(u0 + (sx / s.w) * (u1 - u0), v0 + (sy / s.h) * (v1 - v0)),
-          cls: kd.cls, angle: kd.angle, refl: kd.refl,
+          cls: kd.cls, angle: kd.angle, refl: c.refl ?? kd.refl,
         });
         stats.push(`${c.id}:${n}@${D.toFixed(0)}m`);
       });
@@ -298,7 +327,7 @@ export function makeLayerEmitter(set, Q) {
           const s = readSprite(img, Math.min(img.naturalWidth, Math.max(24, (pxTarget * img.naturalWidth) / img.naturalHeight)));
           const kd = kindOf[e.kind];
           const n = emitSprite(s, {
-            ext: true, spMul: e.spMul || 1, pxAng: Hm / r / s.h, R: Rv, U: Uv, hot: 0, hull: e.hull ?? 0.12, flipX: !!flip,
+            ext: true, spMul: e.spMul || 1, pxAng: Hm / r / s.h, R: Rv, U: Uv, hot: 0, hull: e.hull ?? 0.12, flipX: !!flip, minLayer: e.minLayer,
             place: (sx, sy) => {
               const xm = ((flip ? s.w - sx : sx) / s.w - 0.5) * Wm, ym = (1 - sy / s.h) * Hm;
               return [base[0] + Rv[0] * xm, base[1] + ym, base[2] + Rv[2] * xm];
@@ -316,7 +345,17 @@ export function makeLayerEmitter(set, Q) {
 // distance of an element's card: sails where the hull meets the river, bank elements behind the shore
 // line, stepped back in PSD order so upper layers always stand in front of lower ones
 function cardDepth(c, groundZ, wl) {
-  const [u0, , u1, v1] = c.box;
+  const [u0, v0, u1, v1] = c.box;
   if (c.kind === 'sail') return groundZ(v1 - (c.contactUp ?? 0.004));
+  if (c.kind === 'lily') return groundZ((v0 + v1) / 2);
+  if (c.z) return (c.z[0] + c.z[1]) / 2;
   return groundZ(wl((u0 + u1) / 2)) * c.depth;
+}
+
+// distance along the ray through (u, v): lily pads lie on the pond, z = [left, right] metres turns a card
+// about the vertical so a bank can recede across the frame, everything else is a flat card
+function depthAt(c, u, v, groundZ, wl) {
+  if (c.kind === 'lily') return groundZ(v) * 0.995;
+  if (c.z) { const [u0, , u1] = c.box; return lerp(c.z[0], c.z[1], clamp((u - u0) / (u1 - u0), 0, 1)); }
+  return cardDepth(c, groundZ, wl);
 }

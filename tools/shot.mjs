@@ -37,6 +37,25 @@ if (scene !== 0) {
   // a scene not built yet builds on selection
   for (let k = 0; k < 60 && (await page.evaluate(() => window.app.S.mode)) !== 'gallery'; k++) await step(0.5);
 }
+// --dump: backdrop colours and mean stroke colour per class of the scene
+if (args.dump) {
+  console.log(await page.evaluate((i) => {
+    const d = window.app.built[i].data, m = {};
+    for (let j = 0; j < d.count; j++) {
+      const c = d.B[j * 4 + 3], a = (m[c] ||= [0, 0, 0, 0]);
+      for (let k = 0; k < 3; k++) a[k] += d.D[j * 4 + k];
+      a[3]++;
+    }
+    const f = (v) => v.map((x) => x.toFixed(3)).join(',');
+    // strokes much bluer than they are bright, above eye level
+    const odd = [];
+    for (let j = 0; j < d.count && odd.length < 12; j++) {
+      const o = j * 4, [r, g, b] = [d.D[o], d.D[o + 1], d.D[o + 2]];
+      if (b > r + 0.25 && b > g + 0.12 && d.A[o + 1] > 1) odd.push(`cls ${d.B[o + 3]} at ${f([d.A[o], d.A[o + 1], d.A[o + 2]])} col ${f([r, g, b])} ext ${d.E[o + 3]}`);
+    }
+    return `odd blue:\n${odd.join('\n')}\nbg ${JSON.stringify(Object.fromEntries(Object.entries(d.bg).map(([k, v]) => [k, f(v)])))}\n` + Object.entries(m).map(([c, a]) => `cls ${c}: n=${a[3]} mean ${f(a.slice(0, 3).map((x) => x / a[3]))}`).join('\n');
+  }, scene));
+}
 if (args.gallery) await page.screenshot({ path: path.join(out, `${tag}gallery.jpg`), type: 'jpeg', quality: 90 });
 if (args.mid) {
   await page.evaluate(() => { window.app.enter(); });
