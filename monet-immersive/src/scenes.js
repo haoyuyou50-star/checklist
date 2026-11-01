@@ -202,11 +202,9 @@ const regatta = {
 /* ============================================================
  *  03  The water-lily pond and the Japanese bridge, Giverny
  * ============================================================ */
-const bridgePoly = [[0.462, 0.34], [0.52, 0.285], [0.62, 0.265], [0.71, 0.285], [0.795, 0.35], [0.795, 0.53], [0.462, 0.53]];
-
 const bridge = {
   id: 'bridge',
-  image: 'assets/paintings/bridge.jpg',
+  image: 'assets/bridge/composite.jpg',
   info: {
     index: '03',
     titleCn: '睡莲池与日本桥',
@@ -220,35 +218,103 @@ const bridge = {
   cam: { f: 0.45, h: 1.6, vH: 0.42, maxD: 120, dolly: 1.0, sky: 420, parallax: 2.0 },
   grade: { gamma: 0.98, expo: 1.03, wb: [1, 1, 1.01], sat: 1.04, lift: 0.08, contrast: 1.03, clean: 0 },
   wind: { dir: [1, 0.3], base: 0.5 },
-  // the gallery picture is the first mood; the others are learnt from reference paintings of the same motif
+  // the gallery picture is the first mood; the others are learnt from reference paintings of the same motif.
+  // 盛夏 also has the art team's own warm green pond (the green PSD's plate), taken as it is
   tones: [
     { cn: '晴光', en: 'Clear Light', swatch: ['#9cc6e8', '#e9d36a', '#9bbf5a'] },
-    { cn: '盛夏', en: 'Green Harmony', ref: 'assets/paintings/bridge_green.jpg', keepLight: 0.65, expo: 1.05, gamma: 0.94, swatch: ['#2f6b3c', '#7fa860', '#cfe0c6'] },
+    { cn: '盛夏', en: 'Green Harmony', ref: 'assets/paintings/bridge_green.jpg', keepLight: 0.65, expo: 1.05, gamma: 0.94, water: 'assets/bridge/base_green.jpg', waterArt: 'assets/bridge/composite_green.jpg', waterMix: 0.6, swatch: ['#2f6b3c', '#7fa860', '#cfe0c6'] },
     { cn: '秋暮', en: 'Autumn Glow', ref: 'assets/paintings/bridge_autumn.jpg', expo: 1.12, swatch: ['#b8341c', '#e98a2b', '#f5c45a'] },
   ],
   unified: {
-    // where the pond meets the banks: the near left bank reaches the bottom edge, the far edge runs under the bridge
-    water: [[0, 1.02], [0.13, 0.98], [0.17, 0.88], [0.21, 0.78], [0.26, 0.67], [0.31, 0.6], [0.36, 0.55], [0.42, 0.525], [0.76, 0.525], [0.8, 0.57], [0.85, 0.64], [0.9, 0.71], [0.95, 0.79], [1, 0.84]],
+    // the visible edge of the pond: near banks reach the bottom corners, the far edge runs under the bridge
+    // (this shapes the garden beyond the frame). On the plate the pond spans the whole width (plateWater);
+    // the near banks are the element cards
+    water: [[0, 1.02], [0.12, 1.0], [0.16, 0.9], [0.2, 0.8], [0.25, 0.72], [0.29, 0.65], [0.32, 0.6], [0.36, 0.585], [0.5, 0.565], [0.75, 0.56], [0.78, 0.6], [0.84, 0.68], [0.89, 0.76], [0.92, 0.86], [0.94, 0.97], [1, 1.02]],
+    plateWater: [[0, 0.595], [0.1, 0.59], [0.2, 0.575], [0.45, 0.565], [0.75, 0.56], [0.85, 0.55], [1, 0.545]],
     land: [[-0.01, -0.01], [1.01, -0.01], [1.01, 1.02], [-0.01, 1.02]],
     boats: [],
-    alphaMul: { low: 1.0, mid: 0.98, high: 0.98 },
+    // the plate is mostly covered by element cards: broader strokes here pay for the fine ones on the cards
+    alphaMul: { low: 1.5, mid: 1.5, high: 1.5 },
     landMinLayer: 1,
     // the frame spans 96 degrees: keep strokes fine across it and let them grow behind the viewer
     falloff: [0.7, 2.4, 1.4],
-    // only the blue gaps high in the canopy are sky; pale blue flowers lower down belong to the banks
-    skyLike: (r, g, b, v) => v < 0.32 && b > r + 0.03 && b >= g - 0.02 && 0.3 * r + 0.59 * g + 0.11 * b > 0.6,
+    skyLike: (r, g, b, v) => {
+      const L = 0.3 * r + 0.59 * g + 0.11 * b;
+      // pale blue and white cloud, or a deep blue patch between the clouds
+      return v < 0.34 && b >= g - 0.03 && ((L > 0.6 && (b > r + 0.02 || Math.max(r, g, b) - Math.min(r, g, b) < 0.1)) || (L > 0.45 && b > r + 0.18));
+    },
     skyClean: 2,
-    landCls: (u, v, r, g, b) => (inPoly(u, v, bridgePoly) && luma(r, g, b) > 0.55 && Math.max(r, g, b) - Math.min(r, g, b) < 0.2 ? CLS.STATIC : CLS.TREE),
-    // the bridge stands where it meets the far edge; foliage steps back behind it, the higher the further
-    landCard: (u, v, dv) => (u >= 0 && inPoly(u, v, bridgePoly) ? 1 : 1 + 0.55 * Math.min(1, Math.max(0, (dv - 0.03) / 0.27))),
+    landCls: () => CLS.TREE,
+    // the far bank steps back the higher it rises
+    landCard: (u, v, dv) => 1 + 0.55 * Math.min(1, Math.max(0, (dv - 0.03) / 0.27)),
     waterAllBase: true,
     bankAngular: 0.85,
-    crown: [0.03, 0.16, 5],
-    landPool: [[1.0, 0.79], [0.46, 0.0]],
-    farPool: [[0.0, 0.46], [0.79, 1.0]],
+    // the bank round the pond is continued from plate columns whose own pond edge matches the line above
+    // (the big tree at u 0.6 stays unique)
+    landPool: [[0.75, 0.66], [0.54, 0.36]],
+    farPool: [[0.36, 0.54], [0.66, 0.75]],
     farRate: 1,
     backDist: 26,
-    skyRange: [0.5, 0.98],
+    // clean sky is only the plate's top band (the left half has no tree reaching into it)
+    skyRange: [0.02, 0.52],
+    skyTop: { row: [0.07, 0.04], ceil: [0.015, 0.07] },
+    skyChroma: 0.08,
+  },
+  // the art team's layer split (assets/layers/莲花桥*.psd, exported by tools/export_bridge.py)
+  layered: {
+    base: 'assets/bridge/base.jpg',
+    fine: 0.8,
+    // how far the eye slides (m): anything buried deeper than that behind a nearer layer is not painted
+    hideShift: 1.3,
+    // PSD order, bottom to top. z = [distance at the card's left, at its right] in metres; lilies lie on the pond
+    cards: [
+      { id: 'willow_far_r', kind: 'tree', z: [30, 30], box: [0.8084, 0.0557, 0.9409, 0.4171] },
+      { id: 'willow_l', kind: 'tree', z: [17, 16], box: [0.0009, 0.0408, 0.2548, 0.553] },
+      { id: 'bush_l', kind: 'tree', z: [3.8, 9], box: [0.0018, 0.0, 0.3195, 0.9878] },
+      { id: 'willow_c2', kind: 'tree', z: [20, 20], box: [0.4894, 0.0299, 0.7567, 0.5829] },
+      { id: 'willow_r', kind: 'tree', z: [19, 19], box: [0.5337, 0.0082, 0.7285, 0.6386] },
+      { id: 'willow_big', kind: 'tree', z: [16, 15], box: [0.1597, 0.0122, 0.4926, 0.5788] },
+      { id: 'willow_l2', kind: 'tree', z: [11.5, 11.5], box: [0.2225, 0.3098, 0.3763, 0.6155] },
+      { id: 'willow_weep', kind: 'tree', z: [15.5, 15.5], box: [0.3186, 0.0122, 0.5406, 0.5883] },
+      { id: 'lily_3', kind: 'lily', box: [0.3998, 0.5326, 0.7281, 0.6793] },
+      { id: 'lily_7a', kind: 'lily', box: [0.4201, 0.8465, 0.6043, 0.9946] },
+      { id: 'lily_5', kind: 'lily', box: [0.6519, 0.8601, 0.7816, 0.9823] },
+      { id: 'lily_4a', kind: 'lily', box: [0.3744, 0.7283, 0.5332, 0.822] },
+      { id: 'lily_2', kind: 'lily', box: [0.5891, 0.7758, 0.7073, 0.8465] },
+      { id: 'lily_6a', kind: 'lily', box: [0.7082, 0.6957, 0.8555, 0.8111] },
+      { id: 'lily_7b', kind: 'lily', box: [0.2696, 0.7717, 0.4538, 0.9198] },
+      { id: 'lily_6b', kind: 'lily', box: [0.5005, 0.6712, 0.6214, 0.7649] },
+      { id: 'bridge', kind: 'house', z: [14.8, 14.8], refl: 0.35, fine: 0.5, box: [0.4949, 0.2554, 0.8407, 0.534] },
+      { id: 'bush_r', kind: 'tree', z: [12, 4], box: [0.7502, 0.2908, 1.0, 0.9891] },
+      { id: 'willow_soft', kind: 'tree', z: [13.5, 13.5], box: [0.3463, 0.1698, 0.5125, 0.6005] },
+      { id: 'lily_4b', kind: 'lily', box: [0.7632, 0.7989, 0.922, 0.8927] },
+      { id: 'bush_lm', kind: 'tree', z: [10, 11], box: [0.0891, 0.1128, 0.2285, 0.5543] },
+      { id: 'flowers_3', kind: 'tree', z: [6, 7.5], box: [0.1745, 0.3247, 0.2982, 0.7799] },
+      { id: 'flowers_l', kind: 'tree', z: [4, 6], box: [0.0083, 0.284, 0.2364, 0.947] },
+      { id: 'flowers_4', kind: 'tree', z: [3.8, 4.4], box: [0.0014, 0.5503, 0.1528, 0.9769] },
+      { id: 'flowers_2', kind: 'tree', z: [9, 7.5], box: [0.7507, 0.356, 0.94, 0.6889] },
+      { id: 'flowers_1', kind: 'tree', z: [6.5, 5.5], box: [0.8573, 0.4443, 0.9811, 0.7704] },
+      { id: 'grass_br', kind: 'tree', z: [4.4, 3.8], box: [0.8883, 0.6957, 1.0, 0.9891] },
+    ].map((c) => ({ ...(c.kind === 'lily' ? { fine: 0.55, minLayer: 2 } : { minLayer: 1 }), ...c, src: `assets/bridge/${c.id}.webp` })),
+    // the garden round the rest of the pond, from the same elements: [azimuth°, x shore distance, height m, mirrored].
+    // The near bushes are mirrored just past the frame's edges so the banks run on without a seam
+    extras: [
+      { id: 'bush_l', kind: 'tree', at: [[-62, 1.0, 3.0, 1], [-150, 1.0, 4.2, 0]] },
+      { id: 'flowers_4', kind: 'tree', at: [[-53, 0.92, 1.6, 1]] },
+      { id: 'flowers_l', kind: 'tree', at: [[-80, 1.0, 2.3, 0]] },
+      { id: 'bush_lm', kind: 'tree', at: [[-92, 1.0, 3.2, 1]] },
+      { id: 'willow_l', kind: 'tree', at: [[-104, 1.1, 7, 1]] },
+      { id: 'willow_big', kind: 'tree', at: [[-128, 1.06, 8, 0]] },
+      { id: 'willow_weep', kind: 'tree', at: [[-170, 1.05, 10, 1]] },
+      { id: 'grass_br', kind: 'tree', at: [[53, 0.92, 1.4, 1]] },
+      { id: 'bush_r', kind: 'tree', at: [[62, 1.0, 3.3, 1]] },
+      { id: 'flowers_1', kind: 'tree', at: [[78, 1.0, 2.2, 0]] },
+      { id: 'flowers_2', kind: 'tree', at: [[92, 1.0, 2.4, 1]] },
+      { id: 'willow_r', kind: 'tree', at: [[110, 1.05, 9, 0]] },
+      { id: 'willow_far_r', kind: 'tree', at: [[128, 1.1, 9, 1]] },
+      { id: 'willow_c2', kind: 'tree', at: [[150, 1.05, 9, 0]] },
+      { id: 'willow_soft', kind: 'tree', at: [[172, 1.05, 8, 1]] },
+    ].map((e) => ({ spMul: 1.35, minLayer: 1, ...e, src: `assets/bridge/${e.id}.webp` })),
   },
   hotspots: [],
 };

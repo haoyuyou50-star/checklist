@@ -19,6 +19,7 @@ const triFlip = (x) => (((x % 2) + 2) % 2) <= 1;
 const norm = (v) => { const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; };
 const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 const lumOf = (c) => 0.3 * c[0] + 0.59 * c[1] + 0.11 * c[2];
+const chromaOf = (c) => Math.max(c[0], c[1], c[2]) - Math.min(c[0], c[1], c[2]);
 
 export function buildUnified(scene, img, Q, X = null) {
   const t0 = performance.now();
@@ -52,6 +53,8 @@ export function buildUnified(scene, img, Q, X = null) {
 
   /* ---------------- segmentation: class + where each pixel meets the water ---------------- */
   const wl = polyline(U.water);
+  // plateWater: where a layered plate's own pond ends, when element cards draw a nearer bank over it
+  const plateWl = U.plateWater ? polyline(U.plateWater) : null;
   const skyBad = U.skyBad || (() => false), waterBad = U.waterBad || (() => false);
   const groundZ = (v) => { const y = -(v - vH) * asp; return y >= -1e-5 ? cam.maxD : Math.min(cam.maxD, (h * f) / -y); };
   const skyLike = U.skyLike || ((r, g, b) => {
@@ -153,7 +156,7 @@ export function buildUnified(scene, img, Q, X = null) {
       c = L > 0.55 && r >= b * 0.95 ? CLS.SAIL : CLS.STATIC;
       d = groundZ(boat.contact); k = boat.i;
       fl = c === CLS.SAIL ? clamp((boat.contact - v) / (boat.contact - boat.top), 0, 1) : 0;
-    } else if (v < vw && landMask(x, y)) {
+    } else if (v < vw && landMask(x, y) && !(plateWl && v >= plateWl(u))) {
       c = U.landCls ? U.landCls(u, v, r, g, b) : green(r, g, b) ? CLS.TREE : CLS.STATIC;
       d = groundZ(vw) * (U.landCard ? U.landCard(u, v, vw - v) : landCard0(vw - v, builtMap[i] > 0.55));
       if (y / H < colTopV[x]) colTopV[x] = y / H;
@@ -174,7 +177,7 @@ export function buildUnified(scene, img, Q, X = null) {
     const i = y * W + x;
     if (cls[i] === CLS.TREE) { const vw = wl((x + 0.5) / W); flex[i] = clamp((vw - y / H) / Math.max(0.02, vw - colTopV[x]), 0, 1); }
   }
-  if (X) X.occlude({ W, H, cls, depZ, groundZ, wl });
+  const hidden = X ? X.occlude({ W, H, cls, depZ, groundZ, wl, f }) : null;
   // how far the near bank can slide over the sky when the eye moves sideways
   const skyInd = new Float32Array(N);
   for (let i = 0; i < N; i++) skyInd[i] = cls[i] === CLS.SKY ? 1 : 0;
@@ -336,7 +339,9 @@ export function buildUnified(scene, img, Q, X = null) {
   const softCap = (v, a, b) => (v <= a ? v : a + (b - a) * (1 - Math.exp(-(v - a) / (b - a))));
   // the painting's top and bottom edge rows are darker; inside and outside the frame alike, rows past
   // these limits ease towards the open sky / water instead, so no grey band rings the viewer
-  const skyRow = (v) => (v >= 0.2 ? v : 0.2 - 0.1 * (1 - Math.exp(-(0.2 - v) / 0.1)));
+  // skyTop: { row: [limit, ease], ceil: [v0, v1] } for a painting whose clean sky is only a thin top band
+  const [sR0, sR1] = U.skyTop ? U.skyTop.row : [0.2, 0.1], [sC0, sC1] = U.skyTop ? U.skyTop.ceil : [0.14, 0.38];
+  const skyRow = (v) => (v >= sR0 ? v : sR0 - sR1 * (1 - Math.exp(-(sR0 - v) / sR1)));
   const waterRow = (v) => softCap(v, 0.8, 0.93);
 
   // one coordinate running from the right edge round the back to the left edge, closing on an even tile
@@ -361,7 +366,7 @@ export function buildUnified(scene, img, Q, X = null) {
       const cot = 1 / Math.tan(Math.max(el, 0.05)), cx = cot * Math.sin(th), cz = cot * Math.cos(th);
       const su = tri(cx * 0.45 + 0.5 + 0.6 * (fbm2(cx * 0.7 + 3.1, cz * 0.7, 3) - 0.5));
       const sv = tri(cz * 0.4 + 0.3 + 0.6 * (fbm2(cx * 0.7, cz * 0.7 + 6.2, 3) - 0.5));
-      return { u: lo + su * (hi - lo), v: lerp(0.14, 0.38, sv), flip: false, zen, soft: 1 };
+      return { u: lo + su * (hi - lo), v: lerp(sC0, sC1, sv), flip: false, zen, soft: 1 };
     }
     const vs = skyRow(Math.min(vv, vH - 0.01));
     return { u: Math.abs(th) <= thE ? uv : lo + tri(uv) * (hi - lo), v: vs, flip: !triFlip(uv), zen, soft: smooth(0.2, -0.1, vv) };
@@ -380,7 +385,7 @@ export function buildUnified(scene, img, Q, X = null) {
       const y = yOf(p[1]), i = y * W + x, c = cls[i];
       const t = c === CLS.SKY ? R : depZ[i] / -d[2];
       let sy = y;
-      if (c === CLS.SKY && p[1] < 0.2) {
+      if (c === CLS.SKY && p[1] < sR0) {
         sy = yOf(skyRow(p[1]));
         if (!skyOK[sy * W + x]) [x, sy] = skyPix(x, sy);
       } else if (c === CLS.WATER && p[1] > 0.8) sy = yOf(waterRow(p[1]));
@@ -492,6 +497,11 @@ export function buildUnified(scene, img, Q, X = null) {
     if (r.soft) c = lerp3(c, skyRowCol[r.y], r.soft * 0.93);
     // a darker cloud patch reads as a grey stain once the sky surrounds the viewer (and repeats around)
     if (r.cls === CLS.SKY) { const dk = lumOf(skyRowCol[r.y]) - lumOf(c); if (dk > 0.025) c = lerp3(c, skyRowCol[r.y], 0.85 * smooth(0.025, 0.09, dk)); }
+    // so does a patch much bluer than its row (skyChroma: how much more chroma is let through)
+    if (r.cls === CLS.SKY && U.skyChroma !== undefined) {
+      const ex = chromaOf(c) - chromaOf(skyRowCol[r.y]);
+      if (ex > U.skyChroma) c = lerp3(c, skyRowCol[r.y], 0.85 * smooth(U.skyChroma, U.skyChroma + 0.1, ex));
+    }
     if (r.zen) c = lerp3(c, lerp3(c, zenCol, 0.75), r.zen);
     if (r.haze) c = lerp3(c, horizCol, r.haze);
     return c;
@@ -614,6 +624,7 @@ export function buildUnified(scene, img, Q, X = null) {
         const sps = Math.sin(ps), cps = Math.cos(ps), cph = Math.cos(ph), sph = Math.sin(ph);
         const d = norm([front[0] * cps + (fA[0] * cph + fB[0] * sph) * sps, front[1] * cps + (fA[1] * cph + fB[1] * sph) * sps, front[2] * cps + (fA[2] * cph + fB[2] * sph) * sps]);
         const r = resolve(d);
+        if (hidden && r.uv && hidden[yOf(r.uv[1]) * W + xOf(r.uv[0])]) continue;
         if (L.detail) {
           const i = r.y * W + r.x;
           let p = clamp(grad[i] * 9 - 0.12, 0, 0.85) * 0.3;

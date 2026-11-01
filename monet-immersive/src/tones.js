@@ -20,16 +20,23 @@ function smallRGB(img, w, h) {
   return blurRGB(out, w, h, 1);
 }
 
-export function buildToneLUT(baseImg, refImg) {
+// changedOnly: the pair is pixel-aligned and differs only in places (two versions of one plate), so
+// learn from the pixels that changed and leave the rest of the colour space alone
+export function buildToneLUT(baseImg, refImg, changedOnly = false) {
   const w = SW, h = Math.max(8, Math.round((SW * baseImg.naturalHeight) / baseImg.naturalWidth));
-  const b = smallRGB(baseImg, w, h), t = smallRGB(refImg, w, h), M = w * h;
-  const glob = [0, 0, 0];
-  for (let i = 0; i < M; i++) for (let j = 0; j < 3; j++) glob[j] += (t[i * 3 + j] - b[i * 3 + j]) / M;
+  const b = smallRGB(baseImg, w, h), t = smallRGB(refImg, w, h);
+  const use = [];
+  for (let i = 0; i < w * h; i++) {
+    const d = Math.abs(t[i * 3] - b[i * 3]) + Math.abs(t[i * 3 + 1] - b[i * 3 + 1]) + Math.abs(t[i * 3 + 2] - b[i * 3 + 2]);
+    if (!changedOnly || d > 0.06) use.push(i);
+  }
+  const M = use.length, glob = [0, 0, 0];
+  for (const i of use) for (let j = 0; j < 3; j++) glob[j] += (t[i * 3 + j] - b[i * 3 + j]) / M;
   const lut = new Float32Array(N * N * N * 3), k2 = 1 / (2 * BW * BW);
   for (let ri = 0; ri < N; ri++) for (let gi = 0; gi < N; gi++) for (let bi = 0; bi < N; bi++) {
     const c = [ri / (N - 1), gi / (N - 1), bi / (N - 1)];
     let ws = 0; const o = [0, 0, 0];
-    for (let i = 0; i < M; i++) {
+    for (const i of use) {
       const dr = c[0] - b[i * 3], dg = c[1] - b[i * 3 + 1], db = c[2] - b[i * 3 + 2];
       const d = dr * dr + dg * dg + db * db;
       if (d > 0.09) continue;
@@ -66,28 +73,40 @@ export function toneColor(lut, r, g, b, out = [0, 0, 0], adj = {}) {
   return out;
 }
 
-// per-stroke colours of one mood, same layout as D (rgb + alpha)
-export function toneStrokes(lut, D, count, adj) {
-  const out = new Float32Array(count * 4), c = [0, 0, 0];
+// per-stroke colours of one mood, same layout as D (rgb + alpha); water = { lut, adj, mix, isWater(i) } gives
+// the pond its own mapping, mixed into the mood's by mix
+export function toneStrokes(lut, D, count, adj, water = null) {
+  const out = new Float32Array(count * 4), c = [0, 0, 0], w = [0, 0, 0];
   for (let i = 0; i < count; i++) {
     const o = i * 4;
     toneColor(lut, D[o], D[o + 1], D[o + 2], c, adj);
+    if (water && water.isWater(i)) {
+      toneColor(water.lut, D[o], D[o + 1], D[o + 2], w, water.adj);
+      for (let j = 0; j < 3; j++) c[j] += (w[j] - c[j]) * water.mix;
+    }
     out[o] = c[0]; out[o + 1] = c[1]; out[o + 2] = c[2]; out[o + 3] = D[o + 3];
   }
   return out;
 }
 
-// the gallery picture in a mood, so leaving the scene lands on a painting in the same colours
-export function tonePainting(lut, img, adj) {
+// the gallery picture in a mood, so leaving the scene lands on a painting in the same colours; alt is the
+// same picture in another version (pixel-aligned): wherever it differs, it is mixed in by altMix
+export function tonePainting(lut, img, adj, alt = null, altMix = 1) {
   const w = img.naturalWidth, h = img.naturalHeight;
   const cv = document.createElement('canvas');
   cv.width = w; cv.height = h;
   const cx = cv.getContext('2d', { willReadFrequently: true });
-  cx.drawImage(img, 0, 0);
-  const id = cx.getImageData(0, 0, w, h), px = id.data, c = [0, 0, 0];
+  const read = (im) => { cx.clearRect(0, 0, w, h); cx.drawImage(im, 0, 0, w, h); return cx.getImageData(0, 0, w, h); };
+  const ap = alt ? read(alt).data : null;
+  const id = read(img), px = id.data, c = [0, 0, 0];
   for (let i = 0; i < w * h; i++) {
     toneColor(lut, px[i * 4] / 255, px[i * 4 + 1] / 255, px[i * 4 + 2] / 255, c, adj);
-    px[i * 4] = c[0] * 255; px[i * 4 + 1] = c[1] * 255; px[i * 4 + 2] = c[2] * 255;
+    let k = 0;
+    if (ap) {
+      const d = (Math.abs(ap[i * 4] - px[i * 4]) + Math.abs(ap[i * 4 + 1] - px[i * 4 + 1]) + Math.abs(ap[i * 4 + 2] - px[i * 4 + 2])) / 255;
+      k = Math.min(1, Math.max(0, (d - 0.02) / 0.06)) * altMix;
+    }
+    for (let j = 0; j < 3; j++) px[i * 4 + j] = c[j] * 255 * (1 - k) + (ap ? ap[i * 4 + j] * k : 0);
   }
   cx.putImageData(id, 0, 0);
   return cv.toDataURL('image/jpeg', 0.92);
