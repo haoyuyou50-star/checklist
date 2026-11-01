@@ -121,14 +121,23 @@ function makeCrown(G, W, H, ratio, seed) {
     solidTop[X] = s;
   }
   const run = blur1(blur1(solidTop, W, 1, Math.max(2, W >> 5)), W, 1, Math.max(2, W >> 6));
+  const hash = (k) => { const x = Math.sin(k * 127.1 + seed * 311.7) * 43758.5453; return x - Math.floor(x); };
+  const trees = [];
+  for (let c = -0.05 * W, k = 0; c < 1.05 * W; k++) {
+    const w = W * (0.1 + 0.12 * hash(k));
+    trees.push({ c, w, h: 0.35 + 0.65 * hash(k + 50) });
+    c += w * (0.9 + 0.5 * hash(k + 99));
+  }
   const out = document.createElement('canvas');
   out.width = W; out.height = H;
   const ox = out.getContext('2d');
   const od = ox.createImageData(W, H);
   for (let X = 0; X < W; X++) {
-    // rounded crowns with the odd frond poking up, never a level line
-    const crowns = Math.pow(fbm2(X * (7 / W) + seed * 3.7, seed * 1.3, 3), 1.6), tips = Math.pow(fbm2(X * (40 / W) + seed, seed * 2.1 + 5, 2), 3);
-    const hc = H * smooth(0.25, 0.9, run[X]) * Math.min(1, 0.08 + 1.1 * crowns + 0.5 * tips);
+    // a row of separate rounded tree crowns of different heights, ragged at the rim, never a level line
+    let dome = 0;
+    for (const t of trees) { const q = (X - t.c) / t.w; if (Math.abs(q) < 1) dome = Math.max(dome, t.h * Math.sqrt(1 - q * q)); }
+    const rag = 0.88 + 0.24 * fbm2(X * (18 / W) + seed * 3.7, seed * 1.3, 3), tips = Math.pow(fbm2(X * (45 / W) + seed, seed * 2.1 + 5, 2), 3);
+    const hc = H * smooth(0.25, 0.9, run[X]) * Math.min(1, dome * rag + 0.25 * tips);
     const gx = Math.min(G.w - 1, Math.floor((X / W) * G.w));
     for (let k = 0; k < hc; k++) {
       const gy = Math.min(G.h - 1, Math.floor((k / H) * (G.h / ratio)));
@@ -244,6 +253,46 @@ export function makeLayerEmitter(set, Q) {
             }
           }
         }
+        // feather: past a tree's silhouette its touches thin out over a few stroke widths, so a card never ends
+        // in a cut edge against the sky or the plate (not where an element was cut out behind another one)
+        if (o.feather) {
+          const L = layers[3];
+          const sp = alpha0 * L.k * (o.fine || fine) * (o.ext ? o.spMul || 1 : 1) * 1.15;
+          const st = Math.max(0.7, sp / o.pxAng), reach = o.feather * st;
+          const cov = solid(s, Math.max(1, st)), img = level(s, st * 0.5);
+          for (let yy = st * 0.5; yy < s.h; yy += st * 0.9) {
+            for (let xx = rand() * st; xx < s.w; xx += st * 0.9) {
+              const x = clamp(Math.round(xx), 1, s.w - 2), y = clamp(Math.round(yy), 1, s.h - 2), i = y * s.w + x;
+              if (!s.m[i] || cov[i] > 0.85) continue;
+              const gx = cov[i + 1] - cov[i - 1], gy = cov[i + s.w] - cov[i - s.w], gl = Math.hypot(gx, gy);
+              if (gl < 1e-4) continue;
+              for (let q = 0; q < 2; q++) {
+                const t = Math.pow(rand(), 1.3);
+                const ox = x - (gx / gl) * t * reach + (rand() - 0.5) * st, oy = y - (gy / gl) * t * reach + (rand() - 0.5) * st;
+                const xi = Math.round(ox), yi = Math.round(oy);
+                if (xi >= 0 && yi >= 0 && xi < s.w && yi < s.h && s.a[yi * s.w + xi] > 0.5) continue;
+                const P = o.place(ox + 0.5, oy + 0.5);
+                const d = norm(P), dist = Math.hypot(P[0], P[1], P[2]);
+                const a = o.angle(rand), maj = sp * lerp(0.7, 1.2, rand()) * lerp(1, 0.6, t), mn = sp * lerp(0.4, 0.6, rand()) * lerp(1, 0.6, t);
+                const ca = Math.cos(a) * maj * dist, sa = -Math.sin(a) * maj * dist;
+                const axis = [o.R[0] * ca + o.U[0] * sa, o.R[1] * ca + o.U[1] * sa, o.R[2] * ca + o.U[2] * sa];
+                const col = [0, 1, 2].map((j) => clamp(img[i * 3 + j] * (1 + (rand() - 0.5) * 0.1) + (rand() - 0.5) * 0.03, 0, 1));
+                const fy = clamp(1 - (oy + 0.5) / s.h, 0, 1);
+                const c = o.cls(col, 0.3 * col[0] + 0.59 * col[1] + 0.11 * col[2], fy, o.hull);
+                const flex = (c === CLS.TREE ? fy : 0) * (o.flexMul ?? 1);
+                let cpos = P, delay;
+                if (!o.ext) {
+                  const sc = sC * f / -d[2];
+                  cpos = [d[0] * sc, d[1] * sc, d[2] * sc];
+                  const p = proj(d);
+                  delay = clamp(Math.hypot(p[0] - 0.5, (p[1] - 0.5) * asp) + rand() * 0.38, 0, 1);
+                } else delay = extDelay(P);
+                B.add(P, cpos, axis, mn * dist, col, L.a * (1 - t) * 0.9, c, 0, flex, delay, o.ext ? 1 : 0, rand());
+                n++;
+              }
+            }
+          }
+        }
         return n;
       };
 
@@ -327,7 +376,7 @@ export function makeLayerEmitter(set, Q) {
         const n = emitSprite(s, {
           ext: false, fine: cf, pxAng: pxAng0 / s.w, R: [1, 0, 0], U: [0, 1, 0], hot: c.hot || 0, hull: c.hull ?? 0.12, minLayer: c.minLayer,
           place: (sx, sy) => toW(u0 + (sx / s.w) * (u1 - u0), v0 + (sy / s.h) * (v1 - v0)),
-          cls: kd.cls, angle: kd.angle, refl: c.refl ?? kd.refl,
+          cls: kd.cls, angle: kd.angle, refl: c.refl ?? kd.refl, feather: c.kind === 'tree' ? spec.feather : 0,
         });
         stats.push(`${c.id}:${n}@${D.toFixed(0)}m`);
       });
@@ -354,7 +403,7 @@ export function makeLayerEmitter(set, Q) {
         const [u0, v0, u1, v1] = c.box;
         if (!c.crown || v0 > 0.02) return;
         // finer than the card: inside the frame the dabs carry the texture, above it the crown has to
-        const cf = (c.fine || fine) * 0.6;
+        const cf = (c.fine || fine) * 0.8;
         const pxA = (u1 - u0) / f, wPx = Math.round(Math.max(24, pxA / (alpha0 * layers[3].k * cf * 0.55)));
         const hPx = Math.max(8, Math.round((wPx * c.crown * asp) / (u1 - u0)));
         const cvs = makeCrown(pix(k), wPx, hPx, (v1 - v0) / c.crown, k);
@@ -362,7 +411,7 @@ export function makeLayerEmitter(set, Q) {
         const n = emitSprite(ss, {
           ext: true, spMul: 1, fine: cf, pxAng: pxA / ss.w, R: [1, 0, 0], U: [0, 1, 0], hot: 0, hull: 0, minLayer: 2,
           place: (sx, sy) => { const u = u0 + (sx / ss.w) * (u1 - u0), v = v0 - (1 - sy / ss.h) * c.crown, z = depthAt(c, u, v0, groundZ, wl); return [(u - 0.5) * z / f, -(v - vH) * asp * z / f, -z]; },
-          cls: () => CLS.TREE, angle: kindOf.tree.angle, refl: 0,
+          cls: () => CLS.TREE, angle: kindOf.tree.angle, refl: 0, feather: spec.feather,
         });
         stats.push(`crown_${c.id}:${n}`);
       });
@@ -435,6 +484,45 @@ export function makeLayerEmitter(set, Q) {
           v += sp * f / asp * (1 + ty * ty) * 0.866;
         }
         stats.push(`dabs:${n}`);
+
+        // near: the pond below and beside the frame in the same touches, its colours from the painting's near
+        // pond (lilies and broken reflections) tiled by ground position. near = touch size relative to the frame's
+        if (spec.dabs.near) {
+          const tri = (x) => { const t = ((x % 2) + 2) % 2; return t > 1 ? 2 - t : t; };
+          const [nu0, nu1, nv0, nv1] = spec.dabs.nearSrc;
+          let m = 0;
+          for (let el = -0.06; el > -1.4; ) {
+            const spA = sp * spec.dabs.near * (1 + 1.5 * smooth(0.5, 1.4, -el)), ce = Math.cos(el), dAz = spA / ce;
+            for (let az = -2 + rand() * dAz; az < 2; az += dAz * (0.85 + rand() * 0.3)) {
+              const d = [Math.sin(az) * ce, Math.sin(el), -Math.cos(az) * ce];
+              const p = proj(d);
+              if (p && p[0] >= 0 && p[0] <= 1 && p[1] >= 0 && p[1] <= 1) continue;
+              const hw = h / Math.tan(-el);
+              if (hw >= shoreS(az) * 0.96) continue;
+              const t = h / -d[1], P = [d[0] * t, -h + 0.01, d[2] * t];
+              let col = null;
+              for (let k = 0; k < 6 && !col; k++) {
+                const su = tri(P[0] / 9 + 0.8 * (fbm2(P[0] * 0.05 + k, P[2] * 0.05, 3) - 0.5) + k * 0.37), sv = tri(-P[2] / 5 + 0.8 * (fbm2(P[0] * 0.05, P[2] * 0.05 + 4 + k, 3) - 0.5));
+                const u = lerp(nu0, nu1, su), v = lerp(nv0, nv1, sv);
+                const i = clamp(Math.floor(v * PH), 0, PH - 1) * PW + clamp(Math.floor(u * PW), 0, PW - 1);
+                if (pCls[i] === CLS.WATER && topCard(u, v) < 0) col = colAt(u, v);
+                else if (pCls[i] === CLS.WATER && k === 5) col = colAt(u, v);
+              }
+              if (!col) continue;
+              const lm = 0.3 * col[0] + 0.59 * col[1] + 0.11 * col[2], tint = (rand() - 0.5) * 2 * spec.dabs.tint;
+              const tc = tint > 0 ? [1, 0.45, -0.7] : [-0.6, -0.1, 1];
+              for (let q = 0; q < 3; q++) col[q] = clamp(lm + (col[q] - lm) * spec.dabs.sat + tc[q] * Math.abs(tint), 0, 1);
+              const dist = Math.hypot(P[0], P[1], P[2]), a = (rand() - 0.5) * 0.3;
+              const maj = spA * lerp(1.3, 2.2, rand()), mn = spA * lerp(0.6, 0.9, rand());
+              const Rv = [Math.cos(az), 0, Math.sin(az)];
+              const axis = [Rv[0] * Math.cos(a) * maj * dist, Math.sin(a) * maj * dist * 0.3, Rv[2] * Math.cos(a) * maj * dist];
+              B.add(P, P, axis, mn * dist, col, 0.88, CLS.WATER, 0, 0.5 + rand() * 0.5, extDelay(P), 1, rand());
+              m++;
+            }
+            el -= spA * 0.866;
+          }
+          stats.push(`nearWater:${m}`);
+        }
       }
 
       /* ---- the extra sails and trees, staged around the viewer ---- */
@@ -457,7 +545,7 @@ export function makeLayerEmitter(set, Q) {
               const xm = ((flip ? s.w - sx : sx) / s.w - 0.5) * Wm, ym = (1 - sy / s.h) * Hm;
               return [base[0] + Rv[0] * xm, base[1] + ym, base[2] + Rv[2] * xm];
             },
-            cls: kd.cls, angle: kd.angle, refl: e.kind === 'sail' ? 0.6 : 0.3,
+            cls: kd.cls, angle: kd.angle, refl: e.kind === 'sail' ? 0.6 : e.refl ?? 0.3, feather: e.kind === 'tree' && r > 8 ? spec.feather : 0,
           });
           stats.push(`${e.id}@${deg}:${n}`);
         });

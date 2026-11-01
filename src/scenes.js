@@ -4,7 +4,8 @@ export const CLS = {
 };
 
 const lerp = (a, b, t) => a + (b - a) * t;
-const LAYERED = typeof location !== 'undefined' && new URLSearchParams(location.search).has('layered');
+// the water-lily pond is built from the PSD's layers; ?flat builds it from the finished picture alone, with a still eye
+const LAYERED = !(typeof location !== 'undefined' && new URLSearchParams(location.search).has('flat'));
 
 export function polyline(pts) {
   return (u) => {
@@ -209,18 +210,21 @@ const bridgeLayers = {
     hideShift: 1.3,
     // Monet's broken colour: small touches over every layer, coloured from the finished picture (so they cross
     // the joins between layers as the painting does), nudged warm or cool. k: size relative to the plate's strokes
-    dabs: { src: 'assets/bridge/composite.jpg', k: 0.36, tint: 0.07, sat: 1.12 },
+    // near: the pond below and beside the frame in the same touches (size relative), from nearSrc [u0, u1, v0, v1]
+    dabs: { src: 'assets/bridge/composite.jpg', k: 0.36, tint: 0.07, sat: 1.12, near: 2.8, nearSrc: [0.22, 0.8, 0.74, 0.97] },
+    // feather (stroke widths): how far a tree's touches thin out past its silhouette
+    feather: 3,
     // PSD order, bottom to top. z = [distance at the card's left, at its right] in metres; lilies lie on the pond;
     // crown: how far (canvas heights) an element cut by the frame's top edge grows on above it
     cards: [
       { id: 'willow_far_r', kind: 'tree', z: [30, 30], box: [0.8084, 0.0557, 0.9409, 0.4171] },
       { id: 'willow_l', kind: 'tree', z: [17, 16], box: [0.0009, 0.0408, 0.2548, 0.553] },
-      { id: 'bush_l', kind: 'tree', crown: 0.12, z: [3.8, 9], box: [0.0018, 0.0, 0.3195, 0.9878] },
+      { id: 'bush_l', kind: 'tree', crown: 0.42, z: [3.8, 9], box: [0.0018, 0.0, 0.3195, 0.9878] },
       { id: 'willow_c2', kind: 'tree', z: [20, 20], box: [0.4894, 0.0299, 0.7567, 0.5829] },
-      { id: 'willow_r', kind: 'tree', crown: 0.12, z: [19, 19], box: [0.5337, 0.0082, 0.7285, 0.6386] },
-      { id: 'willow_big', kind: 'tree', crown: 0.12, z: [16, 15], box: [0.1597, 0.0122, 0.4926, 0.5788] },
+      { id: 'willow_r', kind: 'tree', crown: 0.42, z: [19, 19], box: [0.5337, 0.0082, 0.7285, 0.6386] },
+      { id: 'willow_big', kind: 'tree', crown: 0.42, z: [16, 15], box: [0.1597, 0.0122, 0.4926, 0.5788] },
       { id: 'willow_l2', kind: 'tree', z: [11.5, 11.5], box: [0.2225, 0.3098, 0.3763, 0.6155] },
-      { id: 'willow_weep', kind: 'tree', crown: 0.12, z: [15.5, 15.5], box: [0.3186, 0.0122, 0.5406, 0.5883] },
+      { id: 'willow_weep', kind: 'tree', crown: 0.42, z: [15.5, 15.5], box: [0.3186, 0.0122, 0.5406, 0.5883] },
       { id: 'lily_3', kind: 'lily', box: [0.3998, 0.5326, 0.7281, 0.6793] },
       { id: 'lily_7a', kind: 'lily', box: [0.4201, 0.8465, 0.6043, 0.9946] },
       { id: 'lily_5', kind: 'lily', box: [0.6519, 0.8601, 0.7816, 0.9823] },
@@ -251,6 +255,9 @@ const bridgeLayers = {
       { id: 'willow_l', kind: 'tree', at: [[-104, 1.1, 7, 1]] },
       { id: 'willow_big', kind: 'tree', at: [[-128, 1.06, 8, 0]] },
       { id: 'willow_weep', kind: 'tree', at: [[-170, 1.05, 10, 1]] },
+      // tall willows past the frame's sides carry the canopy on round the viewer (the narrow card, far enough
+      // round that it never reaches into the frame)
+      { id: 'willow_weep', kind: 'tree', at: [[80, 2.4, 13, 1], [-80, 2.4, 13, 0]] },
       { id: 'grass_br', kind: 'tree', at: [[53, 0.92, 1.4, 1]] },
       { id: 'bush_r', kind: 'tree', at: [[62, 1.0, 3.3, 1]] },
       { id: 'flowers_1', kind: 'tree', at: [[78, 1.0, 2.2, 0]] },
@@ -259,7 +266,8 @@ const bridgeLayers = {
       { id: 'willow_far_r', kind: 'tree', at: [[128, 1.1, 9, 1]] },
       { id: 'willow_c2', kind: 'tree', at: [[150, 1.05, 9, 0]] },
       { id: 'willow_soft', kind: 'tree', at: [[172, 1.05, 8, 1]] },
-    ].map((e) => ({ spMul: 1.35, minLayer: 1, ...e, src: `assets/bridge/${e.id}.webp` })),
+    // refl: the garden's mirror images stay sparse, up close full ones read as smears over the lilies
+    ].map((e) => ({ spMul: 1.35, minLayer: 1, refl: 0.1, ...e, src: `assets/bridge/${e.id}.webp` })),
 };
 
 /* ============================================================
@@ -279,7 +287,7 @@ const bridge = {
   // no hotspots or cards here: the interaction is the colour mood
   hint: '拖动环顾四周 · 右下角切换色调',
   // no parallax: the eye stays at the painting's viewpoint (no dolly, no sway), so straight ahead is the picture
-  // itself; ?layered keeps the moving eye its cards were made for
+  // itself (?flat only; the layered pond keeps the moving eye its cards were made for)
   cam: LAYERED ? { f: 0.45, h: 1.6, vH: 0.42, maxD: 120, dolly: 1.0, sky: 420, parallax: 2.0 } : { f: 0.45, h: 1.6, vH: 0.42, maxD: 120, dolly: 0, sky: 420, parallax: 0, still: true },
   grade: { gamma: 0.98, expo: 1.03, wb: [1, 1, 1.01], sat: 1.04, lift: 0.08, contrast: 1.03, clean: 0 },
   wind: { dir: [1, 0.3], base: 0.5 },
@@ -331,7 +339,8 @@ const bridge = {
     backDist: 26,
     // clean sky is only the plate's top band (the left half has no tree reaching into it)
     skyRange: LAYERED ? [0.02, 0.52] : [0.56, 0.98],
-    skyTop: { row: [0.07, 0.04], ceil: [0.015, 0.07] },
+    // layered: the plate's sky reaches down to ~0.2 with blue and white cloud, the sky overhead takes all of it
+    skyTop: { row: [0.07, 0.04], ceil: LAYERED ? [0.01, 0.2] : [0.015, 0.07] },
     skyChroma: 0.08,
   },
   // default: the finished picture as one plate, with the pointillist touches over it (no element cards)
