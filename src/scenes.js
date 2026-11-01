@@ -4,6 +4,7 @@ export const CLS = {
 };
 
 const lerp = (a, b, t) => a + (b - a) * t;
+const LAYERED = typeof location !== 'undefined' && new URLSearchParams(location.search).has('layered');
 
 export function polyline(pts) {
   return (u) => {
@@ -199,69 +200,9 @@ const regatta = {
   ],
 };
 
-/* ============================================================
- *  03  The water-lily pond and the Japanese bridge, Giverny
- * ============================================================ */
-const bridge = {
-  id: 'bridge',
-  image: 'assets/bridge/composite.jpg',
-  info: {
-    index: '03',
-    titleCn: '睡莲池与日本桥',
-    titleFr: 'Le Bassin aux nymphéas, Giverny',
-    meta: '吉维尼 · 莫奈的水上花园<br>可切换三种色调',
-    desc: '1893 年，莫奈在吉维尼的家旁引水造池，种下睡莲，架起一座日本式的拱桥。此后二十多年，他一遍遍画这同一座桥、同一池水：清晨与黄昏，盛夏与深秋，光一变，整座花园就换了一种颜色。',
-    thumbLabel: '睡莲池与日本桥',
-  },
-  // no hotspots or cards here: the interaction is the colour mood
-  hint: '拖动环顾四周 · 右下角切换色调',
-  cam: { f: 0.45, h: 1.6, vH: 0.42, maxD: 120, dolly: 1.0, sky: 420, parallax: 2.0 },
-  grade: { gamma: 0.98, expo: 1.03, wb: [1, 1, 1.01], sat: 1.04, lift: 0.08, contrast: 1.03, clean: 0 },
-  wind: { dir: [1, 0.3], base: 0.5 },
-  // the gallery picture is the first mood; the others are learnt from reference paintings of the same motif.
-  // 盛夏 also has the art team's own warm green pond (the green PSD's plate), taken as it is
-  tones: [
-    { cn: '晴光', en: 'Clear Light', swatch: ['#9cc6e8', '#e9d36a', '#9bbf5a'] },
-    { cn: '盛夏', en: 'Green Harmony', ref: 'assets/paintings/bridge_green.jpg', keepLight: 0.65, expo: 1.05, gamma: 0.94, water: 'assets/bridge/base_green.jpg', waterArt: 'assets/bridge/composite_green.jpg', waterMix: 0.6, swatch: ['#2f6b3c', '#7fa860', '#cfe0c6'] },
-    { cn: '秋暮', en: 'Autumn Glow', ref: 'assets/paintings/bridge_autumn.jpg', expo: 1.12, swatch: ['#b8341c', '#e98a2b', '#f5c45a'] },
-  ],
-  unified: {
-    // the visible edge of the pond: near banks reach the bottom corners, the far edge runs under the bridge
-    // (this shapes the garden beyond the frame). On the plate the pond spans the whole width (plateWater);
-    // the near banks are the element cards
-    water: [[0, 1.02], [0.12, 1.0], [0.16, 0.9], [0.2, 0.8], [0.25, 0.72], [0.29, 0.65], [0.32, 0.6], [0.36, 0.585], [0.5, 0.565], [0.75, 0.56], [0.78, 0.6], [0.84, 0.68], [0.89, 0.76], [0.92, 0.86], [0.94, 0.97], [1, 1.02]],
-    plateWater: [[0, 0.595], [0.1, 0.59], [0.2, 0.575], [0.45, 0.565], [0.75, 0.56], [0.85, 0.55], [1, 0.545]],
-    land: [[-0.01, -0.01], [1.01, -0.01], [1.01, 1.02], [-0.01, 1.02]],
-    boats: [],
-    // the plate is mostly covered by element cards: broader strokes here pay for the fine ones on the cards
-    alphaMul: { low: 1.7, mid: 1.7, high: 1.7 },
-    landMinLayer: 1,
-    // the frame spans 96 degrees: keep strokes fine across it and let them grow behind the viewer
-    falloff: [0.7, 2.4, 1.4],
-    skyLike: (r, g, b, v) => {
-      const L = 0.3 * r + 0.59 * g + 0.11 * b;
-      // pale blue and white cloud, or a deep blue patch between the clouds
-      return v < 0.34 && b >= g - 0.03 && ((L > 0.6 && (b > r + 0.02 || Math.max(r, g, b) - Math.min(r, g, b) < 0.1)) || (L > 0.45 && b > r + 0.18));
-    },
-    skyClean: 2,
-    landCls: () => CLS.TREE,
-    // the far bank steps back the higher it rises
-    landCard: (u, v, dv) => 1 + 0.55 * Math.min(1, Math.max(0, (dv - 0.03) / 0.27)),
-    waterAllBase: true,
-    bankAngular: 0.85,
-    // the bank round the pond is continued from plate columns whose own pond edge matches the line above
-    // (the big tree at u 0.6 stays unique)
-    landPool: [[0.75, 0.66], [0.54, 0.36]],
-    farPool: [[0.36, 0.54], [0.66, 0.75]],
-    farRate: 1,
-    backDist: 26,
-    // clean sky is only the plate's top band (the left half has no tree reaching into it)
-    skyRange: [0.02, 0.52],
-    skyTop: { row: [0.07, 0.04], ceil: [0.015, 0.07] },
-    skyChroma: 0.08,
-  },
-  // the art team's layer split (assets/layers/莲花桥*.psd, exported by tools/export_bridge.py)
-  layered: {
+// ?layered: the art team's layer split (assets/layers/莲花桥*.psd, exported by tools/export_bridge.py) as
+// separate cards at their own depths
+const bridgeLayers = {
     base: 'assets/bridge/base.jpg',
     fine: 0.9,
     // how far the eye slides (m): anything buried deeper than that behind a nearer layer is not painted
@@ -319,6 +260,81 @@ const bridge = {
       { id: 'willow_c2', kind: 'tree', at: [[150, 1.05, 9, 0]] },
       { id: 'willow_soft', kind: 'tree', at: [[172, 1.05, 8, 1]] },
     ].map((e) => ({ spMul: 1.35, minLayer: 1, ...e, src: `assets/bridge/${e.id}.webp` })),
+};
+
+/* ============================================================
+ *  03  The water-lily pond and the Japanese bridge, Giverny
+ * ============================================================ */
+const bridge = {
+  id: 'bridge',
+  image: 'assets/bridge/composite.jpg',
+  info: {
+    index: '03',
+    titleCn: '睡莲池与日本桥',
+    titleFr: 'Le Bassin aux nymphéas, Giverny',
+    meta: '吉维尼 · 莫奈的水上花园<br>可切换三种色调',
+    desc: '1893 年，莫奈在吉维尼的家旁引水造池，种下睡莲，架起一座日本式的拱桥。此后二十多年，他一遍遍画这同一座桥、同一池水：清晨与黄昏，盛夏与深秋，光一变，整座花园就换了一种颜色。',
+    thumbLabel: '睡莲池与日本桥',
+  },
+  // no hotspots or cards here: the interaction is the colour mood
+  hint: '拖动环顾四周 · 右下角切换色调',
+  cam: { f: 0.45, h: 1.6, vH: 0.42, maxD: 120, dolly: 1.0, sky: 420, parallax: 2.0 },
+  grade: { gamma: 0.98, expo: 1.03, wb: [1, 1, 1.01], sat: 1.04, lift: 0.08, contrast: 1.03, clean: 0 },
+  wind: { dir: [1, 0.3], base: 0.5 },
+  // the gallery picture is the first mood; the others are learnt from reference paintings of the same motif.
+  // 盛夏 also has the art team's own warm green pond (the green PSD's plate), taken as it is
+  tones: [
+    { cn: '晴光', en: 'Clear Light', swatch: ['#9cc6e8', '#e9d36a', '#9bbf5a'] },
+    { cn: '盛夏', en: 'Green Harmony', ref: 'assets/paintings/bridge_green.jpg', keepLight: 0.65, expo: 1.05, gamma: 0.94, water: 'assets/bridge/base_green.jpg', waterArt: 'assets/bridge/composite_green.jpg', waterMix: 0.6, swatch: ['#2f6b3c', '#7fa860', '#cfe0c6'] },
+    { cn: '秋暮', en: 'Autumn Glow', ref: 'assets/paintings/bridge_autumn.jpg', expo: 1.12, swatch: ['#b8341c', '#e98a2b', '#f5c45a'] },
+  ],
+  unified: {
+    // the visible edge of the pond: near banks reach the bottom corners, the far edge runs under the bridge
+    // (this shapes the garden beyond the frame). The layered plate's pond spans the whole width (plateWater),
+    // its near banks are element cards
+    water: [[0, 1.02], [0.12, 1.0], [0.16, 0.9], [0.2, 0.8], [0.25, 0.72], [0.29, 0.65], [0.32, 0.6], [0.36, 0.585], [0.5, 0.565], [0.75, 0.56], [0.78, 0.6], [0.84, 0.68], [0.89, 0.76], [0.92, 0.86], [0.94, 0.97], [1, 1.02]],
+    ...(LAYERED ? { plateWater: [[0, 0.595], [0.1, 0.59], [0.2, 0.575], [0.45, 0.565], [0.75, 0.56], [0.85, 0.55], [1, 0.545]] } : {}),
+    land: [[-0.01, -0.01], [1.01, -0.01], [1.01, 1.02], [-0.01, 1.02]],
+    boats: [],
+    // layered: the plate is mostly covered by element cards, broader strokes here pay for the fine ones on them
+    alphaMul: LAYERED ? { low: 1.7, mid: 1.7, high: 1.7 } : { low: 1.25, mid: 1.15, high: 1.0 },
+    landMinLayer: 1,
+    // the frame spans 96 degrees: keep strokes fine across it and let them grow behind the viewer
+    falloff: LAYERED ? [0.7, 2.4, 1.4] : [0.9, 2.6, 1.0],
+    skyLike: (r, g, b, v) => {
+      const L = 0.3 * r + 0.59 * g + 0.11 * b;
+      // pale blue and white cloud, or a deep blue patch between the clouds
+      return v < 0.34 && b >= g - 0.03 && ((L > 0.6 && (b > r + 0.02 || Math.max(r, g, b) - Math.min(r, g, b) < 0.1)) || (L > 0.45 && b > r + 0.18));
+    },
+    skyClean: 2,
+    landCls: () => CLS.TREE,
+    // the far bank steps back the higher it rises
+    landCard: (u, v, dv) => 1 + 0.55 * Math.min(1, Math.max(0, (dv - 0.03) / 0.27)),
+    waterAllBase: true,
+    bankAngular: 0.85,
+    // the bank round the pond is continued from plate columns whose own pond edge matches the line above
+    // (the big tree at u 0.6 stays unique)
+    // unlayered, each side first runs on with a little of its own edge (no element cards stand there), then
+    // with columns whose canopy reaches the top (others leave sky gaps that read as a row of poplars)
+    landPool: LAYERED ? [[0.75, 0.66], [0.54, 0.36]] : [[1.0, 0.975], [0.89, 0.85], [0.71, 0.6], [0.52, 0.2]],
+    farPool: LAYERED ? [[0.36, 0.54], [0.66, 0.75]] : [[0.0, 0.05], [0.19, 0.52], [0.6, 0.71]],
+    // unlayered, the willows cut by the frame's top edge grow on above it: [min, max, variation]
+    ...(LAYERED ? {} : { crown: [0.05, 0.16, 5] }),
+    farRate: 1,
+    backDist: 26,
+    // clean sky is only the plate's top band (the left half has no tree reaching into it)
+    skyRange: LAYERED ? [0.02, 0.52] : [0.56, 0.98],
+    skyTop: { row: [0.07, 0.04], ceil: [0.015, 0.07] },
+    skyChroma: 0.08,
+  },
+  // default: the finished picture as one plate, with the pointillist touches over it (no element cards)
+  layered: LAYERED ? bridgeLayers : {
+    base: 'assets/bridge/composite.jpg',
+    fine: 1,
+    // jitter: how far (dab sizes) a touch may borrow its colour; one plate has no layers to keep it on the bridge
+    dabs: { src: 'assets/bridge/composite.jpg', k: 0.58, tint: 0.07, sat: 1.12, jitter: 0.5 },
+    cards: [],
+    extras: [],
   },
   hotspots: [],
 };

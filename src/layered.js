@@ -406,7 +406,7 @@ export function makeLayerEmitter(set, Q) {
             }
             // broken colour: a touch from close by in the picture (on the same layer, so thin things like the
             // bridge rails keep their own colour), nudged warm or cool, a little richer
-            const r0 = sp * f * 1.2;
+            const r0 = sp * f * (spec.dabs.jitter ?? 1.2);
             const ju = clamp(uu + (rand() - 0.5) * r0, 0, 1), jv = clamp(vv + (rand() - 0.5) * r0 / asp, 0, 0.9999);
             const col = topCard(ju, jv) === j ? colAt(ju, jv) : colAt(uu, vv);
             const lm = 0.3 * col[0] + 0.59 * col[1] + 0.11 * col[2], tint = (rand() - 0.5) * 2 * spec.dabs.tint;
