@@ -223,7 +223,7 @@ const bridge = {
   // the gallery picture is the first mood; the others are learnt from reference paintings of the same motif
   tones: [
     { cn: '晴光', en: 'Clear Light', swatch: ['#9cc6e8', '#e9d36a', '#9bbf5a'] },
-    { cn: '盛夏', en: 'Green Harmony', ref: 'assets/paintings/bridge_green.jpg', expo: 1.04, swatch: ['#2f6b3c', '#7fa860', '#cfe0c6'] },
+    { cn: '盛夏', en: 'Green Harmony', ref: 'assets/paintings/bridge_green.jpg', keepLight: 0.65, expo: 1.05, gamma: 0.94, swatch: ['#2f6b3c', '#7fa860', '#cfe0c6'] },
     { cn: '秋暮', en: 'Autumn Glow', ref: 'assets/paintings/bridge_autumn.jpg', expo: 1.12, swatch: ['#b8341c', '#e98a2b', '#f5c45a'] },
   ],
   unified: {

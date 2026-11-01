@@ -377,23 +377,35 @@ function setBackdropTone(B, a, b, k) {
   [['uZenith', 'zenith'], ['uHorizon', 'horizon'], ['uGround', 'ground'], ['uNear', 'near']].forEach(([n, key]) => u[n].value.setRGB(...A[key].map((x, j) => lerp(x, Bb[key][j], k))));
 }
 let toneBusy = false;
-const fwd = new THREE.Vector3();
+const fwd = new THREE.Vector3(), rgt = new THREE.Vector3();
 async function setTone(k) {
   const B = cur(), sc = SCENES[S.idx];
   if (!sc.tones || !B.toneBg || toneBusy || k === B.tone || (S.mode !== 'immersive' && S.mode !== 'focus')) return;
   toneBusy = true;
   const from = B.tone, U = B.cloud.uniforms, t = sc.tones[k];
   [...el.tones.children].forEach((b, j) => b.classList.toggle('on', j === k));
-  camera.getWorldDirection(fwd);
-  U.uToneDir.value.copy(fwd);
   U.uToneA.value = from; U.uToneB.value = k;
-  // the mood's name surfaces with the wave, a soft wash of its colour spreads from the centre
+  // the new mood arrives on a gust: the wind rises, and the colour front crosses the scene downwind
+  // (same front as the shader: f = 2.9 t - 1.3 against each direction's along-wind component)
+  gust(1.4);
+  wait(1.0).then(() => gust(0.9));
+  const wd = new THREE.Vector2(...sc.wind.dir).normalize();
+  camera.getWorldDirection(fwd);
+  rgt.setFromMatrixColumn(camera.matrixWorld, 0);
+  const alongC = (fwd.x * wd.x + fwd.z * wd.y) / Math.max(Math.hypot(fwd.x, fwd.z), 1e-3);
+  const side = Math.sign(rgt.x * wd.x + rgt.z * wd.y) || 1;
   el.toneTitle.innerHTML = `<b>${t.cn}</b><i>${t.en}</i>`;
-  el.toneWash.style.background = `radial-gradient(circle at 50% 50%, ${t.swatch[1]}66 0%, ${t.swatch[0]}22 38%, transparent 70%)`;
-  tween(2.2, (e, r) => { el.toneWash.style.opacity = (Math.sin(r * Math.PI) * 0.55).toFixed(3); el.toneWash.style.transform = `scale(${0.6 + 1.2 * e})`; }, { e: ease.out });
-  tween(1.1, (e) => { el.toneTitle.style.opacity = e; el.toneTitle.style.letterSpacing = `${0.9 - 0.3 * e}em`; el.toneTitle.style.filter = `blur(${(1 - e) * 8}px)`; }, { delay: 0.35, e: ease.out });
-  tween(1.2, (e) => { el.toneTitle.style.opacity = 1 - e; el.toneTitle.style.filter = `blur(${e * 6}px)`; }, { delay: 2.6, e: ease.in });
-  await tween(3.6, (e) => { U.uToneT.value = Math.max(e, 1e-4); setBackdropTone(B, from, k, e); }, { e: ease.sine });
+  el.toneWash.style.background = `linear-gradient(90deg, transparent 38%, ${t.swatch[0]}33 45%, ${t.swatch[1]}88 50%, ${t.swatch[2]}33 55%, transparent 62%)`;
+  tween(1.1, (e) => { el.toneTitle.style.opacity = e; el.toneTitle.style.letterSpacing = `${0.9 - 0.3 * e}em`; el.toneTitle.style.filter = `blur(${(1 - e) * 8}px)`; }, { delay: 0.6, e: ease.out });
+  tween(1.2, (e) => { el.toneTitle.style.opacity = 1 - e; el.toneTitle.style.filter = `blur(${e * 6}px)`; }, { delay: 2.9, e: ease.in });
+  await tween(4.0, (e) => {
+    U.uToneT.value = Math.max(e, 1e-4);
+    setBackdropTone(B, from, k, e);
+    const off = (e * 2.9 - 1.3 - alongC) / 0.9;
+    el.toneWash.style.opacity = (0.5 * Math.exp(-off * off * 1.5)).toFixed(3);
+    el.toneWash.style.transform = `translateX(${(side * off * 60).toFixed(2)}vw) skewX(${-12 * side}deg)`;
+  }, { e: ease.sine });
+  el.toneWash.style.opacity = 0;
   B.tone = k;
   U.uToneA.value = k; U.uToneT.value = 0;
   el.art.src = artOf(S.idx);
@@ -565,7 +577,7 @@ function buildOne(i) {
   if (sc.tones) {
     const t0 = performance.now();
     luts = sc.tones.map((t, k) => (toneRefs[i][k] ? buildToneLUT(imgs[i], toneRefs[i][k]) : null));
-    data.tones = luts.map((l, k) => (l ? toneStrokes(l, data.D, data.count, sc.tones[k].expo) : null));
+    data.tones = luts.map((l, k) => (l ? toneStrokes(l, data.D, data.count, sc.tones[k]) : null));
     console.log(`[monet] ${sc.id}: ${luts.filter(Boolean).length} colour moods in ${Math.round(performance.now() - t0)}ms`);
   }
   const cloud = new SplatCloud(sc.id, data, { syncSort: CAPTURE, grade: sc.grade });
@@ -574,8 +586,8 @@ function buildOne(i) {
   scene3.add(backdrop, cloud.mesh);
   built[i] = { data, cloud, backdrop, tone: 0 };
   if (luts) {
-    built[i].toneArt = luts.map((l, k) => (l ? tonePainting(l, imgs[i], sc.tones[k].expo) : sc.image));
-    built[i].toneBg = luts.map((l, k) => Object.fromEntries(Object.entries(data.bg).map(([key, c]) => [key, gradeColor(l ? toneColor(l, ...c, [0, 0, 0], sc.tones[k].expo) : c, sc.grade)])));
+    built[i].toneArt = luts.map((l, k) => (l ? tonePainting(l, imgs[i], sc.tones[k]) : sc.image));
+    built[i].toneBg = luts.map((l, k) => Object.fromEntries(Object.entries(data.bg).map(([key, c]) => [key, gradeColor(l ? toneColor(l, ...c, [0, 0, 0], sc.tones[k]) : c, sc.grade)])));
   }
   console.log(`[monet] ${SCENES[i].id}: ${data.count.toLocaleString()} splats`);
 }

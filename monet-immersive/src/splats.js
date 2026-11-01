@@ -12,7 +12,7 @@ uniform sampler2D tA, tB, tC, tD, tE, tT1, tT2;
 uniform vec2 uViewport;
 uniform float uTime, uMorph, uReveal, uWind, uFlash, uFocusDim, uFocusId, uGustFront, uGustAmp, uOpacity, uH, uUnified;
 uniform vec2 uWindDir;
-uniform vec3 uFront, uEye0, uToneDir;
+uniform vec3 uFront, uEye0;
 uniform float uToneA, uToneB, uToneT;
 uniform float uHot[8];
 uniform float uGrade, uGamma, uExpo, uSat, uLift, uContrast, uClean;
@@ -96,14 +96,15 @@ void main() {
   vec3 world = A.xyz; float seed = A.w;
   vec3 canv = B.xyz; int cls = int(B.w + 0.5);
   vec3 axis = C.xyz; float minor = C.w;
-  // colour mood: a repainting wave runs from where the viewer looks round to behind them; strokes
-  // lift off, turn and glow as it passes and settle in the new colours (tw: on the wave crest)
+  // colour mood: it arrives on a gust. The front crosses the whole scene downwind (by direction, so the
+  // sky turns with the banks below it); strokes are blown on and flutter as it passes and settle in the
+  // new colours (tw: on the gust crest)
   vec3 cA = uToneA < 0.5 ? D.rgb : uToneA < 1.5 ? texelFetch(tT1, tc, 0).rgb : texelFetch(tT2, tc, 0).rgb;
   float tk = 0.0, tw = 0.0;
   if (uToneT > 0.0) {
     vec3 cB = uToneB < 0.5 ? D.rgb : uToneB < 1.5 ? texelFetch(tT1, tc, 0).rgb : texelFetch(tT2, tc, 0).rgb;
-    float ang = acos(clamp(dot(normalize(A.xyz - cameraPosition), uToneDir), -1.0, 1.0));
-    float x = (uToneT * 4.6 - 0.5 - ang + (hash(vec2(A.w, 3.7)) - 0.5) * 0.5) / 0.55;
+    float along = dot(normalize(A.xyz - cameraPosition).xz, normalize(uWindDir));
+    float x = (uToneT * 2.9 - 1.3 - along + (hash(vec2(A.w, 3.7)) - 0.5) * 0.3) / 0.35;
     tk = smoothstep(0.0, 1.0, x);
     tw = sin(clamp(x, 0.0, 1.0) * 3.14159265);
     cA = mix(cA, cB, tk);
@@ -156,12 +157,12 @@ void main() {
   float dist = length(pos);
   float w = windField(pos);
   if (tw > 0.001) {
-    vec3 toEye = normalize(cameraPosition - pos);
     float tl = tw * (0.6 + 0.8 * hash(vec2(seed, 9.1)));
-    pos += (toEye * 0.045 + vec3(0.0, 0.02, 0.0)) * tl * dist;
-    axis = rotAround(axis, -toEye, tl * (seed - 0.5) * 3.2);
-    sizeMul *= 1.0 + 0.35 * tl;
-    col = mix(col, col * 1.22 + vec3(0.07, 0.06, 0.04), tw * 0.7);
+    float flut = sin(uTime * (9.0 + seed * 6.0) + seed * 50.0);
+    pos += (wd3 * (0.06 + 0.01 * dist) + vec3(0.0, 1.0, 0.0) * (0.25 + 0.004 * dist) * flut * 0.3) * tl;
+    axis = rotAround(axis, normalize(cameraPosition - pos), tl * (0.6 * flut + (seed - 0.5) * 1.6));
+    sizeMul *= 1.0 + 0.18 * tl;
+    col = mix(col, col * 1.15 + vec3(0.05, 0.05, 0.03), tw * 0.5);
   }
 
   if (cls == 1 || cls == 2) {               // grass / flowers
@@ -381,7 +382,7 @@ export class SplatCloud {
       tA: { value: dataTex(data.A, n) }, tB: { value: dataTex(data.B, n) }, tC: { value: dataTex(data.C, n) },
       tD: { value: dataTex(data.D, n) }, tE: { value: dataTex(data.E, n) },
       tT1: { value: null }, tT2: { value: null },
-      uToneA: { value: 0 }, uToneB: { value: 0 }, uToneT: { value: 0 }, uToneDir: { value: new THREE.Vector3(0, 0, -1) },
+      uToneA: { value: 0 }, uToneB: { value: 0 }, uToneT: { value: 0 },
       uViewport: { value: new THREE.Vector2(1, 1) },
       uTime: { value: 0 }, uMorph: { value: 0 }, uReveal: { value: 0 }, uWind: { value: 0 }, uFlash: { value: 1 },
       uFocusDim: { value: 0 }, uFocusId: { value: -1 }, uGustFront: { value: 0 }, uGustAmp: { value: 0 },
