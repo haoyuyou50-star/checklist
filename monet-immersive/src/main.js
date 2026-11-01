@@ -377,7 +377,7 @@ function setBackdropTone(B, a, b, k) {
   [['uZenith', 'zenith'], ['uHorizon', 'horizon'], ['uGround', 'ground'], ['uNear', 'near']].forEach(([n, key]) => u[n].value.setRGB(...A[key].map((x, j) => lerp(x, Bb[key][j], k))));
 }
 let toneBusy = false;
-const fwd = new THREE.Vector3(), rgt = new THREE.Vector3();
+const fwd = new THREE.Vector3(), rgt = new THREE.Vector3(), upv = new THREE.Vector3();
 async function setTone(k) {
   const B = cur(), sc = SCENES[S.idx];
   if (!sc.tones || !B.toneBg || toneBusy || k === B.tone || (S.mode !== 'immersive' && S.mode !== 'focus')) return;
@@ -389,21 +389,27 @@ async function setTone(k) {
   // (same front as the shader: f = 2.9 t - 1.3 against each direction's along-wind component)
   gust(1.4);
   wait(1.0).then(() => gust(0.9));
+  // the band on screen is the slanted front seen from here: its normal is the front direction projected
+  // onto the view (same direction as the shader's: downwind and down)
   const wd = new THREE.Vector2(...sc.wind.dir).normalize();
+  const fd = new THREE.Vector3(wd.x * 0.8, -0.6, wd.y * 0.8);
   camera.getWorldDirection(fwd);
   rgt.setFromMatrixColumn(camera.matrixWorld, 0);
-  const alongC = (fwd.x * wd.x + fwd.z * wd.y) / Math.max(Math.hypot(fwd.x, fwd.z), 1e-3);
-  const side = Math.sign(rgt.x * wd.x + rgt.z * wd.y) || 1;
+  upv.setFromMatrixColumn(camera.matrixWorld, 1);
+  const alongC = fwd.dot(fd), nx = rgt.dot(fd), ny = -upv.dot(fd), nl = Math.max(Math.hypot(nx, ny), 1e-3);
+  const tanW = Math.tan((S.cam.fov * Math.PI) / 360) * (innerWidth / innerHeight);
+  const ang = (Math.atan2(nx, -ny) * 180) / Math.PI;
   el.toneTitle.innerHTML = `<b>${t.cn}</b><i>${t.en}</i>`;
-  el.toneWash.style.background = `linear-gradient(90deg, transparent 38%, ${t.swatch[0]}33 45%, ${t.swatch[1]}88 50%, ${t.swatch[2]}33 55%, transparent 62%)`;
+  el.toneWash.style.background = `linear-gradient(${ang.toFixed(1)}deg, transparent 40%, ${t.swatch[0]}33 46%, ${t.swatch[1]}88 50%, ${t.swatch[2]}33 54%, transparent 60%)`;
   tween(1.1, (e) => { el.toneTitle.style.opacity = e; el.toneTitle.style.letterSpacing = `${0.9 - 0.3 * e}em`; el.toneTitle.style.filter = `blur(${(1 - e) * 8}px)`; }, { delay: 0.6, e: ease.out });
   tween(1.2, (e) => { el.toneTitle.style.opacity = 1 - e; el.toneTitle.style.filter = `blur(${e * 6}px)`; }, { delay: 2.9, e: ease.in });
   await tween(4.0, (e) => {
     U.uToneT.value = Math.max(e, 1e-4);
     setBackdropTone(B, from, k, e);
-    const off = (e * 2.9 - 1.3 - alongC) / 0.9;
-    el.toneWash.style.opacity = (0.5 * Math.exp(-off * off * 1.5)).toFixed(3);
-    el.toneWash.style.transform = `translateX(${(side * off * 60).toFixed(2)}vw) skewX(${-12 * side}deg)`;
+    // distance of the front from the screen centre, in half screen widths
+    const s = (e * 2.9 - 1.3 - alongC) / nl / tanW;
+    el.toneWash.style.opacity = (0.5 * Math.exp(-s * s * 0.8)).toFixed(3);
+    el.toneWash.style.transform = `translate(${((nx / nl) * s * 50).toFixed(2)}vw, ${((ny / nl) * s * 50).toFixed(2)}vw)`;
   }, { e: ease.sine });
   el.toneWash.style.opacity = 0;
   B.tone = k;

@@ -15,9 +15,9 @@ import { clamp, lerp, smooth, blur1, blurMasked, fbm2 } from './generator.js';
 const norm = (v) => { const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; };
 
 export async function loadLayerSet(spec, loadImage) {
-  const [base, ...imgs] = await Promise.all([spec.base, ...spec.cards.map((c) => c.src), ...spec.extras.map((e) => e.src)].map(loadImage));
+  const [base, dabs, ...imgs] = await Promise.all([spec.base, spec.dabs ? spec.dabs.src : spec.base, ...spec.cards.map((c) => c.src), ...spec.extras.map((e) => e.src)].map(loadImage));
   const n = spec.cards.length;
-  return { spec, base, cards: imgs.slice(0, n), extras: imgs.slice(n) };
+  return { spec, base, dabs, cards: imgs.slice(0, n), extras: imgs.slice(n) };
 }
 
 // a sprite: an element image read at a working resolution, with masked colour levels and edge maps
@@ -99,6 +99,43 @@ function makeHedge(src, hd, W, H) {
       const gi = (gy * G.w + gx) * 4, oi = (Y * W + X) * 4;
       const lit = 1 + 0.1 * smooth(0.12, 0, (Y - top) / H);
       for (let j = 0; j < 3; j++) od.data[oi + j] = clamp(G.d[gi + j] * lit, 0, 255);
+      od.data[oi + 3] = 255;
+    }
+  }
+  ox.putImageData(od, 0, 0);
+  return out;
+}
+
+/*
+ * The canopy above the frame for an element cut by the frame's top edge: its own top rows mirrored upward,
+ * under a ragged crown line that is tallest where the element meets the edge most solidly and falls away
+ * where it does not. G: the element's pixels; W x H the crown (H px = the crown's height above the edge);
+ * ratio: element height / crown height.
+ */
+function makeCrown(G, W, H, ratio, seed) {
+  const solidTop = new Float32Array(W);
+  for (let X = 0; X < W; X++) {
+    const gx = Math.min(G.w - 1, Math.floor((X / W) * G.w));
+    let s = 0;
+    for (let y = 0; y < Math.min(G.h, 4); y++) s += G.d[(y * G.w + gx) * 4 + 3] > 128 ? 0.25 : 0;
+    solidTop[X] = s;
+  }
+  const run = blur1(blur1(solidTop, W, 1, Math.max(2, W >> 5)), W, 1, Math.max(2, W >> 6));
+  const out = document.createElement('canvas');
+  out.width = W; out.height = H;
+  const ox = out.getContext('2d');
+  const od = ox.createImageData(W, H);
+  for (let X = 0; X < W; X++) {
+    // rounded crowns with the odd frond poking up, never a level line
+    const crowns = Math.pow(fbm2(X * (7 / W) + seed * 3.7, seed * 1.3, 3), 1.6), tips = Math.pow(fbm2(X * (40 / W) + seed, seed * 2.1 + 5, 2), 3);
+    const hc = H * smooth(0.25, 0.9, run[X]) * Math.min(1, 0.08 + 1.1 * crowns + 0.5 * tips);
+    const gx = Math.min(G.w - 1, Math.floor((X / W) * G.w));
+    for (let k = 0; k < hc; k++) {
+      const gy = Math.min(G.h - 1, Math.floor((k / H) * (G.h / ratio)));
+      const gi = (gy * G.w + gx) * 4;
+      if (G.d[gi + 3] <= 128) continue;
+      const oi = ((H - 1 - k) * W + X) * 4;
+      for (let j = 0; j < 3; j++) od.data[oi + j] = G.d[gi + j];
       od.data[oi + 3] = 255;
     }
   }
@@ -311,6 +348,87 @@ export function makeLayerEmitter(set, Q) {
         });
         stats.push(`hedge${k}:${n}@${D.toFixed(0)}m`);
       });
+
+      /* ---- crowns: elements cut by the frame's top edge grow on above it ---- */
+      spec.cards.forEach((c, k) => {
+        const [u0, v0, u1, v1] = c.box;
+        if (!c.crown || v0 > 0.02) return;
+        // finer than the card: inside the frame the dabs carry the texture, above it the crown has to
+        const cf = (c.fine || fine) * 0.6;
+        const pxA = (u1 - u0) / f, wPx = Math.round(Math.max(24, pxA / (alpha0 * layers[3].k * cf * 0.55)));
+        const hPx = Math.max(8, Math.round((wPx * c.crown * asp) / (u1 - u0)));
+        const cvs = makeCrown(pix(k), wPx, hPx, (v1 - v0) / c.crown, k);
+        const ss = readSprite(cvs, cvs.width);
+        const n = emitSprite(ss, {
+          ext: true, spMul: 1, fine: cf, pxAng: pxA / ss.w, R: [1, 0, 0], U: [0, 1, 0], hot: 0, hull: 0, minLayer: 2,
+          place: (sx, sy) => { const u = u0 + (sx / ss.w) * (u1 - u0), v = v0 - (1 - sy / ss.h) * c.crown, z = depthAt(c, u, v0, groundZ, wl); return [(u - 0.5) * z / f, -(v - vH) * asp * z / f, -z]; },
+          cls: () => CLS.TREE, angle: kindOf.tree.angle, refl: 0,
+        });
+        stats.push(`crown_${c.id}:${n}`);
+      });
+
+      /* ---- pointillist dabs: the finished picture laid over every layer in small broken-colour touches ---- */
+      if (spec.dabs) {
+        const { W: PW, H: PH, cls: pCls, depZ: pZ, flex: pFlex } = ctx.plate;
+        const Pc = pixels(set.dabs), sp = alpha0 * spec.dabs.k;
+        const colAt = (u, v) => {
+          const x = clamp(Math.floor(u * Pc.w), 0, Pc.w - 1), y = clamp(Math.floor(v * Pc.h), 0, Pc.h - 1), i = (y * Pc.w + x) * 4;
+          return [Pc.d[i] / 255, Pc.d[i + 1] / 255, Pc.d[i + 2] / 255];
+        };
+        // the topmost PSD layer at a point is the one seen there (lower ones were cut out where they stood in front)
+        const topCard = (u, v) => {
+          for (let j = spec.cards.length - 1; j >= 0; j--) {
+            const [a0, b0, a1, b1] = spec.cards[j].box;
+            if (u < a0 || u > a1 || v < b0 || v > b1) continue;
+            const P2 = pix(j), px = Math.floor(((u - a0) / (a1 - a0)) * P2.w), py = Math.floor(((v - b0) / (b1 - b0)) * P2.h);
+            if (px >= 0 && py >= 0 && px < P2.w && py < P2.h && P2.d[(py * P2.w + px) * 4 + 3] > 128) return j;
+          }
+          return -1;
+        };
+        let n = 0;
+        for (let v = 0; v < 1; ) {
+          const ty = -(v - vH) * asp / f;
+          for (let u = rand() * f * sp; u < 1; ) {
+            const tx = (u - 0.5) / f;
+            const uu = u, vv = clamp(v + (rand() - 0.5) * sp * f / asp, 0, 0.9999);
+            u += f * sp * (1 + tx * tx) * (0.85 + rand() * 0.3);
+            const j = topCard(uu, vv);
+            let z, c, fl;
+            if (j >= 0) {
+              const cd = spec.cards[j];
+              z = depthAt(cd, uu, vv, groundZ, wl);
+              c = kindOf[cd.kind].cls([0, 0, 0], 0, 0, 0);
+              fl = c === CLS.TREE ? 1 - (vv - cd.box[1]) / (cd.box[3] - cd.box[1]) : 0;
+            } else {
+              const i = clamp(Math.floor(vv * PH), 0, PH - 1) * PW + clamp(Math.floor(uu * PW), 0, PW - 1);
+              c = pCls[i]; z = pZ[i]; fl = pFlex[i];
+              if (c === CLS.SKY) continue;
+            }
+            // broken colour: a touch from close by in the picture (on the same layer, so thin things like the
+            // bridge rails keep their own colour), nudged warm or cool, a little richer
+            const r0 = sp * f * 1.2;
+            const ju = clamp(uu + (rand() - 0.5) * r0, 0, 1), jv = clamp(vv + (rand() - 0.5) * r0 / asp, 0, 0.9999);
+            const col = topCard(ju, jv) === j ? colAt(ju, jv) : colAt(uu, vv);
+            const lm = 0.3 * col[0] + 0.59 * col[1] + 0.11 * col[2], tint = (rand() - 0.5) * 2 * spec.dabs.tint;
+            const tc = tint > 0 ? [1, 0.45, -0.7] : [-0.6, -0.1, 1];
+            for (let q = 0; q < 3; q++) col[q] = clamp(lm + (col[q] - lm) * spec.dabs.sat + tc[q] * Math.abs(tint), 0, 1);
+            const zz = z * 0.996;
+            const P = [(uu - 0.5) * zz / f, -(vv - vH) * asp * zz / f, -zz];
+            const dist = Math.hypot(P[0], P[1], P[2]);
+            const a = c === CLS.WATER ? (rand() - 0.5) * 0.35 : c === CLS.TREE ? Math.PI / 2 + (rand() - 0.5) * 1.4 : rand() * Math.PI;
+            let maj = sp * lerp(0.9, 1.5, rand()), mn = sp * lerp(0.5, 0.75, rand());
+            // the shader flattens water strokes towards grazing angles: water touches start wider and fuller
+            if (c === CLS.WATER) { maj *= 1.6; mn *= 1.5; }
+            const axis = [Math.cos(a) * maj * dist, -Math.sin(a) * maj * dist, 0];
+            const d = norm(P), sc = sC * f / -d[2];
+            const p = proj(d), rad = Math.hypot(p[0] - 0.5, (p[1] - 0.5) * asp) / 0.62;
+            B.add(P, [d[0] * sc, d[1] * sc, d[2] * sc], axis, mn * dist, col, 0.92, c, 0, fl, clamp(rad * 0.62 + rand() * 0.38, 0, 1), 0, rand());
+            n++;
+          }
+          v += sp * f / asp * (1 + ty * ty) * 0.866;
+        }
+        stats.push(`dabs:${n}`);
+      }
 
       /* ---- the extra sails and trees, staged around the viewer ---- */
       spec.extras.forEach((e, k) => {

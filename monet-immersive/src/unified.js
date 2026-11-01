@@ -703,7 +703,7 @@ export function buildUnified(scene, img, Q, X = null) {
     B.add(w, w, axis, minor, col, a, CLS.WATER, 0, -m, extDelay(w), 1, rand());
   });
 
-  if (X) X.emit({ B, rand, f, vH, asp, h, groundZ, wl, alpha0, layers, extDelay, proj, inRect, sC, hotAcc, shoreS, baseWater });
+  if (X) X.emit({ B, rand, f, vH, asp, h, groundZ, wl, alpha0, layers, extDelay, proj, inRect, sC, hotAcc, shoreS, baseWater, plate: { W, H, cls, depZ, flex } });
 
   // sparkle on the river and drifting motes
   for (let k = 0; k < Q.glints; k++) {
