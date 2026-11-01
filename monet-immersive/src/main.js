@@ -424,7 +424,8 @@ async function setTone(k) {
 // run of waves builds into a stronger, longer wind instead of restarting the gust
 function gust(strength = 1) {
   if (S.mode !== 'immersive' && S.mode !== 'focus') return;
-  S.gustE = Math.min(S.gustE + 0.85 * strength, 2.4);
+  const s = Number.isFinite(+strength) ? Math.max(0, +strength) : 1;
+  S.gustE = Math.min(S.gustE + 0.85 * s, 2.4);
 }
 function updateGust(dt) {
   S.gustE *= Math.exp(-dt / 2.4);
@@ -434,7 +435,7 @@ function updateGust(dt) {
   S.gustFront += dt * 24;
 }
 function setWind(v) { S.windTarget = v; }
-el.gustBtn.addEventListener('click', gust);
+el.gustBtn.addEventListener('click', () => gust(1));
 el.sound.addEventListener('click', () => { audio.start(); el.sound.classList.toggle('on', audio.toggle()); });
 el.sound.classList.add('on');
 
