@@ -19,7 +19,7 @@ const step = (t, dt = 0.1) => page.evaluate(async (t, dt) => {
   window.__step(0.001, true);
 }, t, dt);
 await step(2);
-await page.evaluate(() => { window.app.selectPainting(1); }); await step(3);
+await page.evaluate(() => { window.app.selectPainting(0); }); await step(3);
 await page.evaluate(() => { window.app.enter(); }); await step(8);
 await page.evaluate((y) => { const S = window.app.S; S.cam.yaw = y; S.vel.yaw = S.vel.pitch = 0; document.querySelectorAll('body > *:not(canvas)').forEach((e) => (e.style.opacity = 0)); }, yaw);
 const F = 72;

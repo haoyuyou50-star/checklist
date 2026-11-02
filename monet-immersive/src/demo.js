@@ -32,36 +32,7 @@ export async function runDemo(app) {
   await app.wait(2.2);
   await app.cursor.show(W * 0.72, H * 0.86);
 
-  /* ---- 01 Coquelicots ---- */
-  await press(app, app.el.enter, () => app.enter(), { move: 1.5, dwell: 0.9 });
-  app.cursor.moveTo(W * 0.52, H * 0.6, 2.4);
-  await app.wait(7.2);
-
-  await app.look(0.55, -0.04, 3.2);
-  await app.wait(0.3);
-  await app.look(-1.15, 0.02, 4.4);
-  await app.wait(0.3);
-  await app.look(0.6, 0.02, 2.6);
-  await app.wait(0.3);
-
-  await visitHotspot(app, 1, 3.2);
-
-  // a run of waves, as the gesture input would send them
-  await press(app, app.el.gustBtn, () => app.gust(), { move: 1.3, dwell: 0.4 });
-  for (let k = 0; k < 3; k++) {
-    await app.wait(0.45);
-    await Promise.all([app.cursor.click(), (async () => { await app.wait(0.12); app.gust(); })()]);
-  }
-  app.cursor.moveTo(W * 0.42, H * 0.5, 2.0);
-  await app.wait(4.6);
-
-  await press(app, app.el.exit, () => app.exit(), { move: 1.5, dwell: 0.6 });
-  await app.wait(5.2);
-
-  /* ---- 02 Régates ---- */
-  const pick2 = app.el.picker.children[1];
-  await press(app, pick2, () => app.selectPainting(1), { move: 1.4, dwell: 0.5 });
-  await app.wait(2.2);
+  /* ---- 01 Régates ---- */
   await press(app, app.el.enter, () => app.enter(), { move: 1.3, dwell: 0.7 });
   app.cursor.moveTo(W * 0.5, H * 0.62, 2.4);
   await app.wait(7.2);
