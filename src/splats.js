@@ -75,6 +75,19 @@ float windField(vec3 p) {
   float gust = exp(-front * front / 300.0) * uGustAmp;
   return w * (0.35 + 0.95 * g) * uWind + gust * (0.55 + 0.6 * w);
 }
+// how hard the last gust front shook this spot: its crest, then a wake that dies away behind it
+float gustWake(vec3 p) {
+  float f = mod(dot(p.xz, uWindDir) - uGustFront + 45.0, 90.0) - 45.0;
+  return uGustAmp * (f < 0.0 ? exp(f / 14.0) : exp(-f * f / 300.0));
+}
+// a boat's heel (radians, downwind): leaning into the wind, rocking on after a gust. Smooth over a hull's
+// width, so a boat's strokes turn as one about its waterline
+float boatHeel(vec3 p, float w, float wake) {
+  float ph = dot(p.xz, vec2(0.19, 0.29));
+  float sea = 0.6 * uGustAmp + wake;
+  return 0.07 * w + 0.06 * wake + 0.05 * uGustAmp
+       + sin(uTime * 1.4 + ph) * (0.02 + 0.1 * sea) + sin(uTime * 2.6 + ph * 1.7) * 0.04 * sea;
+}
 
 // a wandering flight: incommensurate sweeps per bird, so no two gulls and no two laps look alike
 vec3 gullPath(vec3 c, float r, float s, float t) {
@@ -186,9 +199,10 @@ void main() {
     }
   } else if (cls == 3) {                     // foliage
     float sway = sin(uTime * 1.25 + pos.x * 0.07 + pos.z * 0.05) * 0.5 + 0.5;
-    float b = flex * (0.25 * sway + w * 0.8);
+    float wk = gustWake(pos);
+    float b = flex * (0.25 * sway + w * 0.8 + wk * 0.7);
     pos += wd3 * b * (0.05 + 0.007 * dist);
-    float flut = sin(uTime * (6.0 + seed * 5.0) + seed * 40.0) * min(w + 0.1, 1.3);
+    float flut = sin(uTime * (6.0 + seed * 5.0) + seed * 40.0) * min(w + 0.1 + 0.5 * wk, 1.6);
     axis = rotAround(axis, normalize(-pos), flut * 0.35);
     col += vec3(0.06, 0.065, 0.03) * max(flut, 0.0) * (0.3 + flex);
   } else if (cls == 0) {                     // clouds breathing
@@ -203,11 +217,38 @@ void main() {
     pos += tang * sin(uTime * 0.8 + pos.z * 0.25 + seed * 3.0) * 0.01 * dist * (0.5 + w);
     axis *= 1.0 + (0.22 + 0.35 * w) * (0.5 + 0.5 * sin(uTime * 0.7 + pos.z * 0.35 + seed * 5.0));
     col *= 1.0 + 0.1 * sin(uTime * 2.3 + seed * 30.0) * (0.4 + w);
-    if (hot < -0.001) pos += wd3 * -hot * (0.25 + 0.55 * w) * (0.25 + 0.006 * dist);
-  } else if (cls == 7) {                     // sails
-    float b = flex * (0.25 + 0.55 * w);
-    pos += wd3 * b * (0.25 + 0.006 * dist);
-    pos.y += sin(uTime * 0.9 + world.x * 0.08) * 0.06 * flex;
+    // a gust front runs over the water as a dark, choppy band
+    float wk = gustWake(pos);
+    col *= 1.0 - 0.1 * wk * (0.6 + 0.4 * sin(uTime * 7.0 + seed * 40.0));
+    axis = rotAround(axis, normalize(cameraPosition - pos), wk * 0.3 * (seed - 0.5));
+    if (hot < -0.001) {
+      pos += wd3 * -hot * (0.25 + 0.55 * w) * (0.25 + 0.006 * dist);
+      // a boat's image rocks with it: its mirrored point turns about the waterline, seen on the water
+      float m = max(-flex, 1.0);
+      vec3 mir = A.xyz * m;
+      float th = boatHeel(mir, windField(mir), gustWake(mir));
+      pos += wd3 * sin(th) * max(-mir.y - uH, 0.0) / m;
+    }
+  } else if (cls == 7 || cls == 13) {        // boats: sails and hulls
+    // the whole boat heels about its waterline and bobs; the rig above it moves with it
+    float wk = gustWake(world);
+    float th = boatHeel(world, windField(world), wk);
+    float hgt = max(pos.y + uH, 0.0);
+    pos += (wd3 * sin(th) + vec3(0.0, cos(th) - 1.0, 0.0)) * hgt;
+    axis = rotAround(axis, normalize(cross(vec3(0.0, 1.0, 0.0), wd3)), th);
+    pos.y += sin(uTime * 0.9 + world.x * 0.08) * (0.05 + 0.08 * wk + 0.06 * uGustAmp);
+    if (cls == 7) {
+      // the canvas fills: it bellies out downwind (most at mid-height), a ripple runs up the luff and the
+      // leech flutters; a full sail catches the light
+      float puff = clamp(0.45 * w + 1.0 * wk + 0.55 * uGustAmp, 0.0, 2.2);
+      float belly = sin(3.14159265 * flex);
+      float ripple = sin(flex * 7.0 - uTime * 6.5 + seed * 1.5) * flex;
+      float flut = sin(uTime * (12.0 + seed * 6.0) + seed * 40.0) * smoothstep(0.45, 1.0, flex);
+      pos += wd3 * (0.2 + 0.008 * dist) * (1.2 * belly * puff + 0.25 * flex * (0.25 + 0.55 * w) + (0.14 * ripple + 0.08 * flut) * puff);
+      axis = rotAround(axis, normalize(cameraPosition - pos), (0.3 * flut + 0.18 * ripple) * puff);
+      sizeMul *= 1.0 + 0.16 * belly * puff;
+      col = mix(col, col * 1.12 + vec3(0.05, 0.045, 0.03), clamp(belly * puff * 0.45, 0.0, 0.5));
+    }
   } else if (cls == 5) {                     // figures
     pos += wd3 * flex * w * 0.03;
   } else if (cls == 8) {                     // petals riding the gusts

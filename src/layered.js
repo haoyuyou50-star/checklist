@@ -258,7 +258,7 @@ export function makeLayerEmitter(set, Q) {
                 acc.n++; acc.x += P[0]; acc.y += P[1]; acc.z += P[2];
                 if (rand() < 0.2) acc.pts.push(P);
               }
-              if (o.refl && rand() < o.refl) n += reflect(P, axis, mn * dist, col, L.a, o.ext, c === CLS.SAIL ? flex : 0);
+              if (o.refl && rand() < o.refl) n += reflect(P, axis, mn * dist, col, L.a, o.ext, c === CLS.SAIL ? flex : c === CLS.HULL ? 0.002 : 0);
             }
           }
         }
@@ -343,7 +343,7 @@ export function makeLayerEmitter(set, Q) {
 
       // a broken mirror image on the river; flex = -m lets the shader keep it under its object for any eye.
       // Laid out for the origin (ext 0.25 inside the frame tells the shader so); hot = -sail flex lets the
-      // image lean with its sail in the wind
+      // image lean with its sail in the wind (a hull's image gets a token sway, so it still rocks with its boat)
       const reflect = (P, axis, minor, col, alpha, ext, sway) => {
         const yRel = P[1] + h;
         if (yRel < 0.03) return 0;
@@ -373,7 +373,7 @@ export function makeLayerEmitter(set, Q) {
       };
 
       // the whole rig above the hull leans as one, shaded canvas included, so a gust never tears a sail apart
-      const sailCls = (col, l, fy, hull) => (fy > hull ? CLS.SAIL : CLS.STATIC);
+      const sailCls = (col, l, fy, hull) => (fy > hull ? CLS.SAIL : CLS.HULL);
       const sailAngle = (r) => Math.PI / 2 + (r() - 0.5) * 0.5;
       const treeAngle = (r) => r() * Math.PI;
       const flatAngle = (r) => (r() - 0.5) * 0.6;
