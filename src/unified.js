@@ -1,5 +1,5 @@
 import { CLS, polyline, inPoly } from './scenes.js';
-import { makeRng, clamp, lerp, lerp3, smooth, fbm2, vnoise2, blur1, blurRGB, blurMasked, Builder } from './generator.js';
+import { makeRng, clamp, lerp, lerp3, smooth, fbm2, vnoise2, blur1, blurRGB, blurMasked, Builder, makeImportance, softSeed } from './generator.js';
 
 /*
  * One stroke field for the whole sphere around the viewer.
@@ -563,15 +563,39 @@ export function buildUnified(scene, img, Q, X = null) {
     if (r.far) a = lerp(a, (rand() - 0.5) * 0.5, r.far * 0.7);
     return r.flip ? Math.PI - a : a;
   };
-  const emit = (r, d, li, sp, ext, uvIn, g = 1) => {
+  // focus: importance by view direction (see makeImportance). Minor places keep only broad, soft strokes whose
+  // colour settles into its value mass; focal places keep hard edges and their full contrast
+  const F = U.focus, IMP = F ? makeImportance(F) : null;
+  const impOf = (d, c) => (IMP ? (c === CLS.SKY ? Math.min(IMP.dir(d), F.skyMax) : IMP.dir(d)) : 1);
+  const softOf = (li, c, im) => {
+    if (!F) return 0;
+    const q = 1 - im;
+    return li === 0 ? (c === CLS.SKY ? 0.75 : 0.2 + 0.55 * q) : li === 1 ? (c === CLS.SKY ? 0.6 : 0.1 + 0.45 * q) : li === 2 ? 0.3 * q : 0;
+  };
+  const NV = F ? U.masses.steps : 0;
+  const finish = (c, r, im, li) => {
+    const i = (r.y * W + r.x) * 3, m = [r.img[0][i], r.img[0][i + 1], r.img[0][i + 2]], k = lerp(U.contrast[0], U.contrast[1], im);
+    let o = c.map((x, j) => m[j] + (x - m[j]) * k);
+    const toMass = li < 2 ? U.masses.mix * (1 - im) * (li === 0 ? 1 : 0.6) : 0;
+    if (toMass > 0) {
+      const l = lumOf(m), sv = l * NV - 0.5, kq = Math.floor(sv);
+      const qv = (kq + smooth(0.5 - U.masses.edge, 0.5 + U.masses.edge, sv - kq) + 0.5) / NV;
+      o = lerp3(o, m.map((x) => x + (qv - l) * U.masses.pull), toMass);
+    }
+    return o;
+  };
+  const emit = (r, d, li, sp, ext, uvIn, g = 1, im = 1) => {
     const L = layers[li], c = r.cls;
     const jit = 1 + (rand() - 0.5) * 0.07;
-    const c0 = sampleCol(r, L.lvl);
+    let c0 = sampleCol(r, L.lvl);
+    if (F) c0 = finish(c0, r, im, li);
     const col = [0, 1, 2].map((j) => clamp(c0[j] * jit + (rand() - 0.5) * 0.025, 0, 1));
     let maj = sp * lerp(L.maj[0], L.maj[1], rand()), mn = sp * lerp(L.min[0], L.min[1], rand());
     if (c === CLS.WATER) { maj *= li === 0 ? 0.9 : 1.1; mn *= lerp(0.72, 1.05, r.near || 0); maj *= lerp(1, 0.8, r.near || 0); }
     if (r.far) maj *= lerp(1, 0.7, r.far);
     if (c === CLS.SKY) { maj *= li === 0 ? 1.55 : 1.35; mn *= 1.08; }
+    const so = softOf(li, c, im);
+    maj *= 1 + 0.25 * so; mn *= 1 + 0.35 * so;
     const dm = 1 + 0.014 * (3 - li);
     const P = [r.P[0] * dm, r.P[1] * dm, r.P[2] * dm];
     const dist = Math.hypot(P[0], P[1], P[2]);
@@ -588,7 +612,7 @@ export function buildUnified(scene, img, Q, X = null) {
       const rad = Math.hypot(uvIn[0] - 0.5, (uvIn[1] - 0.5) * asp) / 0.62;
       delay = clamp(rad * 0.62 + rand() * 0.38, 0, 1);
     } else delay = extDelay(P);
-    B.add(P, cpos, axis, mn * dist, col, L.a, c, r.hot, r.flex, delay, ext ? 1 : 0, rand());
+    B.add(P, cpos, axis, mn * dist, col, L.a, c, r.hot, r.flex, delay, ext ? 1 : 0, softSeed(softOf(li, c, im), rand()));
     if (r.hot) {
       let a = hotAcc.get(r.hot);
       if (!a) { a = { n: 0, x: 0, y: 0, z: 0, pts: [] }; hotAcc.set(r.hot, a); }
@@ -615,14 +639,14 @@ export function buildUnified(scene, img, Q, X = null) {
   };
 
   // what a sideways step uncovers behind a bank card: sky over its ridge, the bank's own rear card inside it
-  const backfill = (r, d, li, sp, inF, p) => {
+  const backfill = (r, d, li, sp, inF, p, im) => {
     if (r.cls === CLS.SKY || r.cls === CLS.WATER) return;
     if (inF) {
       const i = r.y * W + r.x;
       if (depZ[i] > 150) return;
-      if (nearSky[i] > 0) emit(behind(d, p), d, li, sp, true, p);
-      else { const s = (groundZ(colWl[r.x]) * 2.6) / depZ[i]; emit({ ...r, P: r.P.map((q) => q * s), hot: 0 }, d, li, sp, true, p); }
-    } else if (r.ridge) emit(skyAt(d, r.ridge[0], r.ridge[1]), d, li, sp, true, p);
+      if (nearSky[i] > 0) emit(behind(d, p), d, li, sp, true, p, 1, im);
+      else { const s = (groundZ(colWl[r.x]) * 2.6) / depZ[i]; emit({ ...r, P: r.P.map((q) => q * s), hot: 0 }, d, li, sp, true, p, 1, im); }
+    } else if (r.ridge) emit(skyAt(d, r.ridge[0], r.ridge[1]), d, li, sp, true, p, 1, im);
   };
 
   const fA = norm(cross(front, up)), fB = cross(fA, front);
@@ -639,11 +663,13 @@ export function buildUnified(scene, img, Q, X = null) {
         const ps = clamp(psi + (rand() - 0.5) * rowStep * 0.9, 0, Math.PI);
         const sps = Math.sin(ps), cps = Math.cos(ps), cph = Math.cos(ph), sph = Math.sin(ph);
         const d = norm([front[0] * cps + (fA[0] * cph + fB[0] * sph) * sps, front[1] * cps + (fA[1] * cph + fB[1] * sph) * sps, front[2] * cps + (fA[2] * cph + fB[2] * sph) * sps]);
+        // focus: the finer passes go only as far as the place matters (tested before resolving, for speed)
+        if (F && li >= 1 && rand() > lerp(U.passes[li - 1], 1, smooth(0.1, 0.8, IMP.dir(d)))) continue;
         const r = resolve(d);
         if (hidden && r.uv && hidden[yOf(r.uv[1]) * W + xOf(r.uv[0])]) continue;
         if (L.detail) {
           const i = r.y * W + r.x;
-          let p = clamp(grad[i] * 9 - 0.12, 0, 0.85) * 0.3;
+          let p = clamp(grad[i] * 9 - 0.12, 0, 0.85) * (F ? lerp(0.3, 0.9, smooth(0.3, 0.9, impOf(d, r.cls))) : 0.3);
           if (r.cls === CLS.SKY) continue;
           if (rand() > p) continue;
           const l3 = r.img[1], dl = Math.abs(lum[i] - lumOf([l3[i * 3], l3[i * 3 + 1], l3[i * 3 + 2]]));
@@ -651,16 +677,18 @@ export function buildUnified(scene, img, Q, X = null) {
         }
         // the sky is carried by its broad passes; small strokes scattered over it read as crumbs
         if (r.cls === CLS.SKY && li >= 1 && rand() < (li === 1 ? 0.3 : 0.85) * (r.uv ? 0.7 : 1)) continue;
+        // with a focus the sky is only ever a broad passage
+        if (F && r.cls === CLS.SKY && (li >= 2 || rand() < 0.3)) continue;
         // the bank is built from the mid passes up: the coarsest strokes are bigger than any of the
         // element cards' and read as blocks next to them
         if (li < (U.landMinLayer || 0) && r.cls !== CLS.SKY && r.cls !== CLS.WATER) continue;
         // a band thinner than the stroke only takes strokes that fit inside it
         if (r.thin !== undefined && ((li === 0 && r.thin < sp * 1.6) || (li === 1 && r.thin < sp * 0.9))) continue;
-        const p = proj(d), inF = inRect(p);
-        emit(r, d, li, sp, !inF, p, sp / (alpha0 * L.k));
+        const p = proj(d), inF = inRect(p), im = impOf(d, r.cls);
+        emit(r, d, li, sp, !inF, p, sp / (alpha0 * L.k), im);
         counts[li]++;
-        if (li <= 1 && inF && r.comp >= 0) emit(behind(d, p), d, li, sp, true, p);
-        else if (li <= 1) backfill(r, d, li, sp, inF, p);
+        if (li <= 1 && inF && r.comp >= 0) emit(behind(d, p), d, li, sp, true, p, 1, im);
+        else if (li <= 1) backfill(r, d, li, sp, inF, p, im);
       }
       psi += rowStep; row++;
     }
@@ -719,7 +747,7 @@ export function buildUnified(scene, img, Q, X = null) {
     B.add(w, w, axis, minor, col, a, CLS.WATER, 0, -m, extDelay(w), 1, rand());
   });
 
-  if (X) X.emit({ B, rand, f, vH, asp, h, groundZ, wl, alpha0, layers, extDelay, proj, inRect, sC, hotAcc, shoreS, baseWater, plate: { W, H, cls, depZ, flex } });
+  if (X) X.emit({ B, rand, f, vH, asp, h, groundZ, wl, alpha0, layers, extDelay, proj, inRect, sC, hotAcc, shoreS, baseWater, plate: { W, H, cls, depZ, flex }, imp: IMP && IMP.dir });
 
   // sparkle on the river and drifting motes
   for (let k = 0; k < Q.glints; k++) {
@@ -748,7 +776,8 @@ export function buildUnified(scene, img, Q, X = null) {
 
   /* ---------------- hotspot halos and anchors ---------------- */
   const nMain = B.n;
-  const haloP = new Map([...hotAcc].map(([id, a]) => [id, Math.min(0.16, 700 / a.n)]));
+  // a focused scene keeps its hotspots' glow thin: a heavy halo fogs the crisp edges the focus is for
+  const haloP = new Map([...hotAcc].map(([id, a]) => [id, Math.min(0.16, 700 / a.n) * (F ? 0.4 : 1)]));
   for (let j = 0; j < nMain; j++) {
     const o = j * 4, hs = B.E[o];
     if (hs > 0 && rand() < haloP.get(hs)) {

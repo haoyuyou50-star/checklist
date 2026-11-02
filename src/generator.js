@@ -81,6 +81,28 @@ export function blurMasked(rgb, mask, fallback, W, H, r) {
   return out;
 }
 
+/*
+ * What is resolved and what stays broad, by view direction: focus.foci = [[azimuth°, elevation°, radius across°,
+ * radius up°, weight], ...] over focus.floor. Azimuth 0 is straight ahead, positive to the right. Tabulated every
+ * half degree (the passes ask it millions of times). at(az, el) in radians, dir(d) for a unit direction.
+ */
+export function makeImportance(focus) {
+  const IW = 720, IH = 360, T = new Float32Array(IW * IH);
+  for (let y = 0; y < IH; y++) for (let x = 0; x < IW; x++) {
+    const vaz = (x + 0.5) / 2 - 180, vel = 90 - (y + 0.5) / 2;
+    let m = focus.floor;
+    for (const [a, e, ra, re, w] of focus.foci) {
+      const da = ((((vaz - a) % 360) + 540) % 360) - 180;
+      m = Math.max(m, w * Math.exp(-((da / ra) ** 2 + ((vel - e) / re) ** 2)));
+    }
+    T[y * IW + x] = m;
+  }
+  const at = (vaz, vel) => T[clamp(Math.floor((0.5 - vel / Math.PI) * IH), 0, IH - 1) * IW + clamp(Math.floor((vaz / (2 * Math.PI) + 0.5) * IW), 0, IW - 1)];
+  return { at, dir: (d) => at(Math.atan2(d[0], -d[2]), Math.asin(clamp(d[1], -1, 1))) };
+}
+// a stroke's seed with its edge softness (0 hard .. 1 soft) in the integer part, unpacked by the shader
+export const softSeed = (soft, r) => Math.round(clamp(soft, 0, 1) * 7) + r * 0.999;
+
 /* ---------------- splat buffer ---------------- */
 export class Builder {
   constructor(cap) { this.n = 0; this.alloc(cap); }
