@@ -59,11 +59,12 @@ const regatta = {
     alphaMul: { low: 1.0, mid: 0.8, high: 0.72 },
     // what is resolved and what stays broad, by view direction [azimuth°, elevation°, radius across°, radius up°,
     // weight] (azimuth 0 straight ahead, positive to the right): the big sail leads, then the other sails, the red
-    // house with the tall tree and the broken reflections under them, the sails beyond the frame; sky and open
+    // house with the tall tree and the broken reflections under them, the whole bank between them (no soft pocket
+    // inside it), the sails beyond the frame; sky and open
     // water are left broad (floor)
     focus: {
       foci: [[-9, 5, 11, 10, 1], [-22, 3, 9, 8, 0.85], [-27, 2, 5, 6, 0.7], [20, 3, 11, 7, 0.85], [8, 6, 5, 9, 0.8],
-        [16, -9, 16, 7, 0.8], [-12, -5, 14, 4, 0.6],
+        [16, -9, 16, 7, 0.8], [-12, -5, 14, 4, 0.6], [12, 2, 22, 6, 0.75],
         [-42, 1, 6, 6, 0.5], [-62, 1, 7, 7, 0.5], [-96, 1, 7, 7, 0.5], [-140, 1, 7, 7, 0.45], [172, 1, 7, 7, 0.45], [132, 1, 7, 7, 0.45], [76, 1, 8, 8, 0.5]],
       floor: 0.18, skyMax: 0.3,
     },
@@ -101,7 +102,7 @@ const regatta = {
     focusPasses: [0.6, 0.3, 0.2],
     // broken colour over the finished picture, gathered where the eye is led (minor: share in the broad places)
     // water: how much longer and wider a touch on the river is (long level dashes, not pebbles)
-    dabs: { src: 'assets/regatta/composite.jpg', k: 0.5, minor: 0.08, tint: 0.07, sat: 1.12, jitter: 0.6, water: [2.6, 1.0] },
+    dabs: { src: 'assets/regatta/composite.jpg', k: 0.5, minor: 0.08, tint: 0.07, sat: 1.12, jitter: 0.6, water: [2.6, 1.0], leaves: 'any' },
     // PSD order, bottom to top; depth = card distance as a multiple of the shore under it
     cards: [
       { id: 'sail_r', kind: 'sail', hot: 1, fine: 0.36, box: [0.2777, 0.1637, 0.436, 0.6466] },
@@ -114,9 +115,10 @@ const regatta = {
       { id: 'house_small', kind: 'house', depth: 1.54, fine: 0.24, box: [0.6129, 0.3527, 0.7146, 0.4978] },
       { id: 'tree', kind: 'tree', hot: 3, depth: 1.5, fine: 0.36, box: [0.5794, 0.2366, 0.648, 0.5037] },
     ].map((c) => ({ ...c, src: `assets/regatta/${c.id}.webp` })),
-    // shrubs on the front grove's card; the tall tree and the small house stand just behind it, so the
-    // shrubs hide their feet and slide with the grove
-    hedges: [{ src: 'grove_front', box: [0.468, 0.452, 0.742, 0.536], fine: 0.42, seed: 3 }],
+    // shrubs painted from the front grove, standing just behind it (behind: x the grove's distance) and in front
+    // of the tall tree and the small house: they hide those elements' feet, while the grove's own shrubs stay on
+    // top (in front of the grove they veiled it in a pale band)
+    hedges: [{ src: 'grove_front', box: [0.468, 0.452, 0.742, 0.536], fine: 0.42, seed: 3, behind: 1.025 }],
     // beyond the frame (coarser strokes than in the frame): [azimuth°, distance (sails: metres on the river; trees: x shore distance), height m, mirrored]
     extras: [
       { id: 'x_sail_side', kind: 'sail', at: [[-42, 95, 7, 0]] },

@@ -93,7 +93,9 @@ function makeHedge(src, hd, W, H) {
       const gy = clamp(Math.round(g0 + (fbm2(X * s + 7.7, Y * s + seed, 2) * 1.6 - 0.3) * (g1 - g0)), g0, g1);
       const r = rows[gy];
       if (!r.length) continue;
-      const want = ((fx * 0.8 + 0.1 + seed * 0.137) % 1) * G.w;
+      // the source column wanders with height too, or each column repeats one grove column straight down and
+      // the band reads as vertical streaks
+      const want = ((((fx * 0.8 + 0.1 + seed * 0.137 + (fbm2(X * s * 4 + 3.3, Y * s * 4 + seed * 5.1, 3) - 0.5) * 0.5) % 1) + 1) % 1) * G.w;
       let gx = r[0];
       for (const q of r) if (Math.abs(q - want) < Math.abs(gx - want)) gx = q;
       const gi = (gy * G.w + gx) * 4, oi = (Y * W + X) * 4;
@@ -223,7 +225,8 @@ export function makeLayerEmitter(set, Q) {
               const d = norm(P), dist = Math.hypot(P[0], P[1], P[2]);
               const im = imp ? imp(d) : 1;
               if (imp && gate && li >= 1 && rand() > lerp(gate[li - 1], 1, smooth(0.1, 0.8, im))) continue;
-              const so = imp ? softOf(li, im) : 0;
+              // only elements beyond the frame soften: soft strokes on the stacked cards in the frame veil the plate
+              const so = imp && o.ext ? softOf(li, im) : 0;
               const coh = Math.sqrt((s.Jxx[i] - s.Jyy[i]) ** 2 + 4 * s.Jxy[i] ** 2) / (s.Jxx[i] + s.Jyy[i] + 1e-6);
               let a = rand() < coh * 1.4 ? 0.5 * Math.atan2(2 * s.Jxy[i], s.Jxx[i] - s.Jyy[i]) + Math.PI / 2 : o.angle(rand);
               if (o.flipX) a = Math.PI - a;
@@ -427,8 +430,9 @@ export function makeLayerEmitter(set, Q) {
       /* ---- shrubs in front of the bank elements' feet ---- */
       (spec.hedges || []).forEach((hd, k) => {
         const [u0, v0, u1, v1] = hd.box;
-        // on the grove's own card, so it slides with the grove and not with the elements behind it
-        const D = cardDepth(spec.cards.find((q) => q.id === hd.src), groundZ, wl) * 0.995;
+        // next to the grove's own card (hd.behind: x its distance), so it slides with the grove and not with the
+        // elements behind it
+        const D = cardDepth(spec.cards.find((q) => q.id === hd.src), groundZ, wl) * (hd.behind ?? 0.995);
         const pxA = (u1 - u0) / f, hf = hd.fine || fine;
         const wPx = Math.max(24, pxA / (alpha0 * layers[3].k * hf * 0.55));
         const cvs = makeHedge(set.cards[spec.cards.findIndex((q) => q.id === hd.src)], hd, Math.round(wPx), Math.max(8, Math.round((wPx * (v1 - v0) * asp) / (u1 - u0))));
@@ -517,7 +521,8 @@ export function makeLayerEmitter(set, Q) {
             const zz = z * 0.996;
             const P = [(uo - 0.5) * zz / f, -(vo - vH) * asp * zz / f, -zz];
             const dist = Math.hypot(P[0], P[1], P[2]);
-            const a = c === CLS.WATER ? (rand() - 0.5) * 0.35 : c === CLS.TREE ? Math.PI / 2 + (rand() - 0.5) * 1.4 : rand() * Math.PI;
+            // leaves: upright touches suit hanging willows; round shrubs take them any way (leaves: 'any')
+            const a = c === CLS.WATER ? (rand() - 0.5) * 0.35 : c === CLS.TREE && spec.dabs.leaves !== 'any' ? Math.PI / 2 + (rand() - 0.5) * 1.4 : rand() * Math.PI;
             let maj = sp * lerp(0.9, 1.5, rand()), mn = sp * lerp(0.5, 0.75, rand());
             // the shader flattens water strokes towards grazing angles: water touches start wider and fuller
             if (c === CLS.WATER) { const [wa, wb] = spec.dabs.water || [1.6, 1.5]; maj *= wa; mn *= wb; }
