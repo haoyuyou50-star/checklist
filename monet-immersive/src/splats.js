@@ -27,6 +27,7 @@ out float vSeed;
 out float vEmit;
 out float vBr;
 out float vPx;
+out float vSoft;
 
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float vnoise(vec2 p) {
@@ -93,7 +94,9 @@ void main() {
   vec4 D = texelFetch(tD, tc, 0);
   vec4 E = texelFetch(tE, tc, 0);
 
-  vec3 world = A.xyz; float seed = A.w;
+  // the seed's integer part carries the stroke's edge softness (0 hard .. 7 soft)
+  vec3 world = A.xyz; float seed = fract(A.w);
+  vSoft = floor(A.w) / 7.0;
   vec3 canv = B.xyz; int cls = int(B.w + 0.5);
   vec3 axis = C.xyz; float minor = C.w;
   // colour mood: it arrives on a gust. The front crosses the whole scene downwind (by direction, so the
@@ -106,7 +109,7 @@ void main() {
     // the front slants: it comes downwind and down from above, so it cuts across the view diagonally
     vec2 wh = normalize(uWindDir) * 0.8;
     float along = dot(normalize(A.xyz - cameraPosition), vec3(wh.x, -0.6, wh.y));
-    float x = (uToneT * 2.9 - 1.3 - along + (hash(vec2(A.w, 3.7)) - 0.5) * 0.3) / 0.35;
+    float x = (uToneT * 2.9 - 1.3 - along + (hash(vec2(seed, 3.7)) - 0.5) * 0.3) / 0.35;
     tk = smoothstep(0.0, 1.0, x);
     tw = sin(clamp(x, 0.0, 1.0) * 3.14159265);
     cA = mix(cA, cB, tk);
@@ -313,6 +316,7 @@ in float vSeed;
 in float vEmit;
 in float vBr;
 in float vPx;
+in float vSoft;
 out vec4 fragColor;
 void main() {
   float ang = atan(vUv.y, vUv.x);
@@ -321,8 +325,10 @@ void main() {
   // firm paint body with a short anti-aliased rim (about 1.2px wide on the minor axis)
   float rim = clamp(1.4 / max(vPx, 1.0), 0.12, 0.6);
   float body = 1.0 - smoothstep(1.0 - rim, 1.0, r);
+  // a soft stroke thins out from its middle and melts into its neighbours (the broad, unfocused passages)
+  body = mix(body, 1.0 - smoothstep(0.5, 1.0, r), vSoft);
   float a = vColor.a * mix(body, exp(-2.7 * r * r), vEmit);
-  float streak = (sin(vUv.y * 9.0 + vSeed * 37.0) * 0.5 + 0.5) * vBr;
+  float streak = (sin(vUv.y * 9.0 + vSeed * 37.0) * 0.5 + 0.5) * vBr * (1.0 - vSoft);
   if (a < 0.003) discard;
   vec3 c = vColor.rgb * (1.0 + 0.045 * (streak - 0.5 * vBr) + 0.035 * (1.0 - r));
   fragColor = vec4(c * a, a * (1.0 - vEmit));

@@ -3,18 +3,24 @@ import { makeRng, clamp, lerp, lerp3, smooth, blur1, blurRGB, Builder } from './
 
 /*
  * A scene painted all the way round: the colours come from one equirectangular picture of the whole
- * sphere (tools/make_pano.py), the gallery picture is that sphere seen through the scene's pinhole camera.
+ * sphere (tools/make_pano.py).
  *
  * Directions are sampled on rings around the front ray with a spacing that grows towards the back (as in
  * the unified field), each resolved to a surface: the sky dome, the pond's plane, or the garden standing
- * round the pond. Strokes take their direction from the picture's own brushwork, and a last pass of small
- * broken-colour touches (warmer or cooler than the picture beneath) gives the pointillist surface.
- * The eye stays where the panorama was painted from.
+ * round the pond. The eye stays where the panorama was painted from.
+ *
+ * The picture is painted with a hierarchy, as a painter would: an importance field (foci round the viewer)
+ * decides where the picture is resolved and where it stays broad. Every place gets the broad underpainting,
+ * laid from simplified value masses in large soft strokes; finer passes go only where the picture has detail
+ * at their scale, and only as far as the place matters. Focal strokes are hard-edged, take the picture's own
+ * full-resolution colour and keep its contrast; minor places are soft-edged, flattened towards their mass and
+ * slightly lowered in contrast. The broken-colour touches gather where the eye is led.
  */
 
 const norm = (v) => { const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; };
 const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 const DEG = Math.PI / 180;
+const lumOf = (c) => 0.3 * c[0] + 0.59 * c[1] + 0.11 * c[2];
 
 export function buildPano(scene, img, Q) {
   const t0 = performance.now();
@@ -23,14 +29,21 @@ export function buildPano(scene, img, Q) {
   const asp = scene.asp;
   const W = P.analysisW[Q.tier] || 2048, H = W >> 1, N = W * H;
 
-  const cv = document.createElement('canvas');
-  cv.width = W; cv.height = H;
-  const ctx = cv.getContext('2d', { willReadFrequently: true });
-  ctx.drawImage(img, 0, 0, W, H);
-  const px = ctx.getImageData(0, 0, W, H).data;
-  const rgb = new Float32Array(N * 3);
+  const pixels = (w, hh) => {
+    const cv = document.createElement('canvas');
+    cv.width = w; cv.height = hh;
+    const ctx = cv.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(img, 0, 0, w, hh);
+    return ctx.getImageData(0, 0, w, hh).data;
+  };
+  // the finest strokes take their colour from the picture at its own resolution
+  const WF = img.naturalWidth, HF = img.naturalHeight, full = pixels(WF, HF);
+  const px = pixels(W, H);
+  let rgb = new Float32Array(N * 3);
   for (let i = 0; i < N; i++) { rgb[i * 3] = px[i * 4] / 255; rgb[i * 3 + 1] = px[i * 4 + 1] / 255; rgb[i * 3 + 2] = px[i * 4 + 2] / 255; }
   const b1 = blurRGB(rgb, W, H, 1), b2 = blurRGB(rgb, W, H, 2), b4 = blurRGB(rgb, W, H, 4);
+  rgb = null;
+  const b8 = blurRGB(b4, W, H, 6);
   const lum = new Float32Array(N);
   for (let i = 0; i < N; i++) lum[i] = 0.3 * b1[i * 3] + 0.59 * b1[i * 3 + 1] + 0.11 * b1[i * 3 + 2];
   const jxx = new Float32Array(N), jxy = new Float32Array(N), jyy = new Float32Array(N), grad = new Float32Array(N);
@@ -42,7 +55,13 @@ export function buildPano(scene, img, Q) {
   }
   const rJ = Math.max(2, Math.round(W / 700));
   const Jxx = blur1(jxx, W, H, rJ), Jxy = blur1(jxy, W, H, rJ), Jyy = blur1(jyy, W, H, rJ);
-  const levels = [b4, b2, b1, b1];
+  // detail at each pass's scale: how far the picture blurred to that pass differs from the next coarser blur
+  const band = (a, b, r) => {
+    const e = new Float32Array(N);
+    for (let i = 0; i < N; i++) e[i] = Math.abs(a[i * 3] - b[i * 3]) + Math.abs(a[i * 3 + 1] - b[i * 3 + 1]) + Math.abs(a[i * 3 + 2] - b[i * 3 + 2]);
+    return blur1(e, W, H, r);
+  };
+  const E1 = band(b2, b4, 3), E2 = band(b1, b2, 2);
 
   /* ---------------- where things are: sky, pond, garden ---------------- */
   // the pond spans elevations [low, top] (degrees) at each azimuth; -99: none
@@ -84,10 +103,28 @@ export function buildPano(scene, img, Q) {
     const ae = G(az) + azOff;
     return { az: Math.atan2(Math.sin(ae), Math.cos(ae)), el: Math.atan(m * te), kx: 1 / m, ky: (1 + m * m * te * te) / (m * (1 + te * te)), m };
   };
+
+  // importance (0: left broad, 1: the focus) by view direction: the foci [azimuth°, elevation°, radius across°,
+  // radius up°, weight] round the viewer over a floor; the sky never comes forward much
+  const impDir = (d) => impAt(Math.atan2(d[0], -d[2]), Math.asin(clamp(d[1], -1, 1)));
+  const imp = (vaz, vel, c) => { const m = impAt(vaz, vel); return c === CLS.SKY ? Math.min(m, P.focus.skyMax) : m; };
+  // tabulated every half degree: the passes ask it millions of times
+  const IW = 720, IH = 360, impT = new Float32Array(IW * IH);
+  for (let y = 0; y < IH; y++) for (let x = 0; x < IW; x++) {
+    const vaz = (x + 0.5) / 2 - 180, vel = 90 - (y + 0.5) / 2;
+    let m = P.focus.floor;
+    for (const [a, e, ra, re, w] of P.focus.foci) {
+      const da = ((((vaz - a) % 360) + 540) % 360) - 180;
+      m = Math.max(m, w * Math.exp(-((da / ra) ** 2 + ((vel - e) / re) ** 2)));
+    }
+    impT[y * IW + x] = m;
+  }
+  const impAt = (vaz, vel) => impT[clamp(Math.floor((0.5 - vel / Math.PI) * IH), 0, IH - 1) * IW + clamp(Math.floor((vaz / (2 * Math.PI) + 0.5) * IW), 0, IW - 1)];
+
   const xOf = (az) => { const x = Math.floor((az / (2 * Math.PI) + 0.5) * W); return ((x % W) + W) % W; };
   const yOf = (el) => clamp(Math.floor((0.5 - el / Math.PI) * H), 0, H - 1);
   const resolve = (d) => {
-    const vel = Math.asin(clamp(d[1], -1, 1)), w = warp(Math.atan2(d[0], -d[2]), vel), az = w.az, el = w.el;
+    const vaz = Math.atan2(d[0], -d[2]), vel = Math.asin(clamp(d[1], -1, 1)), w = warp(vaz, vel), az = w.az, el = w.el;
     const x = xOf(az), y = yOf(el), i = y * W + x, c = cls[i];
     const hz = Math.hypot(d[0], d[2]) || 1e-6;
     let t, flex = 0;
@@ -102,10 +139,10 @@ export function buildPano(scene, img, Q) {
       }
     }
     // kx, ky: view arc per panorama radian across and up
-    return { P: [d[0] * t, d[1] * t, d[2] * t], cls: c, i, x, y, az, el, vel, kx: w.kx * Math.cos(vel), ky: w.ky, flex };
+    return { P: [d[0] * t, d[1] * t, d[2] * t], cls: c, i, x, y, az, el, vel, kx: w.kx * Math.cos(vel), ky: w.ky, flex, imp: imp(vaz, vel, c) };
   };
 
-  /* ---------------- colour references ---------------- */
+  /* ---------------- colour ---------------- */
   const meanEl = (e0, e1, want) => {
     const m = [0, 0, 0]; let n = 0;
     for (let y = yOf(e1 * DEG); y <= yOf(e0 * DEG); y++) for (let x = 0; x < W; x += 2) {
@@ -115,9 +152,33 @@ export function buildPano(scene, img, Q) {
     return n ? [m[0] / n, m[1] / n, m[2] / n] : [0.6, 0.65, 0.72];
   };
   const horizCol = meanEl(8, 30, CLS.SKY), zenCol = meanEl(70, 90), ground = meanEl(-90, -70), near = meanEl(-50, -25, CLS.WATER);
+  // a value mass: the broad colour there, its value drawn towards one of a few steps (soft posterising), so minor
+  // places read as a handful of light and dark shapes
+  const NV = P.masses.steps;
+  const massAt = (i) => {
+    const c = [b8[i * 3], b8[i * 3 + 1], b8[i * 3 + 2]], l = lumOf(c);
+    const s = l * NV - 0.5, k = Math.floor(s), fr = s - k;
+    const q = (k + smooth(0.5 - P.masses.edge, 0.5 + P.masses.edge, fr) + 0.5) / NV;
+    return c.map((x) => clamp(x + (q - l) * P.masses.pull, 0, 1));
+  };
+  const fullAt = (az, el) => {
+    const x = ((Math.floor((az / (2 * Math.PI) + 0.5) * WF) % WF) + WF) % WF, y = clamp(Math.floor((0.5 - el / Math.PI) * HF), 0, HF - 1);
+    const o = (y * WF + x) * 4;
+    return [full[o] / 255, full[o + 1] / 255, full[o + 2] / 255];
+  };
+  // focal colour keeps (and slightly lifts) the picture's contrast against its surroundings; minor colour
+  // settles into its mass, a little flatter and, far off, a little towards the air
+  const finish = (c, r, toMass) => {
+    const i = r.i, m = [b8[i * 3], b8[i * 3 + 1], b8[i * 3 + 2]], q = 1 - r.imp;
+    const k = lerp(P.contrast[0], P.contrast[1], r.imp);
+    let o = c.map((x, j) => m[j] + (x - m[j]) * k);
+    if (toMass > 0) o = lerp3(o, massAt(i), toMass);
+    if (r.cls === CLS.TREE) o = lerp3(o, horizCol, P.air * q * smooth(8, 30, Math.hypot(r.P[0], r.P[2])));
+    return o.map((x) => clamp(x + (rand() - 0.5) * 0.02, 0, 1));
+  };
 
   /* ---------------- stroke emission ---------------- */
-  const B = new Builder(360000);
+  const B = new Builder(600000);
   const alpha0 = Q.uniAlpha * (P.alphaMul[Q.tier] || 1);
   const [gA, gB, gM] = P.falloff;
   const gOf = (psi) => 1 + gM * smooth(gA, gB, psi);
@@ -131,17 +192,11 @@ export function buildPano(scene, img, Q) {
   };
   const proj = (d) => (d[2] < -1e-6 ? [0.5 + (d[0] / -d[2]) * f, vH - ((d[1] / -d[2]) * f) / asp] : null);
   const inRect = (p) => p && p[0] >= 0 && p[0] <= 1 && p[1] >= 0 && p[1] <= 1;
-  const layers = [
-    { k: 3.4, a: 0.97, maj: [1.3, 2.2], min: [0.6, 0.85] },
-    { k: 1.9, a: 0.97, maj: [1.2, 2.1], min: [0.5, 0.75] },
-    { k: 1.0, a: 0.97, maj: [1.1, 2.0], min: [0.45, 0.7] },
-    { k: 0.72, a: 0.96, maj: [1.0, 1.8], min: [0.42, 0.66], detail: true },
-  ];
   // the picture's brushwork direction at a pixel, turned from panorama pixels (one azimuth step is cos el of arc
   // there) to the view
-  const strokeAngle = (r) => {
+  const strokeAngle = (r, lily) => {
     const i = r.i, c = r.cls, ce = Math.cos(r.el);
-    if (c === CLS.WATER) return (rand() - 0.5) * 0.25;
+    if (c === CLS.WATER || lily) return (rand() - 0.5) * (lily ? 0.35 : 0.25);
     let a;
     const sxx = Jxx[i], sxy = Jxy[i], syy = Jyy[i];
     const coh = Math.sqrt((sxx - syy) ** 2 + 4 * sxy * sxy) / (sxx + syy + 1e-6);
@@ -154,17 +209,22 @@ export function buildPano(scene, img, Q) {
     return a;
   };
   const counts = [0, 0, 0, 0, 0];
-  const add = (r, d, sp, col, alpha, majR, minR, li) => {
+  // li: pass (4 = broken colour); soft 0..1: edge softness (packed in the seed's integer part for the shader)
+  const add = (r, d, sp, col, alpha, majR, minR, li, soft, lily = false) => {
     let maj = sp * lerp(majR[0], majR[1], rand()), mn = sp * lerp(minR[0], minR[1], rand());
-    const c = r.cls, nearW = c === CLS.WATER ? smooth(-0.3, -0.7, d[1]) : 0;
+    const c = lily ? CLS.STATIC : r.cls, nearW = r.cls === CLS.WATER ? smooth(-0.3, -0.7, d[1]) : 0;
     if (c === CLS.WATER) { maj *= 1.1 * lerp(1, 0.8, nearW); mn *= lerp(0.72, 1.05, nearW); }
+    // a lily pad lies on the pond: the further off, the flatter its dash
+    if (lily) { const a = clamp(1 / (Math.sin(-r.vel) * 2.2 + 0.25), 1.15, 2.8); maj = sp * lerp(0.75, 1.05, rand()) * Math.sqrt(a); mn = maj / a; }
     if (c === CLS.SKY) { maj *= li === 0 ? 1.55 : 1.35; mn *= 1.08; }
+    // soft strokes spread a little wider so they still close up over their neighbours
+    maj *= 1 + 0.25 * soft; mn *= 1 + 0.35 * soft;
     // finer passes lie nearer, by more than the foliage sways (or the depth sort would shuffle them up close)
     const d0 = Math.hypot(r.P[0], r.P[1], r.P[2]), dm = 1 + (4 - li) * Math.max(0.014, 0.09 / d0);
     const Pw = [r.P[0] * dm, r.P[1] * dm, r.P[2] * dm];
     const dist = d0 * dm;
     const Rt = norm(cross(d, Math.abs(d[1]) > 0.999 ? [0, 0, 1] : up)), Ut = cross(Rt, d);
-    const ang = strokeAngle(r), ca = Math.cos(ang) * maj * dist, sa = -Math.sin(ang) * maj * dist;
+    const ang = strokeAngle(r, lily), ca = Math.cos(ang) * maj * dist, sa = -Math.sin(ang) * maj * dist;
     let axis = [Rt[0] * ca + Ut[0] * sa, Rt[1] * ca + Ut[1] * sa, Rt[2] * ca + Ut[2] * sa];
     // looking down, strokes laid across the line of sight close into rings round the nadir: flat on the pond instead
     if (c === CLS.WATER && rand() < nearW) { const a = rand() * Math.PI; axis = [Math.cos(a) * maj * dist, 0, Math.sin(a) * maj * dist]; }
@@ -175,13 +235,10 @@ export function buildPano(scene, img, Q) {
       cpos = [d[0] * sc, d[1] * sc, d[2] * sc];
       delay = clamp(Math.hypot(p[0] - 0.5, (p[1] - 0.5) * asp) / 0.62 * 0.62 + rand() * 0.38, 0, 1);
     } else delay = extDelay(Pw);
-    B.add(Pw, cpos, axis, mn * dist, col, alpha, c, 0, r.flex, delay, inF ? 0 : 1, rand());
+    B.add(Pw, cpos, axis, mn * dist, col, alpha, c, 0, r.flex, delay, inF ? 0 : 1, Math.round(clamp(soft, 0, 1) * 7) + rand() * 0.999);
     counts[li]++;
   };
-  const colAt = (img, i, j = 0.07) => {
-    const m = 1 + (rand() - 0.5) * j;
-    return [0, 1, 2].map((q) => clamp(img[i * 3 + q] * m + (rand() - 0.5) * 0.025, 0, 1));
-  };
+  const sample = (img, i) => [img[i * 3], img[i * 3 + 1], img[i * 3 + 2]];
 
   const fA = norm(cross(front, up)), fB = cross(fA, front);
   const ring = (sp0, each) => {
@@ -199,37 +256,64 @@ export function buildPano(scene, img, Q) {
       psi += rowStep;
     }
   };
+  const L = P.passes;
+  // lily pads and flowers on the pond: water with detail of its own (not the plain surface)
+  const isLily = (r, e) => r.cls === CLS.WATER && e > P.lily && r.vel < -0.03;
 
-  layers.forEach((L, li) => {
-    ring((psi) => alpha0 * L.k * gOf(psi), (d, sp) => {
-      const r = resolve(d), i = r.i;
-      if (L.detail) {
-        if (r.cls === CLS.SKY) return;
-        if (rand() > clamp(grad[i] * 9 - 0.12, 0, 0.85) * P.detail) return;
-        const l4 = levels[1], dl = Math.abs(lum[i] - (0.3 * l4[i * 3] + 0.59 * l4[i * 3 + 1] + 0.11 * l4[i * 3 + 2]));
-        if (dl > 0.2) return;
-      }
-      // the sky is carried by its broad passes; small strokes scattered over it read as crumbs
-      if (r.cls === CLS.SKY && li >= 1 && rand() < (li === 1 ? 0.3 : 0.8)) return;
-      add(r, d, sp, colAt(levels[li], i), L.a, L.maj, L.min, li);
-    });
+  // underpainting: everywhere, large; minor places from their value masses, in soft strokes
+  ring((psi) => alpha0 * L[0].k * gOf(psi), (d, sp) => {
+    const r = resolve(d), q = 1 - r.imp;
+    const col = finish(sample(b4, r.i), r, P.masses.mix * q);
+    add(r, d, sp, col, 0.97, L[0].maj, L[0].min, 0, r.cls === CLS.SKY ? 0.75 : 0.2 + 0.55 * q);
+  });
+  // second pass: most places still, thinning out where nothing much happens
+  ring((psi) => alpha0 * L[1].k * gOf(psi), (d, sp) => {
+    const r = resolve(d), e = E1[r.i];
+    if (r.cls === CLS.SKY && rand() < 0.35) return;
+    if (rand() > clamp(L[1].base + L[1].imp * r.imp + L[1].gain * e, 0, 1)) return;
+    const q = 1 - r.imp;
+    add(r, d, sp, finish(sample(b2, r.i), r, P.masses.mix * q * 0.6), 0.97, L[1].maj, L[1].min, 1, r.cls === CLS.SKY ? 0.6 : 0.1 + 0.45 * q);
+  });
+  // third pass: only where the picture has detail at this scale, as far as the place matters
+  ring((psi) => alpha0 * L[2].k * gOf(psi), (d, sp) => {
+    const pre = clamp((L[2].base + L[2].gain * 0.25) * lerp(L[2].low, 1, smooth(L[2].from, 0.8, impDir(d))), 0, 1);
+    if (rand() > pre) return;
+    const r = resolve(d), e = E2[r.i];
+    if (r.cls === CLS.SKY && rand() > 0.25 * r.imp) return;
+    if (rand() * pre > clamp((L[2].base + L[2].gain * e) * lerp(L[2].low, 1, smooth(L[2].from, 0.8, r.imp)), 0, 1)) return;
+    const lily = isLily(r, e);
+    add(r, d, sp, finish(sample(b1, r.i), r, 0), 0.97, L[2].maj, L[2].min, 2, (1 - r.imp) * 0.3, lily);
+  });
+  // finest pass: edges in the focal places, at the picture's own resolution, hard-edged
+  // (the fine passes test most directions only to leave them out: a first test on the importance alone, before
+  // the direction is resolved, keeps the build fast; the second test makes up the rest of the chance)
+  ring((psi) => alpha0 * L[3].k * gOf(psi), (d, sp) => {
+    const pre = 0.85 * L[3].p * smooth(L[3].from, 1, impDir(d));
+    if (rand() > pre) return;
+    const r = resolve(d);
+    if (r.cls === CLS.SKY) return;
+    if (rand() * pre > clamp(grad[r.i] * 9 - 0.12, 0, 0.85) * L[3].p * smooth(L[3].from, 1, r.imp)) return;
+    const e = E2[r.i], lily = isLily(r, e);
+    add(r, d, sp, finish(fullAt(r.az, r.el), r, 0), 0.96, L[3].maj, L[3].min, 3, 0, lily);
   });
 
-  // broken colour: small touches over everything, each nudged warm or cool and a little more saturated than
-  // the picture beneath, thinning out behind the viewer
+  // broken colour: small touches, warm or cool and a little more saturated than the picture beneath, gathered
+  // where the eye is led (and on the pond's lilies), sparse in the broad places
   const DB = P.dabs;
-  ring((psi) => alpha0 * DB.k * gOf(psi), (d, sp, psi) => {
-    if (rand() > DB.p * lerp(1, DB.back, smooth(DB.fade[0], DB.fade[1], psi))) return;
+  ring((psi) => alpha0 * DB.k * gOf(psi), (d, sp) => {
+    const pre = DB.p * lerp(DB.minor, 1, smooth(0.15, 0.85, impDir(d)));
+    if (rand() > pre) return;
     const r = resolve(d);
     if (r.cls === CLS.SKY && rand() > DB.sky) return;
-    const jr = Math.max(1, Math.round(sp * W / (2 * Math.PI) * DB.jitter));
-    const x = (r.x + Math.round((rand() - 0.5) * 2 * jr) + W) % W, y = clamp(r.y + Math.round((rand() - 0.5) * 2 * jr), 0, H - 1);
-    const j = cls[y * W + x] === r.cls ? y * W + x : r.i;
-    const col = [b1[j * 3], b1[j * 3 + 1], b1[j * 3 + 2]];
-    const lm = 0.3 * col[0] + 0.59 * col[1] + 0.11 * col[2], tint = (rand() - 0.5) * 2 * DB.tint;
+    const e = E2[r.i];
+    if (rand() * pre > DB.p * lerp(DB.minor, 1, smooth(0.15, 0.85, r.imp)) * (0.5 + 0.5 * smooth(0, 0.12, e))) return;
+    const jr = (DB.jitter * sp) / Math.max(r.kx, 0.2);
+    const az = r.az + (rand() - 0.5) * 2 * jr, el = r.el + (rand() - 0.5) * 2 * jr;
+    const col = fullAt(cls[yOf(el) * W + xOf(az)] === r.cls ? az : r.az, cls[yOf(el) * W + xOf(az)] === r.cls ? el : r.el);
+    const lm = lumOf(col), tint = (rand() - 0.5) * 2 * DB.tint * (0.5 + r.imp);
     const tc = tint > 0 ? [1, 0.45, -0.7] : [-0.6, -0.1, 1];
     for (let q = 0; q < 3; q++) col[q] = clamp(lm + (col[q] - lm) * DB.sat + tc[q] * Math.abs(tint), 0, 1);
-    add(r, d, sp, col, 0.95, [1.0, 1.7], [0.55, 0.85], 4);
+    add(r, d, sp, finish(col, r, 0), 0.95, [1.0, 1.6], [0.6, 0.9], 4, 0, isLily(r, e));
   });
 
   // sparkle on the pond and drifting motes
@@ -246,7 +330,7 @@ export function buildPano(scene, img, Q) {
     const s = 0.016 + rand() * 0.022;
     B.add([x, y, z], [x, y, z], [s, 0, 0], s * 0.85, [1, 0.84, 0.55], 0.55, CLS.MOTE, 0, 0, extDelay([x, y, z]), 1, rand());
   }
-  console.log(`[monet] pano layers ${counts.join('/')} total ${B.n} in ${Math.round(performance.now() - t0)}ms`);
+  console.log(`[monet] pano passes ${counts.join('/')} total ${B.n} in ${Math.round(performance.now() - t0)}ms`);
 
   return {
     count: B.n, A: B.A.subarray(0, B.n * 4), B: B.B.subarray(0, B.n * 4), C: B.C.subarray(0, B.n * 4),

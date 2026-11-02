@@ -282,11 +282,9 @@ const bridgePano = {
   // painting (s: how much smaller straight ahead; turn: view azimuth of the bridge, degrees)
   zoom: { s: 2.0, turn: 17 },
   analysisW: { low: 1536, mid: 2048, high: 2048 },
-  alphaMul: { low: 1.5, mid: 1.32, high: 1.16 },
+  alphaMul: { low: 0.98, mid: 0.7, high: 0.65 },
   // stroke spacing grows from the front ray towards the back: [from, to (radians), extra]
   falloff: [0.9, 2.6, 0.55],
-  // share of the finest pass laid where the picture has edges
-  detail: 0.15,
   // the pond, in degrees: its far edge [azimuth, elevation] and its near edge (-99: no pond / down to the feet).
   // Behind the viewer (azimuth past -115 / 165) the bank comes right down to the eye's feet
   pondTop: [[-180, -99], [-116, -99], [-110, -28], [-100, -18], [-80, -14], [-60, -10], [-40, -8], [40, -8], [60, -9], [80, -9], [100, -10], [150, -10], [160, -12], [166, -99], [180, -99]],
@@ -295,10 +293,32 @@ const bridgePano = {
   underfoot: [-32, 0.22],
   // the garden's distance round the pond (m)
   shore: [[-180, 5], [-110, 7], [-80, 7], [-60, 9], [-40, 11], [40, 11], [60, 10], [90, 9], [150, 9], [180, 5]],
-  // broken colour: size relative to the plate's strokes, share laid, warm/cool tint, saturation, how far a touch
-  // may borrow its colour (touch sizes), how much of it falls on the sky, fade [from, to] radians off the front ray
-  // down to the share left behind the viewer
-  dabs: { k: 0.5, p: 0.22, tint: 0.07, sat: 1.12, jitter: 0.6, sky: 0.25, fade: [1.3, 2.6], back: 0.45 },
+  // what is resolved and what stays broad, by view direction: [azimuth°, elevation°, radius across°, radius up°,
+  // weight]. The bridge and the bright water under it lead; the lilies before it, a willow and a flower bank to
+  // either side, and three places behind the viewer follow; the rest is left broad (floor), the sky most of all
+  focus: {
+    foci: [[17, 3, 20, 8, 1], [14, -6, 28, 7, 0.85], [6, -17, 30, 9, 0.65], [-38, -2, 16, 14, 0.6], [52, -8, 14, 12, 0.55],
+      [-140, -6, 24, 16, 0.6], [130, -6, 22, 16, 0.55], [180, -12, 20, 14, 0.5], [-80, -10, 18, 14, 0.45], [90, -8, 16, 14, 0.45]],
+    floor: 0.2, skyMax: 0.32,
+  },
+  // value masses of the broad places: value steps, how sharp a step is, how far values are drawn to it, and how
+  // much of the underpainting's colour comes from the mass where nothing matters
+  masses: { steps: 5, edge: 0.25, pull: 0.6, mix: 0.7 },
+  // contrast against the surroundings [broad, focus], and how far broad distant garden leans to the air's colour
+  contrast: [0.8, 1.15], air: 0.15,
+  // the passes, coarse to fine: size k (relative), stroke shape, and when a stroke is laid (base, + importance,
+  // + detail at the pass's scale; from..: the importance over which a pass comes in fully, low: its share below)
+  passes: [
+    { k: 3.6, maj: [1.3, 2.2], min: [0.6, 0.85] },
+    { k: 1.9, maj: [1.2, 2.1], min: [0.5, 0.75], base: 0.3, imp: 0.7, gain: 4 },
+    { k: 1.0, maj: [1.1, 2.0], min: [0.45, 0.7], base: 0.35, gain: 8, from: 0.1, low: 0.25 },
+    { k: 0.6, maj: [1.0, 1.8], min: [0.42, 0.66], p: 0.8, from: 0.2 },
+  ],
+  // pond detail (at the third pass's scale) above which a touch on the water is a lily pad or flower
+  lily: 0.04,
+  // broken colour: size relative to the plate's strokes, share laid, share left in the broad places, warm/cool
+  // tint, saturation, how far a touch may borrow its colour (touch sizes), how much of it falls on the sky
+  dabs: { k: 0.42, p: 0.6, minor: 0.04, tint: 0.08, sat: 1.15, jitter: 0.5, sky: 0.15 },
 };
 
 const bridge = {
