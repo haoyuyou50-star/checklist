@@ -1,6 +1,6 @@
 export const CLS = {
   SKY: 0, GRASS: 1, FLOWER: 2, TREE: 3, STATIC: 4, FIGURE: 5, WATER: 6, SAIL: 7,
-  PETAL: 8, MOTE: 9, HALO: 10, GLINT: 11, GULL: 12,
+  PETAL: 8, MOTE: 9, HALO: 10, GLINT: 11, GULL: 12, HULL: 13,
 };
 
 const lerp = (a, b, t) => a + (b - a) * t;
