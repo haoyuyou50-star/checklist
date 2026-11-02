@@ -1,5 +1,5 @@
 import { CLS } from './scenes.js';
-import { clamp, lerp, smooth, blur1, blurMasked, fbm2 } from './generator.js';
+import { clamp, lerp, smooth, blur1, blurMasked, fbm2, softSeed } from './generator.js';
 
 /*
  * Element cards from the art team's layer split.
@@ -191,7 +191,10 @@ export function makeLayerEmitter(set, Q) {
     },
 
     emit(ctx) {
-      const { B, rand, f, vH, asp, h, groundZ, wl, alpha0, layers, extDelay, proj, inRect, sC, hotAcc, shoreS, baseWater } = ctx;
+      const { B, rand, f, vH, asp, h, groundZ, wl, alpha0, layers, extDelay, proj, inRect, sC, hotAcc, shoreS, baseWater, imp } = ctx;
+      // focus (the plate's importance by direction): elements in minor places lose their finer passes and soften
+      const softOf = (li, im) => (li === 0 ? 0.2 + 0.55 * (1 - im) : li === 1 ? 0.1 + 0.45 * (1 - im) : li === 2 ? 0.3 * (1 - im) : 0);
+      const gate = spec.focusPasses;
       const stats = [];
       const fine = spec.fine;
 
@@ -215,16 +218,19 @@ export function makeLayerEmitter(set, Q) {
               const x = clamp(Math.round(xx + (rand() - 0.5) * st * 0.8), 0, s.w - 1), y = clamp(Math.round(yy + (rand() - 0.5) * st * 0.8), 0, s.h - 1);
               const i = y * s.w + x;
               if (!s.m[i] || inner[i] < need) continue;
-              if (li === 3 && rand() > clamp(s.grad[i] * 6 - 0.05, 0.15, 0.9)) continue;
+              if (li === 3 && rand() > clamp(s.grad[i] * 6 - 0.05, o.flatMin ?? 0.15, 0.9)) continue;
               const P = o.place(x + 0.5, y + 0.5);
               const d = norm(P), dist = Math.hypot(P[0], P[1], P[2]);
+              const im = imp ? imp(d) : 1;
+              if (imp && gate && li >= 1 && rand() > lerp(gate[li - 1], 1, smooth(0.1, 0.8, im))) continue;
+              const so = imp ? softOf(li, im) : 0;
               const coh = Math.sqrt((s.Jxx[i] - s.Jyy[i]) ** 2 + 4 * s.Jxy[i] ** 2) / (s.Jxx[i] + s.Jyy[i] + 1e-6);
               let a = rand() < coh * 1.4 ? 0.5 * Math.atan2(2 * s.Jxy[i], s.Jxx[i] - s.Jyy[i]) + Math.PI / 2 : o.angle(rand);
               if (o.flipX) a = Math.PI - a;
               let maj = sp * lerp(L.maj[0], L.maj[1], rand()), mn = sp * lerp(L.min[0], L.min[1], rand());
               // near the silhouette strokes shrink and follow the edge so the outline stays legible
               const edge = smooth(need, 1, inner[i]);
-              maj *= lerp(0.6, 1, edge); mn *= lerp(0.75, 1, edge);
+              maj *= lerp(0.6, 1, edge) * (1 + 0.25 * so); mn *= lerp(0.75, 1, edge) * (1 + 0.35 * so);
               const ca = Math.cos(a) * maj * dist, sa = -Math.sin(a) * maj * dist;
               const axis = [o.R[0] * ca + o.U[0] * sa, o.R[1] * ca + o.U[1] * sa, o.R[2] * ca + o.U[2] * sa];
               const jit = 1 + (rand() - 0.5) * 0.06;
@@ -241,7 +247,7 @@ export function makeLayerEmitter(set, Q) {
                 const rad = Math.hypot(p[0] - 0.5, (p[1] - 0.5) * asp) / 0.62;
                 delay = clamp(rad * 0.62 + rand() * 0.38, 0, 1);
               } else delay = extDelay(P);
-              B.add(P, cpos, axis, mn * dist, col, L.a, c, o.hot, flex, delay, o.ext ? 1 : 0, rand());
+              B.add(P, cpos, axis, mn * dist, col, L.a, c, o.hot, flex, delay, o.ext ? 1 : 0, softSeed(so, rand()));
               n++;
               if (o.hot) {
                 let acc = hotAcc.get(o.hot);
@@ -250,6 +256,42 @@ export function makeLayerEmitter(set, Q) {
                 if (rand() < 0.2) acc.pts.push(P);
               }
               if (o.refl && rand() < o.refl) n += reflect(P, axis, mn * dist, col, L.a, o.ext, c === CLS.SAIL ? flex : 0);
+            }
+          }
+        }
+        // outline: short hard strokes laid along the silhouette, coloured from just inside it, so a sail or a
+        // house ends in a clean edge (spacing and length relative to the finest pass)
+        if (o.outline) {
+          const L = layers[3];
+          const sp = alpha0 * L.k * (o.fine || fine) * (o.ext ? o.spMul || 1 : 1) * o.outline;
+          const st = Math.max(0.7, sp / o.pxAng), cov = solid(s, Math.max(1, st * 0.6)), img = level(s, st * 0.3);
+          for (let yy = st * 0.5; yy < s.h; yy += st * 0.7) {
+            for (let xx = rand() * st; xx < s.w; xx += st * 0.7) {
+              const x = clamp(Math.round(xx), 1, s.w - 2), y = clamp(Math.round(yy), 1, s.h - 2), i = y * s.w + x;
+              if (!s.m[i] || cov[i] > 0.8 || cov[i] < 0.35) continue;
+              const gx = cov[i + 1] - cov[i - 1], gy = cov[i + s.w] - cov[i - s.w], gl = Math.hypot(gx, gy);
+              if (gl < 1e-4) continue;
+              const xi = clamp(Math.round(x + (gx / gl) * st * 0.6), 0, s.w - 1), yi = clamp(Math.round(y + (gy / gl) * st * 0.6), 0, s.h - 1), k = yi * s.w + xi;
+              const P = o.place(x + 0.5, y + 0.5);
+              const d = norm(P), dist = Math.hypot(P[0], P[1], P[2]);
+              const a = Math.atan2(gy, gx) + Math.PI / 2 + (rand() - 0.5) * 0.15;
+              const maj = sp * lerp(1.1, 1.6, rand()), mn = sp * lerp(0.32, 0.45, rand());
+              const ca = Math.cos(a) * maj * dist, sa = -Math.sin(a) * maj * dist;
+              const axis = [o.R[0] * ca + o.U[0] * sa, o.R[1] * ca + o.U[1] * sa, o.R[2] * ca + o.U[2] * sa];
+              const col = [0, 1, 2].map((j) => clamp(img[k * 3 + j] * (1 + (rand() - 0.5) * 0.04), 0, 1));
+              const fy = 1 - (y + 0.5) / s.h;
+              const c = o.cls(col, 0.3 * col[0] + 0.59 * col[1] + 0.11 * col[2], fy, o.hull);
+              const flex = (c === CLS.SAIL ? clamp((fy - o.hull) / (1 - o.hull), 0, 1) : c === CLS.TREE ? fy : 0) * (o.flexMul ?? 1);
+              const Pn = P.map((q) => q * 0.997);
+              let cpos = Pn, delay;
+              if (!o.ext) {
+                const sc = sC * f / -d[2];
+                cpos = [d[0] * sc, d[1] * sc, d[2] * sc];
+                const p = proj(d);
+                delay = clamp(Math.hypot(p[0] - 0.5, (p[1] - 0.5) * asp) / 0.62 * 0.62 + rand() * 0.38, 0, 1);
+              } else delay = extDelay(Pn);
+              B.add(Pn, cpos, axis, mn * dist, col, 0.97, c, o.hot, flex, delay, o.ext ? 1 : 0, rand());
+              n++;
             }
           }
         }
@@ -333,9 +375,9 @@ export function makeLayerEmitter(set, Q) {
       const treeAngle = (r) => r() * Math.PI;
       const flatAngle = (r) => (r() - 0.5) * 0.6;
       const kindOf = {
-        sail: { cls: sailCls, angle: sailAngle, refl: 0.6 },
+        sail: { cls: sailCls, angle: sailAngle, refl: 0.6, flatMin: 0, outline: 0.8, dabs: false },
         tree: { cls: () => CLS.TREE, angle: treeAngle, refl: 0 },
-        house: { cls: () => CLS.STATIC, angle: flatAngle, refl: 0 },
+        house: { cls: () => CLS.STATIC, angle: flatAngle, refl: 0, outline: 0.8 },
         lily: { cls: () => CLS.STATIC, angle: flatAngle, refl: 0 },
       };
 
@@ -377,6 +419,7 @@ export function makeLayerEmitter(set, Q) {
           ext: false, fine: cf, pxAng: pxAng0 / s.w, R: [1, 0, 0], U: [0, 1, 0], hot: c.hot || 0, hull: c.hull ?? 0.12, minLayer: c.minLayer,
           place: (sx, sy) => toW(u0 + (sx / s.w) * (u1 - u0), v0 + (sy / s.h) * (v1 - v0)),
           cls: kd.cls, angle: kd.angle, refl: c.refl ?? kd.refl, feather: c.kind === 'tree' ? spec.feather : 0,
+          ...(imp ? { outline: kd.outline, flatMin: kd.flatMin } : {}),
         });
         stats.push(`${c.id}:${n}@${D.toFixed(0)}m`);
       });
@@ -446,13 +489,17 @@ export function makeLayerEmitter(set, Q) {
             const out = Math.max(uo < e0 ? e0 - uo : uo > e1 ? uo - e1 : 0, vo > ev ? (vo - ev) * asp : 0);
             if (out > 0 && rand() > 1 - smooth(fold * 0.35, fold, out)) continue;
             const uu = clamp(uo < e0 ? 2 * e0 - uo : uo > e1 ? 2 * e1 - uo : uo, 0, 1), vv = clamp(vo > ev ? 2 * ev - vo : vo, 0, 0.9999);
+            // focus: the touches gather where the eye is led
+            if (imp && rand() > lerp(spec.dabs.minor ?? 0.1, 1, smooth(0.15, 0.85, imp(norm([(uo - 0.5) / f, -(vo - vH) * asp / f, -1]))))) continue;
             const j = topCard(uu, vv);
             let z, c, fl;
+            if (j >= 0 && kindOf[spec.cards[j].kind].dabs === false) continue;
             if (j >= 0) {
-              const cd = spec.cards[j];
+              const cd = spec.cards[j], fy = 1 - (vv - cd.box[1]) / (cd.box[3] - cd.box[1]), hull = cd.hull ?? 0.12;
               z = depthAt(cd, uu, vv, groundZ, wl);
-              c = kindOf[cd.kind].cls([0, 0, 0], 0, 0, 0);
-              fl = c === CLS.TREE ? 1 - (vv - cd.box[1]) / (cd.box[3] - cd.box[1]) : 0;
+              c = kindOf[cd.kind].cls([0, 0, 0], 0, fy, hull);
+              // a sail's touches lean with it in the wind
+              fl = c === CLS.TREE ? fy : c === CLS.SAIL ? clamp((fy - hull) / (1 - hull), 0, 1) : 0;
             } else {
               const i = clamp(Math.floor(vv * PH), 0, PH - 1) * PW + clamp(Math.floor(uu * PW), 0, PW - 1);
               c = pCls[i]; z = pZ[i]; fl = pFlex[i];
@@ -473,7 +520,7 @@ export function makeLayerEmitter(set, Q) {
             const a = c === CLS.WATER ? (rand() - 0.5) * 0.35 : c === CLS.TREE ? Math.PI / 2 + (rand() - 0.5) * 1.4 : rand() * Math.PI;
             let maj = sp * lerp(0.9, 1.5, rand()), mn = sp * lerp(0.5, 0.75, rand());
             // the shader flattens water strokes towards grazing angles: water touches start wider and fuller
-            if (c === CLS.WATER) { maj *= 1.6; mn *= 1.5; }
+            if (c === CLS.WATER) { const [wa, wb] = spec.dabs.water || [1.6, 1.5]; maj *= wa; mn *= wb; }
             const axis = [Math.cos(a) * maj * dist, -Math.sin(a) * maj * dist, 0];
             const d = norm(P), sc = sC * f / -d[2];
             const p = proj(d), rad = Math.hypot(p[0] - 0.5, (p[1] - 0.5) * asp) / 0.62;
@@ -546,6 +593,7 @@ export function makeLayerEmitter(set, Q) {
               return [base[0] + Rv[0] * xm, base[1] + ym, base[2] + Rv[2] * xm];
             },
             cls: kd.cls, angle: kd.angle, refl: e.kind === 'sail' ? 0.6 : e.refl ?? 0.3, feather: e.kind === 'tree' && r > 8 ? spec.feather : 0,
+            ...(imp ? { outline: kd.outline, flatMin: kd.flatMin } : {}),
           });
           stats.push(`${e.id}@${deg}:${n}`);
         });

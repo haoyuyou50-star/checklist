@@ -1,5 +1,5 @@
 import { CLS, polyline } from './scenes.js';
-import { makeRng, clamp, lerp, lerp3, smooth, blur1, blurRGB, Builder } from './generator.js';
+import { makeRng, clamp, lerp, lerp3, smooth, blur1, blurRGB, Builder, makeImportance, softSeed } from './generator.js';
 
 /*
  * A scene painted all the way round: the colours come from one equirectangular picture of the whole
@@ -104,22 +104,9 @@ export function buildPano(scene, img, Q) {
     return { az: Math.atan2(Math.sin(ae), Math.cos(ae)), el: Math.atan(m * te), kx: 1 / m, ky: (1 + m * m * te * te) / (m * (1 + te * te)), m };
   };
 
-  // importance (0: left broad, 1: the focus) by view direction: the foci [azimuth°, elevation°, radius across°,
-  // radius up°, weight] round the viewer over a floor; the sky never comes forward much
-  const impDir = (d) => impAt(Math.atan2(d[0], -d[2]), Math.asin(clamp(d[1], -1, 1)));
+  // importance (0: left broad, 1: the focus) by view direction; the sky never comes forward much
+  const IMP = makeImportance(P.focus), impAt = IMP.at, impDir = IMP.dir;
   const imp = (vaz, vel, c) => { const m = impAt(vaz, vel); return c === CLS.SKY ? Math.min(m, P.focus.skyMax) : m; };
-  // tabulated every half degree: the passes ask it millions of times
-  const IW = 720, IH = 360, impT = new Float32Array(IW * IH);
-  for (let y = 0; y < IH; y++) for (let x = 0; x < IW; x++) {
-    const vaz = (x + 0.5) / 2 - 180, vel = 90 - (y + 0.5) / 2;
-    let m = P.focus.floor;
-    for (const [a, e, ra, re, w] of P.focus.foci) {
-      const da = ((((vaz - a) % 360) + 540) % 360) - 180;
-      m = Math.max(m, w * Math.exp(-((da / ra) ** 2 + ((vel - e) / re) ** 2)));
-    }
-    impT[y * IW + x] = m;
-  }
-  const impAt = (vaz, vel) => impT[clamp(Math.floor((0.5 - vel / Math.PI) * IH), 0, IH - 1) * IW + clamp(Math.floor((vaz / (2 * Math.PI) + 0.5) * IW), 0, IW - 1)];
 
   const xOf = (az) => { const x = Math.floor((az / (2 * Math.PI) + 0.5) * W); return ((x % W) + W) % W; };
   const yOf = (el) => clamp(Math.floor((0.5 - el / Math.PI) * H), 0, H - 1);
@@ -235,7 +222,7 @@ export function buildPano(scene, img, Q) {
       cpos = [d[0] * sc, d[1] * sc, d[2] * sc];
       delay = clamp(Math.hypot(p[0] - 0.5, (p[1] - 0.5) * asp) / 0.62 * 0.62 + rand() * 0.38, 0, 1);
     } else delay = extDelay(Pw);
-    B.add(Pw, cpos, axis, mn * dist, col, alpha, c, 0, r.flex, delay, inF ? 0 : 1, Math.round(clamp(soft, 0, 1) * 7) + rand() * 0.999);
+    B.add(Pw, cpos, axis, mn * dist, col, alpha, c, 0, r.flex, delay, inF ? 0 : 1, softSeed(soft, rand()));
     counts[li]++;
   };
   const sample = (img, i) => [img[i * 3], img[i * 3 + 1], img[i * 3 + 2]];

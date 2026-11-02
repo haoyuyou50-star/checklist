@@ -53,6 +53,31 @@ export async function runDemo(app) {
 
   await press(app, app.el.exit, () => app.exit(), { move: 1.5, dwell: 0.6 });
   await app.wait(4.8);
+
+  /* ---- 02 Le Bassin aux nymphéas ---- */
+  const pick2 = app.el.picker.children[1];
+  await press(app, pick2, () => app.selectPainting(1), { move: 1.4, dwell: 0.5 });
+  await app.wait(2.2);
+  await press(app, app.el.enter, () => app.enter(), { move: 1.3, dwell: 0.7 });
+  app.cursor.moveTo(W * 0.5, H * 0.62, 2.4);
+  await app.wait(7.2);
+
+  await app.look(0.7, -0.05, 3.6);
+  await app.wait(0.3);
+  await app.look(-1.3, 0.02, 4.6);
+  await app.wait(0.3);
+  await app.look(0.6, 0.03, 2.8);
+  await app.wait(1.2);
+
+  // the colour moods: 盛夏, then 秋暮
+  for (const k of [1, 2]) {
+    await press(app, app.el.tones.children[k], () => app.setTone(k), { move: 1.3, dwell: 0.5 });
+    app.cursor.moveTo(W * 0.5, H * 0.45, 2.2);
+    await app.wait(6.5);
+  }
+
+  await press(app, app.el.exit, () => app.exit(), { move: 1.5, dwell: 0.6 });
+  await app.wait(4.8);
   await app.cursor.hide();
   await app.wait(1.0);
 }
