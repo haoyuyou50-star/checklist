@@ -1,5 +1,5 @@
 // Dump the unified generator's segmentation and fill layers as PNGs (debug).
-//   node tools/segdump.mjs --scene 1 --out /tmp/seg
+//   node tools/segdump.mjs --scene 0 --out /tmp/seg
 import puppeteer from 'puppeteer-core';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -37,7 +37,7 @@ const imgs = await page.evaluate(async (si) => {
     cls: toURL((i) => { const p = pal[d.cls[i]] || [0, 0, 0]; return [0, 1, 2].map((j) => p[j] * 0.55 + src[i * 4 + j] * 0.45); }),
     sky: toURL(rgb(d.sky)), sky6: toURL(rgb(d.sky6)), water: toURL(rgb(d.water)), land: toURL(rgb(d.land)),
   };
-}, Number(args.scene || 1));
+}, Number(args.scene || 0));
 for (const [k, v] of Object.entries(imgs)) fs.writeFileSync(path.join(out, k + '.png'), Buffer.from(v.split(',')[1], 'base64'));
 console.log('wrote', Object.keys(imgs).join(', '));
 await browser.close();

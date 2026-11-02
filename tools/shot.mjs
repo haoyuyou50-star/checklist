@@ -1,5 +1,5 @@
-// Stills of one immersive scene at several yaw angles (for look-dev).
-//   node tools/shot.mjs --scene 1 --yaws 0,0.6,-0.6,3.1 --out shots --q mid [--params flat]
+// Stills of one immersive scene (0 regatta, 1 water-lily pond) at several yaw angles (for look-dev).
+//   node tools/shot.mjs --scene 0 --yaws 0,0.6,-0.6,3.1 --out shots --q mid [--params flat]
 import puppeteer from 'puppeteer-core';
 import fs from 'node:fs';
 import path from 'node:path';
