@@ -1,0 +1,13 @@
+{
+  "id": "regatta/panorama",
+  "refs": [
+    "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/source/regatta_pano_template.jpg"
+  ],
+  "prompt": "Use case stylized-concept. Transform the supplied strict spherical-layout template into a complete Claude Monet Regatta at Argenteuil oil painting immersive panorama. Single 2:1 equirectangular image 360x180, requested 8192x4096 or highest supported actual output. Center vertical is forward, horizon y=50%, eye height 1.6m. Reference painted patch stays small in the exact center: white sails to the left of forward (longitudes -28 to -3 degrees), red-roof houses and tall trees to the right (+5 to +28 degrees). Keep the source painting composition and angular scale; do not enlarge into a regular landscape. Paint all gray outside regions seamlessly in the same luminous impressionist oil brushwork: further small distant sails, wooded riverbanks and scattered period houses around 360 degrees. Entire upper hemisphere open pale blue cloudy sky with spherical pole stretching. Entire lower hemisphere river reflections and near-bank grass at feet, visible crisp textured strokes, no blur. Main white sails and warm red house contrast, secondary clear reflected sails. Rear and side compositions rich but subordinate. Seamless left/right rear boundary, realistic zenith/nadir polar distortion. Remove all grid, yellow labels, horizon red line, gray template and signature/text. No watermark, no frames, no collage, no modern objects. Cool fresh luminous greens, blue river, warm offwhite sails, red ochre roof accents. All around detail of equal quality.",
+  "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/panorama.png",
+  "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-59a5393c-d4a6-436d-ab3a-cc4e53752acb.png",
+  "Width": 1774,
+  "Height": 887,
+  "Bytes": 3330448,
+  "status": "candidate-unverified"
+}

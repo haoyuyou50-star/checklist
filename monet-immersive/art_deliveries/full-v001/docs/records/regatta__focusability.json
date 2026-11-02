@@ -1,0 +1,13 @@
+{
+  "id": "regatta/focusability",
+  "refs": [
+    "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/panorama.png"
+  ],
+  "prompt": "Generate ONE precisely aligned grayscale gaze focusability control mask for supplied full 2:1 panorama, requested 1774x887. White=objects that may become sharp when gazed at: white sails, boat hulls, red houses, near grass, near trees and local sail reflections. Mid gray=intermediate-distance vegetation and intermediate water texture. Black=sky, far shoreline/far foliage, far open water that must stay soft even under gaze. Preserve full frame and all positions exactly; clean broad semantic regions, no painted brush shading, no labels, no color. This is NOT saliency or depth: distinguish focusable close details from permanently soft distant areas.",
+  "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/focusability.png",
+  "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-546e28c5-f4e5-4106-9628-cef47483cfdc.png",
+  "Width": 1774,
+  "Height": 887,
+  "Bytes": 1409110,
+  "status": "candidate-unverified"
+}

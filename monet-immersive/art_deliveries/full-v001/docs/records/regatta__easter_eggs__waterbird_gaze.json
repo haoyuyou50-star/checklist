@@ -1,0 +1,14 @@
+{
+  "id": "regatta/easter_eggs/waterbird_gaze",
+  "refs": [
+    "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/easter_eggs/waterbird_idle.png"
+  ],
+  "transparent": true,
+  "prompt": "Use case precise-object-edit. This transparent square sprite is the EDIT TARGET, not just a style reference. Produce the gaze-activated alternate state. Change ONLY wings to slightly lifting wings ready to flap; keep bird body, feet, canvas, camera and center exactly in place. EXACT same framing, scale, oil-painted brushwork, cool luminous palette, transparent background and subject center. Square requested 1254x1254. Keep 20% clear margins. True alpha transparency, no checkerboard paint, no new backdrop, no text, no watermark, no duplicate subject. Do not move or resize the whole sprite. Small animated-pose difference only, suitable for matching a before/after pair.",
+  "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/easter_eggs/waterbird_gaze.png",
+  "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-6021c4f8-43d3-48c6-b58b-0dd74bfedf67.png",
+  "Width": 1254,
+  "Height": 1254,
+  "Bytes": 1235111,
+  "status": "candidate-unverified"
+}

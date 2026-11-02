@@ -1,0 +1,753 @@
+{
+  "generator": "built-in imagegen",
+  "assetCount": 55,
+  "assets": [
+    {
+      "id": "bridge/panorama",
+      "prompt": "Use case: stylized-concept. Asset: Japanese bridge at Giverny immersive VR environment panorama, candidate v001.\nEdit the reference panorama template into a complete Claude Monet impressionist oil painting environment. The reference is a strict spherical layout guide, not a graphic to reproduce.\nOutput a 2:1 equirectangular 360 degree by 180 degree panorama, requested 8192x4096 or highest available actual resolution. Image center longitude 0 is straight forward, horizon exactly y=50%, eye height 1.6m. Preserve the original painted region's small angular scale and composition: the ONLY green arched Japanese footbridge is just right of center, spanning longitude 0 to +33 degrees (x=50 to 59.17% width); waterline under bridge at latitude -4 degrees (y=52.22%). Its arch reaches slightly above horizon. Never enlarge the bridge into a dominant wide foreground bridge.\nKeep the reference painting recognizable: drooping willow left of bridge, blue green lily pond, small pink and white water lilies, flower banks and the soft green arched bridge. Extend its thick, lively, crisp visible oil brushwork and spring green, blue, lavender, pale yellow and pink palette continuously into all the gray areas.\nEntire upper hemisphere: upward-looking leafy willow canopy with openings of softly painted blue sky; believable spherical polar stretching at zenith. Entire lower hemisphere: lily pond foreground then grassy bank directly under viewer, wraparound nadir grass. Side and rear viewpoints equally rich with reeds, irises, willow trunks and a few small bright flower accents, no extra bridges. Match left/right boundaries for a seamless rear view, no hard lines.\nRemove ALL template grid lines, red horizon, yellow markers, labels, gray background. No text, no watermark, no frames, no blur, no photographic or 3D rendering. A single continuous 360 panorama, not a conventional wide landscape, not a collage.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/bridge/panorama.png",
+      "status": "candidate"
+    },
+    {
+      "id": "brushes/short_dab_1",
+      "prompt": "Generate one production oil paint brush alpha texture. Single short compact pointillist dab, variation 1: soft fan bristle spread. EXACT square 512x512 grayscale PNG requested. Pure black background, the single brush mark is white with midgray dimensional ridges from thick paint. Detailed natural hog-bristle grooves, irregular organic broken edges, no artificial noise. Centered fully inside frame with 12% black margins. Orthographic front surface, flat alpha stamp, NO perspective, NO actual brush or tools, NO text, NO watermark, NO grid, NO multiple samples, NO colored pixels, NO drop shadow. Generated imitation, not photographic provenance.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/brushes/short_dab_1.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-bbcdb47d-8bc0-493a-9bb7-0c4cccbccf9a.png",
+      "Width": 1254,
+      "Height": 1254,
+      "Bytes": 1690385,
+      "status": "candidate-unverified"
+    },
+    {
+      "id": "brushes/short_dab_3",
+      "prompt": "Generate one production oil paint brush alpha texture. Single short compact pointillist dab, variation 3: sparse irregular bristle tips. EXACT square 512x512 grayscale PNG requested. Pure black background, the single brush mark is white with midgray dimensional ridges from thick paint. Detailed natural hog-bristle grooves, irregular organic broken edges, no artificial noise. Centered fully inside frame with 12% black margins. Orthographic front surface, flat alpha stamp, NO perspective, NO actual brush or tools, NO text, NO watermark, NO grid, NO multiple samples, NO colored pixels, NO drop shadow. Generated imitation, not photographic provenance.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/brushes/short_dab_3.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-4a1cee6a-5aae-4978-9dcd-0c8c3adbfe98.png",
+      "Width": 1254,
+      "Height": 1254,
+      "Bytes": 1726893,
+      "status": "candidate-unverified"
+    },
+    {
+      "id": "regatta/panorama",
+      "refs": [
+        "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/source/regatta_pano_template.jpg"
+      ],
+      "prompt": "Use case stylized-concept. Transform the supplied strict spherical-layout template into a complete Claude Monet Regatta at Argenteuil oil painting immersive panorama. Single 2:1 equirectangular image 360x180, requested 8192x4096 or highest supported actual output. Center vertical is forward, horizon y=50%, eye height 1.6m. Reference painted patch stays small in the exact center: white sails to the left of forward (longitudes -28 to -3 degrees), red-roof houses and tall trees to the right (+5 to +28 degrees). Keep the source painting composition and angular scale; do not enlarge into a regular landscape. Paint all gray outside regions seamlessly in the same luminous impressionist oil brushwork: further small distant sails, wooded riverbanks and scattered period houses around 360 degrees. Entire upper hemisphere open pale blue cloudy sky with spherical pole stretching. Entire lower hemisphere river reflections and near-bank grass at feet, visible crisp textured strokes, no blur. Main white sails and warm red house contrast, secondary clear reflected sails. Rear and side compositions rich but subordinate. Seamless left/right rear boundary, realistic zenith/nadir polar distortion. Remove all grid, yellow labels, horizon red line, gray template and signature/text. No watermark, no frames, no collage, no modern objects. Cool fresh luminous greens, blue river, warm offwhite sails, red ochre roof accents. All around detail of equal quality.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/panorama.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-59a5393c-d4a6-436d-ab3a-cc4e53752acb.png",
+      "Width": 1774,
+      "Height": 887,
+      "Bytes": 3330448,
+      "status": "candidate-unverified"
+    },
+    {
+      "id": "brushes/short_dab_2",
+      "prompt": "Generate one production oil paint brush alpha texture. Single short compact pointillist dab, variation 2: firmer loaded impasto. EXACT square 512x512 grayscale PNG requested. Pure black background, the single brush mark is white with midgray dimensional ridges from thick paint. Detailed natural hog-bristle grooves, irregular organic broken edges, no artificial noise. Centered fully inside frame with 12% black margins. Orthographic front surface, flat alpha stamp, NO perspective, NO actual brush or tools, NO text, NO watermark, NO grid, NO multiple samples, NO colored pixels, NO drop shadow. Generated imitation, not photographic provenance.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/brushes/short_dab_2.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-cbbcca37-ea60-4c7d-af0c-2cd33e7f20a2.png",
+      "Width": 1254,
+      "Height": 1254,
+      "Bytes": 1699828,
+      "status": "candidate-unverified"
+    },
+    {
+      "id": "brushes/horizontal_drag_1",
+      "prompt": "Generate one production oil paint brush alpha texture. Single long horizontal dragged stroke for sky and water, variation 1: soft fan bristle spread. EXACT square 512x512 grayscale PNG requested. Pure black background, the single brush mark is white with midgray dimensional ridges from thick paint. Detailed natural hog-bristle grooves, irregular organic broken edges, no artificial noise. Centered fully inside frame with 12% black margins. Orthographic front surface, flat alpha stamp, NO perspective, NO actual brush or tools, NO text, NO watermark, NO grid, NO multiple samples, NO colored pixels, NO drop shadow. Generated imitation, not photographic provenance.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/brushes/horizontal_drag_1.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-78171c39-d97c-4d99-a26a-af5fd8df19c0.png",
+      "Width": 1254,
+      "Height": 1254,
+      "Bytes": 1250101,
+      "status": "candidate-unverified"
+    },
+    {
+      "id": "brushes/horizontal_drag_2",
+      "prompt": "Generate one production oil paint brush alpha texture. Single long horizontal dragged stroke for sky and water, variation 2: firmer loaded impasto. EXACT square 512x512 grayscale PNG requested. Pure black background, the single brush mark is white with midgray dimensional ridges from thick paint. Detailed natural hog-bristle grooves, irregular organic broken edges, no artificial noise. Centered fully inside frame with 12% black margins. Orthographic front surface, flat alpha stamp, NO perspective, NO actual brush or tools, NO text, NO watermark, NO grid, NO multiple samples, NO colored pixels, NO drop shadow. Generated imitation, not photographic provenance.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/brushes/horizontal_drag_2.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-0752c07f-e292-4e6f-bd5f-1926cad2bba4.png",
+      "Width": 1254,
+      "Height": 1254,
+      "Bytes": 1131572,
+      "status": "candidate-unverified"
+    },
+    {
+      "id": "brushes/horizontal_drag_3",
+      "prompt": "Generate one production oil paint brush alpha texture. Single long horizontal dragged stroke for sky and water, variation 3: sparse irregular bristle tips. EXACT square 512x512 grayscale PNG requested. Pure black background, the single brush mark is white with midgray dimensional ridges from thick paint. Detailed natural hog-bristle grooves, irregular organic broken edges, no artificial noise. Centered fully inside frame with 12% black margins. Orthographic front surface, flat alpha stamp, NO perspective, NO actual brush or tools, NO text, NO watermark, NO grid, NO multiple samples, NO colored pixels, NO drop shadow. Generated imitation, not photographic provenance.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/brushes/horizontal_drag_3.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-501d393e-757b-4f13-a2ab-1fcaddf4f9bb.png",
+      "Width": 1254,
+      "Height": 1254,
+      "Bytes": 998837,
+      "status": "candidate-unverified"
+    },
+    {
+      "id": "brushes/vertical_trail_1",
+      "prompt": "Generate one production oil paint brush alpha texture. Single slender vertical hanging willow stroke, variation 1: soft fan bristle spread. EXACT square 512x512 grayscale PNG requested. Pure black background, the single brush mark is white with midgray dimensional ridges from thick paint. Detailed natural hog-bristle grooves, irregular organic broken edges, no artificial noise. Centered fully inside frame with 12% black margins. Orthographic front surface, flat alpha stamp, NO perspective, NO actual brush or tools, NO text, NO watermark, NO grid, NO multiple samples, NO colored pixels, NO drop shadow. Generated imitation, not photographic provenance.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/brushes/vertical_trail_1.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-bc687e75-9661-4bbb-9931-8c2e926ece12.png",
+      "Width": 1254,
+      "Height": 1254,
+      "Bytes": 875314,
+      "status": "candidate-unverified"
+    },
+    {
+      "id": "brushes/vertical_trail_2",
+      "prompt": "Generate one production oil paint brush alpha texture. Single slender vertical hanging willow stroke, variation 2: firmer loaded impasto. EXACT square 512x512 grayscale PNG requested. Pure black background, the single brush mark is white with midgray dimensional ridges from thick paint. Detailed natural hog-bristle grooves, irregular organic broken edges, no artificial noise. Centered fully inside frame with 12% black margins. Orthographic front surface, flat alpha stamp, NO perspective, NO actual brush or tools, NO text, NO watermark, NO grid, NO multiple samples, NO colored pixels, NO drop shadow. Generated imitation, not photographic provenance.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/brushes/vertical_trail_2.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-cdd03531-45e6-4918-bd3b-4bfd698be42c.png",
+      "Width": 1254,
+      "Height": 1254,
+      "Bytes": 887006,
+      "status": "candidate-unverified"
+    },
+    {
+      "id": "brushes/vertical_trail_3",
+      "prompt": "Generate one production oil paint brush alpha texture. Single slender vertical hanging willow stroke, variation 3: sparse irregular bristle tips. EXACT square 512x512 grayscale PNG requested. Pure black background, the single brush mark is white with midgray dimensional ridges from thick paint. Detailed natural hog-bristle grooves, irregular organic broken edges, no artificial noise. Centered fully inside frame with 12% black margins. Orthographic front surface, flat alpha stamp, NO perspective, NO actual brush or tools, NO text, NO watermark, NO grid, NO multiple samples, NO colored pixels, NO drop shadow. Generated imitation, not photographic provenance.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/brushes/vertical_trail_3.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-c90d6ab1-b6b2-4713-b954-3b7d09fb6085.png",
+      "Width": 1254,
+      "Height": 1254,
+      "Bytes": 661376,
+      "status": "candidate-unverified"
+    },
+    {
+      "id": "brushes/wide_flat_1",
+      "prompt": "Generate one production oil paint brush alpha texture. Single broad flat bristle stroke for block-in, variation 1: soft fan bristle spread. EXACT square 512x512 grayscale PNG requested. Pure black background, the single brush mark is white with midgray dimensional ridges from thick paint. Detailed natural hog-bristle grooves, irregular organic broken edges, no artificial noise. Centered fully inside frame with 12% black margins. Orthographic front surface, flat alpha stamp, NO perspective, NO actual brush or tools, NO text, NO watermark, NO grid, NO multiple samples, NO colored pixels, NO drop shadow. Generated imitation, not photographic provenance.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/brushes/wide_flat_1.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-0c852029-4f12-4865-a0cf-11f60b321ecf.png",
+      "Width": 1254,
+      "Height": 1254,
+      "Bytes": 2207620,
+      "status": "candidate-unverified"
+    },
+    {
+      "id": "brushes/wide_flat_3",
+      "prompt": "Generate one production oil paint brush alpha texture. Single broad flat bristle stroke for block-in, variation 3: sparse irregular bristle tips. EXACT square 512x512 grayscale PNG requested. Pure black background, the single brush mark is white with midgray dimensional ridges from thick paint. Detailed natural hog-bristle grooves, irregular organic broken edges, no artificial noise. Centered fully inside frame with 12% black margins. Orthographic front surface, flat alpha stamp, NO perspective, NO actual brush or tools, NO text, NO watermark, NO grid, NO multiple samples, NO colored pixels, NO drop shadow. Generated imitation, not photographic provenance.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/brushes/wide_flat_3.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-32408a22-b697-48bb-bdac-d3cc5f3c7f27.png",
+      "Width": 1254,
+      "Height": 1254,
+      "Bytes": 1873094,
+      "status": "candidate-unverified"
+    },
+    {
+      "id": "brushes/wide_flat_2",
+      "prompt": "Generate one production oil paint brush alpha texture. Single broad flat bristle stroke for block-in, variation 2: firmer loaded impasto. EXACT square 512x512 grayscale PNG requested. Pure black background, the single brush mark is white with midgray dimensional ridges from thick paint. Detailed natural hog-bristle grooves, irregular organic broken edges, no artificial noise. Centered fully inside frame with 12% black margins. Orthographic front surface, flat alpha stamp, NO perspective, NO actual brush or tools, NO text, NO watermark, NO grid, NO multiple samples, NO colored pixels, NO drop shadow. Generated imitation, not photographic provenance.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/brushes/wide_flat_2.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-c8bc3022-e017-49e4-a473-c9a62a65a314.png",
+      "Width": 1254,
+      "Height": 1254,
+      "Bytes": 1676671,
+      "status": "candidate-unverified"
+    },
+    {
+      "id": "brushes/dry_bristle_1",
+      "prompt": "Generate one production oil paint brush alpha texture. Single broken drybrush scumble with generous black gaps, variation 1: soft fan bristle spread. EXACT square 512x512 grayscale PNG requested. Pure black background, the single brush mark is white with midgray dimensional ridges from thick paint. Detailed natural hog-bristle grooves, irregular organic broken edges, no artificial noise. Centered fully inside frame with 12% black margins. Orthographic front surface, flat alpha stamp, NO perspective, NO actual brush or tools, NO text, NO watermark, NO grid, NO multiple samples, NO colored pixels, NO drop shadow. Generated imitation, not photographic provenance.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/brushes/dry_bristle_1.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-91bb4c68-aae3-44e9-9425-cf18995ad857.png",
+      "Width": 1254,
+      "Height": 1254,
+      "Bytes": 2313798,
+      "status": "candidate-unverified"
+    },
+    {
+      "id": "brushes/dry_bristle_2",
+      "prompt": "Generate one production oil paint brush alpha texture. Single broken drybrush scumble with generous black gaps, variation 2: firmer loaded impasto. EXACT square 512x512 grayscale PNG requested. Pure black background, the single brush mark is white with midgray dimensional ridges from thick paint. Detailed natural hog-bristle grooves, irregular organic broken edges, no artificial noise. Centered fully inside frame with 12% black margins. Orthographic front surface, flat alpha stamp, NO perspective, NO actual brush or tools, NO text, NO watermark, NO grid, NO multiple samples, NO colored pixels, NO drop shadow. Generated imitation, not photographic provenance.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/brushes/dry_bristle_2.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-2acec965-07d3-4f09-9d8a-d131fcaa960b.png",
+      "Width": 1254,
+      "Height": 1254,
+      "Bytes": 2357203,
+      "status": "candidate-unverified"
+    },
+    {
+      "id": "brushes/dry_bristle_3",
+      "prompt": "Generate one production oil paint brush alpha texture. Single broken drybrush scumble with generous black gaps, variation 3: sparse irregular bristle tips. EXACT square 512x512 grayscale PNG requested. Pure black background, the single brush mark is white with midgray dimensional ridges from thick paint. Detailed natural hog-bristle grooves, irregular organic broken edges, no artificial noise. Centered fully inside frame with 12% black margins. Orthographic front surface, flat alpha stamp, NO perspective, NO actual brush or tools, NO text, NO watermark, NO grid, NO multiple samples, NO colored pixels, NO drop shadow. Generated imitation, not photographic provenance.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/brushes/dry_bristle_3.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-04bdcbdb-75a9-4111-a0dc-745f32f57e5c.png",
+      "Width": 1254,
+      "Height": 1254,
+      "Bytes": 2044054,
+      "status": "candidate-unverified"
+    },
+    {
+      "id": "bridge/masks/far_willows",
+      "refs": [
+        "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/bridge/panorama.png"
+      ],
+      "prompt": "Use case precise-object-edit. Make ONE pixel-aligned semantic binary mask of the reference panorama. Target element: 远处柳树与远处树丛，排除近处高大树冠和近岸植物. Keep EXACT original panorama camera, framing, projection, dimensions and every contour location. Requested output 1774x887, same 2:1 aspect. Paint all visible target pixels pure white and absolutely every other pixel pure black. At occlusions only visible portions belong to target; do not invent hidden geometry. Preserve tiny thin details and silhouette holes. Only a narrow antialiased transition is permitted, no shading, no texture, no color, no new objects, no labels or legend. This is a flat full-frame technical segmentation map, NOT a grayscale rendering of the painting. Do not move, enlarge, recenter or redraw the target. Solid binary silhouettes on black.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/bridge/masks/far_willows.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-b8a097c4-9b4b-418d-99ad-6b301d9ccc0a.png",
+      "Width": 1774,
+      "Height": 887,
+      "Bytes": 907135,
+      "status": "candidate-unverified"
+    },
+    {
+      "id": "bridge/masks/flowers",
+      "refs": [
+        "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/bridge/panorama.png"
+      ],
+      "prompt": "Use case precise-object-edit. Make ONE pixel-aligned semantic binary mask of the reference panorama. Target element: 两岸可见的花丛和花朵，排除水中睡莲花. Keep EXACT original panorama camera, framing, projection, dimensions and every contour location. Requested output 1774x887, same 2:1 aspect. Paint all visible target pixels pure white and absolutely every other pixel pure black. At occlusions only visible portions belong to target; do not invent hidden geometry. Preserve tiny thin details and silhouette holes. Only a narrow antialiased transition is permitted, no shading, no texture, no color, no new objects, no labels or legend. This is a flat full-frame technical segmentation map, NOT a grayscale rendering of the painting. Do not move, enlarge, recenter or redraw the target. Solid binary silhouettes on black.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/bridge/masks/flowers.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-ddc7cdd9-529d-4101-8378-c644ccd5bfa7.png",
+      "Width": 1773,
+      "Height": 887,
+      "Bytes": 1583676,
+      "status": "candidate-unverified"
+    },
+    {
+      "id": "bridge/masks/sky",
+      "refs": [
+        "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/bridge/panorama.png"
+      ],
+      "prompt": "Use case precise-object-edit. Make ONE pixel-aligned semantic binary mask of the reference panorama. Target element: 天空及可见云，树冠空隙内的天空，不包含树叶. Keep EXACT original panorama camera, framing, projection, dimensions and every contour location. Requested output 1774x887, same 2:1 aspect. Paint all visible target pixels pure white and absolutely every other pixel pure black. At occlusions only visible portions belong to target; do not invent hidden geometry. Preserve tiny thin details and silhouette holes. Only a narrow antialiased transition is permitted, no shading, no texture, no color, no new objects, no labels or legend. This is a flat full-frame technical segmentation map, NOT a grayscale rendering of the painting. Do not move, enlarge, recenter or redraw the target. Solid binary silhouettes on black.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/bridge/masks/sky.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-f91beac5-ba7a-484a-a9fd-91d7323315bd.png",
+      "Width": 1774,
+      "Height": 887,
+      "Bytes": 860711,
+      "status": "candidate-unverified"
+    },
+    {
+      "id": "bridge/masks/water_base",
+      "refs": [
+        "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/bridge/panorama.png"
+      ],
+      "prompt": "Use case precise-object-edit. Make ONE pixel-aligned semantic binary mask of the reference panorama. Target element: 可见水面底色，排除睡莲叶、花以及明显倒影. Keep EXACT original panorama camera, framing, projection, dimensions and every contour location. Requested output 1774x887, same 2:1 aspect. Paint all visible target pixels pure white and absolutely every other pixel pure black. At occlusions only visible portions belong to target; do not invent hidden geometry. Preserve tiny thin details and silhouette holes. Only a narrow antialiased transition is permitted, no shading, no texture, no color, no new objects, no labels or legend. This is a flat full-frame technical segmentation map, NOT a grayscale rendering of the painting. Do not move, enlarge, recenter or redraw the target. Solid binary silhouettes on black.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/bridge/masks/water_base.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-7f6c763d-5c06-4b61-8f47-211f2cc66a2d.png",
+      "Width": 1774,
+      "Height": 887,
+      "Bytes": 995490,
+      "status": "candidate-unverified"
+    },
+    {
+      "id": "bridge/masks/near_bushes",
+      "refs": [
+        "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/bridge/panorama.png"
+      ],
+      "prompt": "Use case precise-object-edit. Make ONE pixel-aligned semantic binary mask of the reference panorama. Target element: 近处树丛和近处树冠枝叶，排除花朵和草地. Keep EXACT original panorama camera, framing, projection, dimensions and every contour location. Requested output 1774x887, same 2:1 aspect. Paint all visible target pixels pure white and absolutely every other pixel pure black. At occlusions only visible portions belong to target; do not invent hidden geometry. Preserve tiny thin details and silhouette holes. Only a narrow antialiased transition is permitted, no shading, no texture, no color, no new objects, no labels or legend. This is a flat full-frame technical segmentation map, NOT a grayscale rendering of the painting. Do not move, enlarge, recenter or redraw the target. Solid binary silhouettes on black.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/bridge/masks/near_bushes.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-37efb0da-7456-48f3-adc9-9ad9dd71440d.png",
+      "Width": 1774,
+      "Height": 887,
+      "Bytes": 1519078,
+      "status": "candidate-unverified"
+    },
+    {
+      "id": "bridge/masks/bridge",
+      "refs": [
+        "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/bridge/panorama.png"
+      ],
+      "prompt": "Use case precise-object-edit. Make ONE pixel-aligned semantic binary mask of the reference panorama. Target element: 唯一的绿色拱桥，包括桥面、栏杆与立柱，栏杆空隙为黑. Keep EXACT original panorama camera, framing, projection, dimensions and every contour location. Requested output 1774x887, same 2:1 aspect. Paint all visible target pixels pure white and absolutely every other pixel pure black. At occlusions only visible portions belong to target; do not invent hidden geometry. Preserve tiny thin details and silhouette holes. Only a narrow antialiased transition is permitted, no shading, no texture, no color, no new objects, no labels or legend. This is a flat full-frame technical segmentation map, NOT a grayscale rendering of the painting. Do not move, enlarge, recenter or redraw the target. Solid binary silhouettes on black.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/bridge/masks/bridge.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-2ded3987-9885-4e8e-80c8-531908e276b7.png",
+      "Width": 1774,
+      "Height": 887,
+      "Bytes": 284538,
+      "status": "candidate-unverified"
+    },
+    {
+      "id": "bridge/masks/lily_leaves",
+      "refs": [
+        "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/bridge/panorama.png"
+      ],
+      "prompt": "Use case precise-object-edit. Make ONE pixel-aligned semantic binary mask of the reference panorama. Target element: 所有可见的睡莲叶，不包含花瓣、水面及倒影. Keep EXACT original panorama camera, framing, projection, dimensions and every contour location. Requested output 1774x887, same 2:1 aspect. Paint all visible target pixels pure white and absolutely every other pixel pure black. At occlusions only visible portions belong to target; do not invent hidden geometry. Preserve tiny thin details and silhouette holes. Only a narrow antialiased transition is permitted, no shading, no texture, no color, no new objects, no labels or legend. This is a flat full-frame technical segmentation map, NOT a grayscale rendering of the painting. Do not move, enlarge, recenter or redraw the target. Solid binary silhouettes on black.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/bridge/masks/lily_leaves.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-435b8243-bf1f-4400-bfad-e24a50b81911.png",
+      "Width": 1774,
+      "Height": 887,
+      "Bytes": 885562,
+      "status": "candidate-unverified"
+    },
+    {
+      "id": "bridge/masks/lily_blossoms",
+      "refs": [
+        "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/bridge/panorama.png"
+      ],
+      "prompt": "Use case precise-object-edit. Make ONE pixel-aligned semantic binary mask of the reference panorama. Target element: 所有水面睡莲花瓣和花心，不包含叶子和岸上花丛. Keep EXACT original panorama camera, framing, projection, dimensions and every contour location. Requested output 1774x887, same 2:1 aspect. Paint all visible target pixels pure white and absolutely every other pixel pure black. At occlusions only visible portions belong to target; do not invent hidden geometry. Preserve tiny thin details and silhouette holes. Only a narrow antialiased transition is permitted, no shading, no texture, no color, no new objects, no labels or legend. This is a flat full-frame technical segmentation map, NOT a grayscale rendering of the painting. Do not move, enlarge, recenter or redraw the target. Solid binary silhouettes on black.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/bridge/masks/lily_blossoms.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-ead28c7a-d670-4d17-9815-5ceb715bcb9f.png",
+      "Width": 1774,
+      "Height": 887,
+      "Bytes": 533347,
+      "status": "candidate-unverified"
+    },
+    {
+      "id": "bridge/masks/ground_grass",
+      "refs": [
+        "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/bridge/panorama.png"
+      ],
+      "prompt": "Use case precise-object-edit. Make ONE pixel-aligned semantic binary mask of the reference panorama. Target element: 脚下和近岸的草地、草叶与土壤，排除水面. Keep EXACT original panorama camera, framing, projection, dimensions and every contour location. Requested output 1774x887, same 2:1 aspect. Paint all visible target pixels pure white and absolutely every other pixel pure black. At occlusions only visible portions belong to target; do not invent hidden geometry. Preserve tiny thin details and silhouette holes. Only a narrow antialiased transition is permitted, no shading, no texture, no color, no new objects, no labels or legend. This is a flat full-frame technical segmentation map, NOT a grayscale rendering of the painting. Do not move, enlarge, recenter or redraw the target. Solid binary silhouettes on black.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/bridge/masks/ground_grass.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-3eea5bcb-875e-4849-a288-3f5cf98664d2.png",
+      "Width": 1774,
+      "Height": 887,
+      "Bytes": 995058,
+      "status": "candidate-unverified"
+    },
+    {
+      "id": "bridge/saliency",
+      "refs": [
+        "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/bridge/panorama.png"
+      ],
+      "prompt": "Generate ONE aligned grayscale artistic saliency/focus priority control map for the supplied panorama. SAME exact 2:1 full frame and camera, requested 1774x887. 绿色拱桥和桥下亮水面为255白色主焦点；左右花丛、后方左右接缝附近各一小片草花为128灰次焦点；其余为32暗灰，天空为0. Use flat clean regions with at least three clearly distinct grayscale levels, narrow smooth transitions along contours. Do not render brush texture or object lighting. No outlines or text. White=primary in-focus priority, middle gray=secondary, black=defocused background. Preserve object locations and sizes EXACTLY.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/bridge/saliency.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-7a05004c-ff35-419d-b493-4cebc0300e15.png",
+      "Width": 1774,
+      "Height": 887,
+      "Bytes": 1868250,
+      "status": "candidate-unverified"
+    },
+    {
+      "id": "bridge/masks/reflections",
+      "refs": [
+        "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/bridge/panorama.png"
+      ],
+      "prompt": "Use case precise-object-edit. Make ONE pixel-aligned semantic binary mask of the reference panorama. Target element: 水面可见的树木、桥和花丛倒影，排除睡莲和一般水面底色. Keep EXACT original panorama camera, framing, projection, dimensions and every contour location. Requested output 1774x887, same 2:1 aspect. Paint all visible target pixels pure white and absolutely every other pixel pure black. At occlusions only visible portions belong to target; do not invent hidden geometry. Preserve tiny thin details and silhouette holes. Only a narrow antialiased transition is permitted, no shading, no texture, no color, no new objects, no labels or legend. This is a flat full-frame technical segmentation map, NOT a grayscale rendering of the painting. Do not move, enlarge, recenter or redraw the target. Solid binary silhouettes on black.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/bridge/masks/reflections.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-699790ca-515b-4e79-b002-64bae6281a2b.png",
+      "Width": 1774,
+      "Height": 887,
+      "Bytes": 1379671,
+      "status": "candidate-unverified"
+    },
+    {
+      "id": "bridge/focusability",
+      "refs": [
+        "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/bridge/panorama.png"
+      ],
+      "prompt": "Generate ONE precisely aligned grayscale gaze focusability control mask for supplied full 2:1 panorama, requested 1774x887. White=objects that may become sharp when gazed at: bridge, near bank flowers and grass, nearby lily leaves and blossoms. Mid gray=intermediate-distance vegetation and intermediate water texture. Black=sky, far shoreline/far foliage, far open water that must stay soft even under gaze. Preserve full frame and all positions exactly; clean broad semantic regions, no painted brush shading, no labels, no color. This is NOT saliency or depth: distinguish focusable close details from permanently soft distant areas.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/bridge/focusability.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-53d414ee-7fb7-417e-a4e4-6016131e7e4c.png",
+      "Width": 1774,
+      "Height": 887,
+      "Bytes": 1778227,
+      "status": "candidate-unverified"
+    },
+    {
+      "id": "bridge/value_blocks",
+      "refs": [
+        "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/bridge/panorama.png"
+      ],
+      "prompt": "Make ONE aligned 2:1 full-frame tonal block-in study of the supplied panorama, requested 1774x887. Reduce actual painted illumination into EXACTLY FIVE flat grayscale values 0,64,128,192,255, meaningful connected broad masses. Preserve original silhouette and composition, bridge and bright water readable. Simplify away all tiny brush texture and fine details. This is a three-to-five-value composition study for defocused rendering, NOT a depth map or saliency map. No text, grid, labels or outlines. Original exact framing unchanged.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/bridge/value_blocks.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-bc6326d3-5e81-4516-9b5c-85a6043e3916.png",
+      "Width": 1774,
+      "Height": 887,
+      "Bytes": 2191786,
+      "status": "candidate-unverified"
+    },
+    {
+      "id": "regatta/masks/far_bank",
+      "refs": [
+        "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/panorama.png"
+      ],
+      "prompt": "Use case precise-object-edit. Make ONE pixel-aligned semantic binary mask of the reference panorama. Target element: 远岸地形、低矮远景植被，排除独立树木、房屋和天空. Keep EXACT original panorama camera, framing, projection, dimensions and every contour location. Requested output 1774x887, same 2:1 aspect. Paint all visible target pixels pure white and absolutely every other pixel pure black. At occlusions only visible portions belong to target; do not invent hidden geometry. Preserve tiny thin details and silhouette holes. Only a narrow antialiased transition is permitted, no shading, no texture, no color, no new objects, no labels or legend. This is a flat full-frame technical segmentation map, NOT a grayscale rendering of the painting. Do not move, enlarge, recenter or redraw the target. Solid binary silhouettes on black.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/masks/far_bank.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-a30f5743-5eaf-498f-8875-6f5be0a90feb.png",
+      "Width": 1774,
+      "Height": 887,
+      "Bytes": 370059,
+      "status": "candidate-unverified"
+    },
+    {
+      "id": "regatta/masks/sky",
+      "refs": [
+        "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/panorama.png"
+      ],
+      "prompt": "Use case precise-object-edit. Make ONE pixel-aligned semantic binary mask of the reference panorama. Target element: 天空与云，排除帆、旗和树. Keep EXACT original panorama camera, framing, projection, dimensions and every contour location. Requested output 1774x887, same 2:1 aspect. Paint all visible target pixels pure white and absolutely every other pixel pure black. At occlusions only visible portions belong to target; do not invent hidden geometry. Preserve tiny thin details and silhouette holes. Only a narrow antialiased transition is permitted, no shading, no texture, no color, no new objects, no labels or legend. This is a flat full-frame technical segmentation map, NOT a grayscale rendering of the painting. Do not move, enlarge, recenter or redraw the target. Solid binary silhouettes on black.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/masks/sky.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-eeb2070d-0274-49e6-840b-8b6f7e603e79.png",
+      "Width": 1774,
+      "Height": 887,
+      "Bytes": 656948,
+      "status": "candidate-unverified"
+    },
+    {
+      "id": "regatta/masks/near_grass",
+      "refs": [
+        "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/panorama.png"
+      ],
+      "prompt": "Use case precise-object-edit. Make ONE pixel-aligned semantic binary mask of the reference panorama. Target element: 近岸和脚下草地及土壤. Keep EXACT original panorama camera, framing, projection, dimensions and every contour location. Requested output 1774x887, same 2:1 aspect. Paint all visible target pixels pure white and absolutely every other pixel pure black. At occlusions only visible portions belong to target; do not invent hidden geometry. Preserve tiny thin details and silhouette holes. Only a narrow antialiased transition is permitted, no shading, no texture, no color, no new objects, no labels or legend. This is a flat full-frame technical segmentation map, NOT a grayscale rendering of the painting. Do not move, enlarge, recenter or redraw the target. Solid binary silhouettes on black.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/masks/near_grass.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-c0723b73-8ea9-4ef3-a45c-aa2c96a5d23e.png",
+      "Width": 1774,
+      "Height": 887,
+      "Bytes": 592857,
+      "status": "candidate-unverified"
+    },
+    {
+      "id": "regatta/masks/trees",
+      "refs": [
+        "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/panorama.png"
+      ],
+      "prompt": "Use case precise-object-edit. Make ONE pixel-aligned semantic binary mask of the reference panorama. Target element: 全部树木枝干和树叶，树叶间天空孔隙为黑. Keep EXACT original panorama camera, framing, projection, dimensions and every contour location. Requested output 1774x887, same 2:1 aspect. Paint all visible target pixels pure white and absolutely every other pixel pure black. At occlusions only visible portions belong to target; do not invent hidden geometry. Preserve tiny thin details and silhouette holes. Only a narrow antialiased transition is permitted, no shading, no texture, no color, no new objects, no labels or legend. This is a flat full-frame technical segmentation map, NOT a grayscale rendering of the painting. Do not move, enlarge, recenter or redraw the target. Solid binary silhouettes on black.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/masks/trees.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-7f5cb825-d0d8-4be9-8a13-771359f11e2d.png",
+      "Width": 1774,
+      "Height": 887,
+      "Bytes": 1258988,
+      "status": "candidate-unverified"
+    },
+    {
+      "id": "regatta/masks/houses",
+      "refs": [
+        "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/panorama.png"
+      ],
+      "prompt": "Use case precise-object-edit. Make ONE pixel-aligned semantic binary mask of the reference panorama. Target element: 所有可见房屋的墙、屋顶、门窗，排除树木与倒影. Keep EXACT original panorama camera, framing, projection, dimensions and every contour location. Requested output 1774x887, same 2:1 aspect. Paint all visible target pixels pure white and absolutely every other pixel pure black. At occlusions only visible portions belong to target; do not invent hidden geometry. Preserve tiny thin details and silhouette holes. Only a narrow antialiased transition is permitted, no shading, no texture, no color, no new objects, no labels or legend. This is a flat full-frame technical segmentation map, NOT a grayscale rendering of the painting. Do not move, enlarge, recenter or redraw the target. Solid binary silhouettes on black.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/masks/houses.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-46bf8cdb-5f93-4971-a58d-7883ae11765d.png",
+      "Width": 1774,
+      "Height": 887,
+      "Bytes": 393761,
+      "status": "candidate-unverified"
+    },
+    {
+      "id": "regatta/masks/boat_hulls",
+      "refs": [
+        "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/panorama.png"
+      ],
+      "prompt": "Use case precise-object-edit. Make ONE pixel-aligned semantic binary mask of the reference panorama. Target element: 帆船船身与桅杆，排除白帆帆布与倒影. Keep EXACT original panorama camera, framing, projection, dimensions and every contour location. Requested output 1774x887, same 2:1 aspect. Paint all visible target pixels pure white and absolutely every other pixel pure black. At occlusions only visible portions belong to target; do not invent hidden geometry. Preserve tiny thin details and silhouette holes. Only a narrow antialiased transition is permitted, no shading, no texture, no color, no new objects, no labels or legend. This is a flat full-frame technical segmentation map, NOT a grayscale rendering of the painting. Do not move, enlarge, recenter or redraw the target. Solid binary silhouettes on black.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/masks/boat_hulls.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-3cfa84ab-7f32-4be4-abcd-4dd4a9581048.png",
+      "Width": 1774,
+      "Height": 887,
+      "Bytes": 377094,
+      "status": "candidate-unverified"
+    },
+    {
+      "id": "regatta/masks/white_sails",
+      "refs": [
+        "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/panorama.png"
+      ],
+      "prompt": "Use case precise-object-edit. Make ONE pixel-aligned semantic binary mask of the reference panorama. Target element: 所有白帆的帆布，排除桅杆船身与倒影. Keep EXACT original panorama camera, framing, projection, dimensions and every contour location. Requested output 1774x887, same 2:1 aspect. Paint all visible target pixels pure white and absolutely every other pixel pure black. At occlusions only visible portions belong to target; do not invent hidden geometry. Preserve tiny thin details and silhouette holes. Only a narrow antialiased transition is permitted, no shading, no texture, no color, no new objects, no labels or legend. This is a flat full-frame technical segmentation map, NOT a grayscale rendering of the painting. Do not move, enlarge, recenter or redraw the target. Solid binary silhouettes on black.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/masks/white_sails.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-563a65db-f9ea-4757-af7d-d316b220a24d.png",
+      "Width": 1774,
+      "Height": 887,
+      "Bytes": 315099,
+      "status": "candidate-unverified"
+    },
+    {
+      "id": "regatta/masks/water_base",
+      "refs": [
+        "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/panorama.png"
+      ],
+      "prompt": "Use case precise-object-edit. Make ONE pixel-aligned semantic binary mask of the reference panorama. Target element: 可见水面底色，排除帆的倒影、岸的倒影和船只. Keep EXACT original panorama camera, framing, projection, dimensions and every contour location. Requested output 1774x887, same 2:1 aspect. Paint all visible target pixels pure white and absolutely every other pixel pure black. At occlusions only visible portions belong to target; do not invent hidden geometry. Preserve tiny thin details and silhouette holes. Only a narrow antialiased transition is permitted, no shading, no texture, no color, no new objects, no labels or legend. This is a flat full-frame technical segmentation map, NOT a grayscale rendering of the painting. Do not move, enlarge, recenter or redraw the target. Solid binary silhouettes on black.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/masks/water_base.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-2fda2935-e624-45ba-ab18-fa026d7bc13a.png",
+      "Width": 1774,
+      "Height": 887,
+      "Bytes": 1040302,
+      "status": "candidate-unverified"
+    },
+    {
+      "id": "regatta/masks/bank_reflections",
+      "refs": [
+        "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/panorama.png"
+      ],
+      "prompt": "Use case precise-object-edit. Make ONE pixel-aligned semantic binary mask of the reference panorama. Target element: 水面岸线、树木和房屋的倒影，排除帆影与实际岸线. Keep EXACT original panorama camera, framing, projection, dimensions and every contour location. Requested output 1774x887, same 2:1 aspect. Paint all visible target pixels pure white and absolutely every other pixel pure black. At occlusions only visible portions belong to target; do not invent hidden geometry. Preserve tiny thin details and silhouette holes. Only a narrow antialiased transition is permitted, no shading, no texture, no color, no new objects, no labels or legend. This is a flat full-frame technical segmentation map, NOT a grayscale rendering of the painting. Do not move, enlarge, recenter or redraw the target. Solid binary silhouettes on black.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/masks/bank_reflections.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-9cba3888-8211-490e-97b6-b9ef2de2bcfb.png",
+      "Width": 1774,
+      "Height": 887,
+      "Bytes": 859645,
+      "status": "candidate-unverified"
+    },
+    {
+      "id": "regatta/masks/sail_reflections",
+      "refs": [
+        "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/panorama.png"
+      ],
+      "prompt": "Use case precise-object-edit. Make ONE pixel-aligned semantic binary mask of the reference panorama. Target element: 所有水面的白帆与船只倒影，排除真实帆船与岸的倒影. Keep EXACT original panorama camera, framing, projection, dimensions and every contour location. Requested output 1774x887, same 2:1 aspect. Paint all visible target pixels pure white and absolutely every other pixel pure black. At occlusions only visible portions belong to target; do not invent hidden geometry. Preserve tiny thin details and silhouette holes. Only a narrow antialiased transition is permitted, no shading, no texture, no color, no new objects, no labels or legend. This is a flat full-frame technical segmentation map, NOT a grayscale rendering of the painting. Do not move, enlarge, recenter or redraw the target. Solid binary silhouettes on black.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/masks/sail_reflections.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-f59a9cc5-b543-4690-9c75-fb698911afb2.png",
+      "Width": 1774,
+      "Height": 887,
+      "Bytes": 539134,
+      "status": "candidate-unverified"
+    },
+    {
+      "id": "regatta/saliency",
+      "refs": [
+        "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/panorama.png"
+      ],
+      "prompt": "Generate ONE aligned grayscale artistic saliency/focus priority control map for the supplied panorama. SAME exact 2:1 full frame and camera, requested 1774x887. 正前方白帆和红房子为255白色主焦点，帆的倒影为180灰次焦点；侧后方的一两艘小帆与近岸花草为100灰，天空和远岸为0. Use flat clean regions with at least three clearly distinct grayscale levels, narrow smooth transitions along contours. Do not render brush texture or object lighting. No outlines or text. White=primary in-focus priority, middle gray=secondary, black=defocused background. Preserve object locations and sizes EXACTLY.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/saliency.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-4adaf248-9b9e-4998-8536-2496fb4568fe.png",
+      "Width": 1774,
+      "Height": 887,
+      "Bytes": 919136,
+      "status": "candidate-unverified"
+    },
+    {
+      "id": "regatta/value_blocks",
+      "refs": [
+        "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/panorama.png"
+      ],
+      "prompt": "Make ONE aligned 2:1 full-frame tonal block-in study of the supplied panorama, requested 1774x887. Reduce actual painted illumination into EXACTLY FIVE flat grayscale values 0,64,128,192,255, meaningful connected broad masses. Preserve original silhouette and composition, white sails and red house readable. Simplify away all tiny brush texture and fine details. This is a three-to-five-value composition study for defocused rendering, NOT a depth map or saliency map. No text, grid, labels or outlines. Original exact framing unchanged.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/value_blocks.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-ed311491-7e60-47ed-91e9-ef91f55dfa58.png",
+      "Width": 1774,
+      "Height": 887,
+      "Bytes": 1899138,
+      "status": "candidate-unverified"
+    },
+    {
+      "id": "regatta/focusability",
+      "refs": [
+        "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/panorama.png"
+      ],
+      "prompt": "Generate ONE precisely aligned grayscale gaze focusability control mask for supplied full 2:1 panorama, requested 1774x887. White=objects that may become sharp when gazed at: white sails, boat hulls, red houses, near grass, near trees and local sail reflections. Mid gray=intermediate-distance vegetation and intermediate water texture. Black=sky, far shoreline/far foliage, far open water that must stay soft even under gaze. Preserve full frame and all positions exactly; clean broad semantic regions, no painted brush shading, no labels, no color. This is NOT saliency or depth: distinguish focusable close details from permanently soft distant areas.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/focusability.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-546e28c5-f4e5-4106-9628-cef47483cfdc.png",
+      "Width": 1774,
+      "Height": 887,
+      "Bytes": 1409110,
+      "status": "candidate-unverified"
+    },
+    {
+      "scene": "bridge",
+      "name": "lily_bloom",
+      "subject": "one small pink water-lily CLOSED flower bud with its single oval green lily leaf viewed slightly from above",
+      "change": "Change ONLY closed pink bud to a fully OPEN pink water-lily blossom, same flower center, same leaf and canvas and camera, petals fit inside frame",
+      "uv": [
+        0.57,
+        0.71
+      ],
+      "size": [
+        0.035,
+        0.07
+      ],
+      "id": "bridge/easter_eggs/lily_bloom_idle",
+      "refs": [
+        "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/bridge/panorama.png"
+      ],
+      "transparent": true,
+      "prompt": "Use case background-extraction / stylized-concept. Create ONE isolated sprite asset matching the Monet oil painting brushwork and cool luminous palette of the provided panorama reference. Subject: one small pink water-lily CLOSED flower bud with its single oval green lily leaf viewed slightly from above. True transparent alpha background, single centered isolated subject with 20% clear margins, square 1024x1024 requested, at least 512px. Small elegant painterly detail meant to appear under eye gaze, NOT a whole scene. No checkerboard painted in, no labels, no text, no border, no matte, no shadow rectangle. Crisp natural brush edges, tiny impasto highlights, avoid photorealism or cartoon outlines.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/bridge/easter_eggs/lily_bloom_idle.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-a6e3a4ac-88b3-495c-91ef-b2844369b5c9.png",
+      "Width": 1254,
+      "Height": 1254,
+      "Bytes": 1747141,
+      "status": "candidate-unverified"
+    },
+    {
+      "scene": "regatta",
+      "name": "waterbird",
+      "subject": "one small white river bird floating in profile facing left, wings folded, no background, no water patch",
+      "change": "Change ONLY wings to slightly lifting wings ready to flap; keep bird body, feet, canvas, camera and center exactly in place",
+      "uv": [
+        0.69,
+        0.68
+      ],
+      "size": [
+        0.035,
+        0.05
+      ],
+      "id": "regatta/easter_eggs/waterbird_idle",
+      "refs": [
+        "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/panorama.png"
+      ],
+      "transparent": true,
+      "prompt": "Use case background-extraction / stylized-concept. Create ONE isolated sprite asset matching the Monet oil painting brushwork and cool luminous palette of the provided panorama reference. Subject: one small white river bird floating in profile facing left, wings folded, no background, no water patch. True transparent alpha background, single centered isolated subject with 20% clear margins, square 1024x1024 requested, at least 512px. Small elegant painterly detail meant to appear under eye gaze, NOT a whole scene. No checkerboard painted in, no labels, no text, no border, no matte, no shadow rectangle. Crisp natural brush edges, tiny impasto highlights, avoid photorealism or cartoon outlines.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/easter_eggs/waterbird_idle.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-b0dbc8fa-5f90-4468-848a-bcb3c7fb781b.png",
+      "Width": 1254,
+      "Height": 1254,
+      "Bytes": 1217388,
+      "status": "candidate-unverified"
+    },
+    {
+      "scene": "bridge",
+      "name": "dragonfly",
+      "subject": "a small delicate blue-green dragonfly perched on a short reed tip, wings resting diagonally, side three-quarter view",
+      "change": "Change ONLY wings to a slightly raised shimmering open pose, keep reed and body and camera and canvas exactly in place",
+      "uv": [
+        0.7,
+        0.72
+      ],
+      "size": [
+        0.025,
+        0.05
+      ],
+      "id": "bridge/easter_eggs/dragonfly_idle",
+      "refs": [
+        "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/bridge/panorama.png"
+      ],
+      "transparent": true,
+      "prompt": "Use case background-extraction / stylized-concept. Create ONE isolated sprite asset matching the Monet oil painting brushwork and cool luminous palette of the provided panorama reference. Subject: a small delicate blue-green dragonfly perched on a short reed tip, wings resting diagonally, side three-quarter view. True transparent alpha background, single centered isolated subject with 20% clear margins, square 1024x1024 requested, at least 512px. Small elegant painterly detail meant to appear under eye gaze, NOT a whole scene. No checkerboard painted in, no labels, no text, no border, no matte, no shadow rectangle. Crisp natural brush edges, tiny impasto highlights, avoid photorealism or cartoon outlines.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/bridge/easter_eggs/dragonfly_idle.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-1361fe13-9bbd-4d7f-b4a7-047c92cb9d5d.png",
+      "Width": 1254,
+      "Height": 1254,
+      "Bytes": 1207186,
+      "status": "candidate-unverified"
+    },
+    {
+      "scene": "bridge",
+      "name": "ripple",
+      "subject": "a small gentle elliptical pond ripple, one faint blue-silver oil-painted arc with a transparent center, top oblique view, no background water rectangle",
+      "change": "Change ONLY ripple arc to three slightly broader brighter concentric elliptical ripples around EXACT same center, same palette and camera, no water rectangle",
+      "uv": [
+        0.62,
+        0.62
+      ],
+      "size": [
+        0.055,
+        0.04
+      ],
+      "id": "bridge/easter_eggs/ripple_idle",
+      "refs": [
+        "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/bridge/panorama.png"
+      ],
+      "transparent": true,
+      "prompt": "Use case background-extraction / stylized-concept. Create ONE isolated sprite asset matching the Monet oil painting brushwork and cool luminous palette of the provided panorama reference. Subject: a small gentle elliptical pond ripple, one faint blue-silver oil-painted arc with a transparent center, top oblique view, no background water rectangle. True transparent alpha background, single centered isolated subject with 20% clear margins, square 1024x1024 requested, at least 512px. Small elegant painterly detail meant to appear under eye gaze, NOT a whole scene. No checkerboard painted in, no labels, no text, no border, no matte, no shadow rectangle. Crisp natural brush edges, tiny impasto highlights, avoid photorealism or cartoon outlines.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/bridge/easter_eggs/ripple_idle.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-5642d6a8-04d1-44e7-b8d0-356dfaa53d41.png",
+      "Width": 1254,
+      "Height": 1254,
+      "Bytes": 890646,
+      "status": "candidate-unverified"
+    },
+    {
+      "scene": "regatta",
+      "name": "flag",
+      "subject": "one small red triangular pennant on a short thin wooden vertical pole, hanging softly in calm air, period sailboat detail",
+      "change": "Change ONLY pennant fabric to fluttering out horizontally to right, same pole and fabric color and canvas, camera and anchor",
+      "uv": [
+        0.47,
+        0.34
+      ],
+      "size": [
+        0.018,
+        0.055
+      ],
+      "id": "regatta/easter_eggs/flag_idle",
+      "refs": [
+        "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/panorama.png"
+      ],
+      "transparent": true,
+      "prompt": "Use case background-extraction / stylized-concept. Create ONE isolated sprite asset matching the Monet oil painting brushwork and cool luminous palette of the provided panorama reference. Subject: one small red triangular pennant on a short thin wooden vertical pole, hanging softly in calm air, period sailboat detail. True transparent alpha background, single centered isolated subject with 20% clear margins, square 1024x1024 requested, at least 512px. Small elegant painterly detail meant to appear under eye gaze, NOT a whole scene. No checkerboard painted in, no labels, no text, no border, no matte, no shadow rectangle. Crisp natural brush edges, tiny impasto highlights, avoid photorealism or cartoon outlines.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/easter_eggs/flag_idle.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-8fd19ea7-f473-4336-b608-bdc4b4cb3f1f.png",
+      "Width": 1254,
+      "Height": 1254,
+      "Bytes": 496484,
+      "status": "candidate-unverified"
+    },
+    {
+      "scene": "regatta",
+      "name": "oar_wake",
+      "subject": "one small subtle broken silver-blue elliptical water wake ripple painted with horizontal oil strokes, transparent gaps, no oar and no background rectangle",
+      "change": "Change ONLY subtle wake to a stronger three-arc broken silver-blue expanding wake, exact same center, camera, canvas and palette",
+      "uv": [
+        0.43,
+        0.67
+      ],
+      "size": [
+        0.06,
+        0.04
+      ],
+      "id": "regatta/easter_eggs/oar_wake_idle",
+      "refs": [
+        "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/panorama.png"
+      ],
+      "transparent": true,
+      "prompt": "Use case background-extraction / stylized-concept. Create ONE isolated sprite asset matching the Monet oil painting brushwork and cool luminous palette of the provided panorama reference. Subject: one small subtle broken silver-blue elliptical water wake ripple painted with horizontal oil strokes, transparent gaps, no oar and no background rectangle. True transparent alpha background, single centered isolated subject with 20% clear margins, square 1024x1024 requested, at least 512px. Small elegant painterly detail meant to appear under eye gaze, NOT a whole scene. No checkerboard painted in, no labels, no text, no border, no matte, no shadow rectangle. Crisp natural brush edges, tiny impasto highlights, avoid photorealism or cartoon outlines.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/easter_eggs/oar_wake_idle.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-73cfe56e-ef31-4bd4-973c-35d81df7892b.png",
+      "Width": 1254,
+      "Height": 1254,
+      "Bytes": 765656,
+      "status": "candidate-unverified"
+    },
+    {
+      "id": "bridge/easter_eggs/dragonfly_gaze",
+      "refs": [
+        "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/bridge/easter_eggs/dragonfly_idle.png"
+      ],
+      "transparent": true,
+      "prompt": "Use case precise-object-edit. This transparent square sprite is the EDIT TARGET, not just a style reference. Produce the gaze-activated alternate state. Change ONLY wings to a slightly raised shimmering open pose, keep reed and body and camera and canvas exactly in place. EXACT same framing, scale, oil-painted brushwork, cool luminous palette, transparent background and subject center. Square requested 1254x1254. Keep 20% clear margins. True alpha transparency, no checkerboard paint, no new backdrop, no text, no watermark, no duplicate subject. Do not move or resize the whole sprite. Small animated-pose difference only, suitable for matching a before/after pair.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/bridge/easter_eggs/dragonfly_gaze.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-8038724f-fdb9-4178-bb8b-b08b39d35bde.png",
+      "Width": 1254,
+      "Height": 1254,
+      "Bytes": 1212801,
+      "status": "candidate-unverified"
+    },
+    {
+      "id": "bridge/easter_eggs/lily_bloom_gaze",
+      "refs": [
+        "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/bridge/easter_eggs/lily_bloom_idle.png"
+      ],
+      "transparent": true,
+      "prompt": "Use case precise-object-edit. This transparent square sprite is the EDIT TARGET, not just a style reference. Produce the gaze-activated alternate state. Change ONLY closed pink bud to a fully OPEN pink water-lily blossom, same flower center, same leaf and canvas and camera, petals fit inside frame. EXACT same framing, scale, oil-painted brushwork, cool luminous palette, transparent background and subject center. Square requested 1254x1254. Keep 20% clear margins. True alpha transparency, no checkerboard paint, no new backdrop, no text, no watermark, no duplicate subject. Do not move or resize the whole sprite. Small animated-pose difference only, suitable for matching a before/after pair.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/bridge/easter_eggs/lily_bloom_gaze.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-998478ea-1ecb-4698-989b-b1ae7c2434fc.png",
+      "Width": 1254,
+      "Height": 1254,
+      "Bytes": 1748097,
+      "status": "candidate-unverified"
+    },
+    {
+      "id": "bridge/easter_eggs/ripple_gaze",
+      "refs": [
+        "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/bridge/easter_eggs/ripple_idle.png"
+      ],
+      "transparent": true,
+      "prompt": "Use case precise-object-edit. This transparent square sprite is the EDIT TARGET, not just a style reference. Produce the gaze-activated alternate state. Change ONLY ripple arc to three slightly broader brighter concentric elliptical ripples around EXACT same center, same palette and camera, no water rectangle. EXACT same framing, scale, oil-painted brushwork, cool luminous palette, transparent background and subject center. Square requested 1254x1254. Keep 20% clear margins. True alpha transparency, no checkerboard paint, no new backdrop, no text, no watermark, no duplicate subject. Do not move or resize the whole sprite. Small animated-pose difference only, suitable for matching a before/after pair.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/bridge/easter_eggs/ripple_gaze.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-465e55bd-7588-4a58-b4bf-b2d2398d22f8.png",
+      "Width": 1254,
+      "Height": 1254,
+      "Bytes": 1110070,
+      "status": "candidate-unverified"
+    },
+    {
+      "id": "regatta/easter_eggs/flag_gaze",
+      "refs": [
+        "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/easter_eggs/flag_idle.png"
+      ],
+      "transparent": true,
+      "prompt": "Use case precise-object-edit. This transparent square sprite is the EDIT TARGET, not just a style reference. Produce the gaze-activated alternate state. Change ONLY pennant fabric to fluttering out horizontally to right, same pole and fabric color and canvas, camera and anchor. EXACT same framing, scale, oil-painted brushwork, cool luminous palette, transparent background and subject center. Square requested 1254x1254. Keep 20% clear margins. True alpha transparency, no checkerboard paint, no new backdrop, no text, no watermark, no duplicate subject. Do not move or resize the whole sprite. Small animated-pose difference only, suitable for matching a before/after pair.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/easter_eggs/flag_gaze.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-80dc6766-75ba-40d7-97b2-4b5288af0af0.png",
+      "Width": 1254,
+      "Height": 1254,
+      "Bytes": 544127,
+      "status": "candidate-unverified"
+    },
+    {
+      "id": "regatta/easter_eggs/waterbird_gaze",
+      "refs": [
+        "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/easter_eggs/waterbird_idle.png"
+      ],
+      "transparent": true,
+      "prompt": "Use case precise-object-edit. This transparent square sprite is the EDIT TARGET, not just a style reference. Produce the gaze-activated alternate state. Change ONLY wings to slightly lifting wings ready to flap; keep bird body, feet, canvas, camera and center exactly in place. EXACT same framing, scale, oil-painted brushwork, cool luminous palette, transparent background and subject center. Square requested 1254x1254. Keep 20% clear margins. True alpha transparency, no checkerboard paint, no new backdrop, no text, no watermark, no duplicate subject. Do not move or resize the whole sprite. Small animated-pose difference only, suitable for matching a before/after pair.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/easter_eggs/waterbird_gaze.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-6021c4f8-43d3-48c6-b58b-0dd74bfedf67.png",
+      "Width": 1254,
+      "Height": 1254,
+      "Bytes": 1235111,
+      "status": "candidate-unverified"
+    },
+    {
+      "id": "regatta/easter_eggs/oar_wake_gaze",
+      "refs": [
+        "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/easter_eggs/oar_wake_idle.png"
+      ],
+      "transparent": true,
+      "prompt": "Use case precise-object-edit. This transparent square sprite is the EDIT TARGET, not just a style reference. Produce the gaze-activated alternate state. Change ONLY subtle wake to a stronger three-arc broken silver-blue expanding wake, exact same center, camera, canvas and palette. EXACT same framing, scale, oil-painted brushwork, cool luminous palette, transparent background and subject center. Square requested 1254x1254. Keep 20% clear margins. True alpha transparency, no checkerboard paint, no new backdrop, no text, no watermark, no duplicate subject. Do not move or resize the whole sprite. Small animated-pose difference only, suitable for matching a before/after pair.",
+      "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/easter_eggs/oar_wake_gaze.png",
+      "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-1fabe8ea-36ec-4f6b-8c80-938e52c36c88.png",
+      "Width": 1254,
+      "Height": 1254,
+      "Bytes": 860166,
+      "status": "candidate-unverified"
+    }
+  ]
+}

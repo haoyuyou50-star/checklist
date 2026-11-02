@@ -1,0 +1,26 @@
+{
+  "scene": "regatta",
+  "name": "flag",
+  "subject": "one small red triangular pennant on a short thin wooden vertical pole, hanging softly in calm air, period sailboat detail",
+  "change": "Change ONLY pennant fabric to fluttering out horizontally to right, same pole and fabric color and canvas, camera and anchor",
+  "uv": [
+    0.47,
+    0.34
+  ],
+  "size": [
+    0.018,
+    0.055
+  ],
+  "id": "regatta/easter_eggs/flag_idle",
+  "refs": [
+    "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/panorama.png"
+  ],
+  "transparent": true,
+  "prompt": "Use case background-extraction / stylized-concept. Create ONE isolated sprite asset matching the Monet oil painting brushwork and cool luminous palette of the provided panorama reference. Subject: one small red triangular pennant on a short thin wooden vertical pole, hanging softly in calm air, period sailboat detail. True transparent alpha background, single centered isolated subject with 20% clear margins, square 1024x1024 requested, at least 512px. Small elegant painterly detail meant to appear under eye gaze, NOT a whole scene. No checkerboard painted in, no labels, no text, no border, no matte, no shadow rectangle. Crisp natural brush edges, tiny impasto highlights, avoid photorealism or cartoon outlines.",
+  "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/easter_eggs/flag_idle.png",
+  "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-8fd19ea7-f473-4336-b608-bdc4b4cb3f1f.png",
+  "Width": 1254,
+  "Height": 1254,
+  "Bytes": 496484,
+  "status": "candidate-unverified"
+}

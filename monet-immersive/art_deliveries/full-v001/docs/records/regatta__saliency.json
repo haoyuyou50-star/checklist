@@ -1,0 +1,13 @@
+{
+  "id": "regatta/saliency",
+  "refs": [
+    "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/panorama.png"
+  ],
+  "prompt": "Generate ONE aligned grayscale artistic saliency/focus priority control map for the supplied panorama. SAME exact 2:1 full frame and camera, requested 1774x887. 正前方白帆和红房子为255白色主焦点，帆的倒影为180灰次焦点；侧后方的一两艘小帆与近岸花草为100灰，天空和远岸为0. Use flat clean regions with at least three clearly distinct grayscale levels, narrow smooth transitions along contours. Do not render brush texture or object lighting. No outlines or text. White=primary in-focus priority, middle gray=secondary, black=defocused background. Preserve object locations and sizes EXACTLY.",
+  "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/saliency.png",
+  "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-4adaf248-9b9e-4998-8536-2496fb4568fe.png",
+  "Width": 1774,
+  "Height": 887,
+  "Bytes": 919136,
+  "status": "candidate-unverified"
+}

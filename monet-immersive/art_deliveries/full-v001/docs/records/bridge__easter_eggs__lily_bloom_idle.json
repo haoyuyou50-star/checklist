@@ -1,0 +1,26 @@
+{
+  "scene": "bridge",
+  "name": "lily_bloom",
+  "subject": "one small pink water-lily CLOSED flower bud with its single oval green lily leaf viewed slightly from above",
+  "change": "Change ONLY closed pink bud to a fully OPEN pink water-lily blossom, same flower center, same leaf and canvas and camera, petals fit inside frame",
+  "uv": [
+    0.57,
+    0.71
+  ],
+  "size": [
+    0.035,
+    0.07
+  ],
+  "id": "bridge/easter_eggs/lily_bloom_idle",
+  "refs": [
+    "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/bridge/panorama.png"
+  ],
+  "transparent": true,
+  "prompt": "Use case background-extraction / stylized-concept. Create ONE isolated sprite asset matching the Monet oil painting brushwork and cool luminous palette of the provided panorama reference. Subject: one small pink water-lily CLOSED flower bud with its single oval green lily leaf viewed slightly from above. True transparent alpha background, single centered isolated subject with 20% clear margins, square 1024x1024 requested, at least 512px. Small elegant painterly detail meant to appear under eye gaze, NOT a whole scene. No checkerboard painted in, no labels, no text, no border, no matte, no shadow rectangle. Crisp natural brush edges, tiny impasto highlights, avoid photorealism or cartoon outlines.",
+  "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/bridge/easter_eggs/lily_bloom_idle.png",
+  "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-a6e3a4ac-88b3-495c-91ef-b2844369b5c9.png",
+  "Width": 1254,
+  "Height": 1254,
+  "Bytes": 1747141,
+  "status": "candidate-unverified"
+}

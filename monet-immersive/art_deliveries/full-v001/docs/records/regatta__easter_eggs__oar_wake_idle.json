@@ -1,0 +1,26 @@
+{
+  "scene": "regatta",
+  "name": "oar_wake",
+  "subject": "one small subtle broken silver-blue elliptical water wake ripple painted with horizontal oil strokes, transparent gaps, no oar and no background rectangle",
+  "change": "Change ONLY subtle wake to a stronger three-arc broken silver-blue expanding wake, exact same center, camera, canvas and palette",
+  "uv": [
+    0.43,
+    0.67
+  ],
+  "size": [
+    0.06,
+    0.04
+  ],
+  "id": "regatta/easter_eggs/oar_wake_idle",
+  "refs": [
+    "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/panorama.png"
+  ],
+  "transparent": true,
+  "prompt": "Use case background-extraction / stylized-concept. Create ONE isolated sprite asset matching the Monet oil painting brushwork and cool luminous palette of the provided panorama reference. Subject: one small subtle broken silver-blue elliptical water wake ripple painted with horizontal oil strokes, transparent gaps, no oar and no background rectangle. True transparent alpha background, single centered isolated subject with 20% clear margins, square 1024x1024 requested, at least 512px. Small elegant painterly detail meant to appear under eye gaze, NOT a whole scene. No checkerboard painted in, no labels, no text, no border, no matte, no shadow rectangle. Crisp natural brush edges, tiny impasto highlights, avoid photorealism or cartoon outlines.",
+  "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/easter_eggs/oar_wake_idle.png",
+  "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-73cfe56e-ef31-4bd4-973c-35d81df7892b.png",
+  "Width": 1254,
+  "Height": 1254,
+  "Bytes": 765656,
+  "status": "candidate-unverified"
+}

@@ -1,0 +1,119 @@
+{
+  "version": "v001",
+  "positions": [
+    {
+      "id": "bridge/dragonfly",
+      "scene": "bridge",
+      "idle": "bridge/easter_eggs/dragonfly_idle.png",
+      "gaze": "bridge/easter_eggs/dragonfly_gaze.png",
+      "suggested_uv": [
+        0.7,
+        0.72
+      ],
+      "suggested_uv_size": [
+        0.025,
+        0.05
+      ],
+      "longitude_degrees": 71.99999999999999,
+      "latitude_degrees": -39.599999999999994,
+      "anchor": "center",
+      "status": "suggested-placement-not-baked",
+      "note": "UV原点左上；位置为设计建议，需在球面查看器中确认。两态不承诺逐像素稳定。"
+    },
+    {
+      "id": "bridge/lily_bloom",
+      "scene": "bridge",
+      "idle": "bridge/easter_eggs/lily_bloom_idle.png",
+      "gaze": "bridge/easter_eggs/lily_bloom_gaze.png",
+      "suggested_uv": [
+        0.57,
+        0.71
+      ],
+      "suggested_uv_size": [
+        0.035,
+        0.07
+      ],
+      "longitude_degrees": 25.19999999999998,
+      "latitude_degrees": -37.8,
+      "anchor": "center",
+      "status": "suggested-placement-not-baked",
+      "note": "UV原点左上；位置为设计建议，需在球面查看器中确认。两态不承诺逐像素稳定。"
+    },
+    {
+      "id": "bridge/ripple",
+      "scene": "bridge",
+      "idle": "bridge/easter_eggs/ripple_idle.png",
+      "gaze": "bridge/easter_eggs/ripple_gaze.png",
+      "suggested_uv": [
+        0.62,
+        0.62
+      ],
+      "suggested_uv_size": [
+        0.055,
+        0.04
+      ],
+      "longitude_degrees": 43.199999999999996,
+      "latitude_degrees": -21.599999999999998,
+      "anchor": "center",
+      "status": "suggested-placement-not-baked",
+      "note": "UV原点左上；位置为设计建议，需在球面查看器中确认。两态不承诺逐像素稳定。"
+    },
+    {
+      "id": "regatta/waterbird",
+      "scene": "regatta",
+      "idle": "regatta/easter_eggs/waterbird_idle.png",
+      "gaze": "regatta/easter_eggs/waterbird_gaze.png",
+      "suggested_uv": [
+        0.69,
+        0.68
+      ],
+      "suggested_uv_size": [
+        0.035,
+        0.05
+      ],
+      "longitude_degrees": 68.39999999999998,
+      "latitude_degrees": -32.400000000000006,
+      "anchor": "center",
+      "status": "suggested-placement-not-baked",
+      "note": "UV原点左上；位置为设计建议，需在球面查看器中确认。两态不承诺逐像素稳定。"
+    },
+    {
+      "id": "regatta/flag",
+      "scene": "regatta",
+      "idle": "regatta/easter_eggs/flag_idle.png",
+      "gaze": "regatta/easter_eggs/flag_gaze.png",
+      "suggested_uv": [
+        0.47,
+        0.34
+      ],
+      "suggested_uv_size": [
+        0.018,
+        0.055
+      ],
+      "longitude_degrees": -10.80000000000001,
+      "latitude_degrees": 28.799999999999997,
+      "anchor": "center",
+      "status": "suggested-placement-not-baked",
+      "note": "UV原点左上；位置为设计建议，需在球面查看器中确认。两态不承诺逐像素稳定。"
+    },
+    {
+      "id": "regatta/oar_wake",
+      "scene": "regatta",
+      "idle": "regatta/easter_eggs/oar_wake_idle.png",
+      "gaze": "regatta/easter_eggs/oar_wake_gaze.png",
+      "suggested_uv": [
+        0.43,
+        0.67
+      ],
+      "suggested_uv_size": [
+        0.06,
+        0.04
+      ],
+      "longitude_degrees": -25.200000000000003,
+      "latitude_degrees": -30.60000000000001,
+      "anchor": "center",
+      "status": "suggested-placement-not-baked",
+      "note": "UV原点左上；位置为设计建议，需在球面查看器中确认。两态不承诺逐像素稳定。"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "regatta/masks/white_sails",
+  "refs": [
+    "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/panorama.png"
+  ],
+  "prompt": "Use case precise-object-edit. Make ONE pixel-aligned semantic binary mask of the reference panorama. Target element: 所有白帆的帆布，排除桅杆船身与倒影. Keep EXACT original panorama camera, framing, projection, dimensions and every contour location. Requested output 1774x887, same 2:1 aspect. Paint all visible target pixels pure white and absolutely every other pixel pure black. At occlusions only visible portions belong to target; do not invent hidden geometry. Preserve tiny thin details and silhouette holes. Only a narrow antialiased transition is permitted, no shading, no texture, no color, no new objects, no labels or legend. This is a flat full-frame technical segmentation map, NOT a grayscale rendering of the painting. Do not move, enlarge, recenter or redraw the target. Solid binary silhouettes on black.",
+  "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/masks/white_sails.png",
+  "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-563a65db-f9ea-4757-af7d-d316b220a24d.png",
+  "Width": 1774,
+  "Height": 887,
+  "Bytes": 315099,
+  "status": "candidate-unverified"
+}

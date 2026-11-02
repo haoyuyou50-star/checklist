@@ -1,0 +1,13 @@
+{
+  "id": "bridge/saliency",
+  "refs": [
+    "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/bridge/panorama.png"
+  ],
+  "prompt": "Generate ONE aligned grayscale artistic saliency/focus priority control map for the supplied panorama. SAME exact 2:1 full frame and camera, requested 1774x887. 绿色拱桥和桥下亮水面为255白色主焦点；左右花丛、后方左右接缝附近各一小片草花为128灰次焦点；其余为32暗灰，天空为0. Use flat clean regions with at least three clearly distinct grayscale levels, narrow smooth transitions along contours. Do not render brush texture or object lighting. No outlines or text. White=primary in-focus priority, middle gray=secondary, black=defocused background. Preserve object locations and sizes EXACTLY.",
+  "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/bridge/saliency.png",
+  "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-7a05004c-ff35-419d-b493-4cebc0300e15.png",
+  "Width": 1774,
+  "Height": 887,
+  "Bytes": 1868250,
+  "status": "candidate-unverified"
+}

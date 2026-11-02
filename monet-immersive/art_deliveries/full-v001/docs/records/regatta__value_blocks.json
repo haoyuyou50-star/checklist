@@ -1,0 +1,13 @@
+{
+  "id": "regatta/value_blocks",
+  "refs": [
+    "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/panorama.png"
+  ],
+  "prompt": "Make ONE aligned 2:1 full-frame tonal block-in study of the supplied panorama, requested 1774x887. Reduce actual painted illumination into EXACTLY FIVE flat grayscale values 0,64,128,192,255, meaningful connected broad masses. Preserve original silhouette and composition, white sails and red house readable. Simplify away all tiny brush texture and fine details. This is a three-to-five-value composition study for defocused rendering, NOT a depth map or saliency map. No text, grid, labels or outlines. Original exact framing unchanged.",
+  "path": "E:/项目-ing/代号莫奈/codex/art-delivery/full-v001/regatta/value_blocks.png",
+  "source": "D:\\CodexData\\.codex\\generated_images\\01a19c9b-4216-7c92-8256-bc6e660cac0d\\exec-ed311491-7e60-47ed-91e9-ef91f55dfa58.png",
+  "Width": 1774,
+  "Height": 887,
+  "Bytes": 1899138,
+  "status": "candidate-unverified"
+}
