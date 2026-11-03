@@ -2,7 +2,6 @@ import * as THREE from 'three';
 import { SCENES, CLS } from './scenes.js';
 import { buildScene, loadImage, QUALITY, smooth } from './generator.js';
 import { loadLayerSet } from './layered.js';
-import { loadEggs, appendEggs } from './eggs.js';
 import { SplatCloud, makeBackdrop, gradeColor } from './splats.js';
 import { buildToneLUT, toneStrokes, tonePainting, toneColor } from './tones.js';
 import { WindAudio } from './audio.js';
@@ -82,7 +81,6 @@ const S = {
   morph: 0, reveal: 0, wind: 0, windTarget: 0.55, windOn: 0, flash: 1, fMix: 0,
   gustFront: 0, gustAmp: 0, gustE: 0, focusDim: 0, focusId: -1,
   hotBase: 0, hot: new Array(8).fill(0), hoverId: 0, markers: 0,
-  egg: new Array(8).fill(0), eggDwell: new Array(8).fill(0), eggHold: new Array(8).fill(0),
   cam: { pos: new THREE.Vector3(), yaw: 0, pitch: 0, fov: 62 }, basePitch: 0,
   vel: { yaw: 0, pitch: 0 }, galleryFr: null, glVisible: false, hintShown: false, windLevel: 0,
 };
@@ -239,7 +237,6 @@ async function enter() {
   Object.assign(S, { fMix: 0, morph: 0, reveal: 0, flash: 1, windOn: 0, markers: 0, hotBase: 0, focusDim: 0, focusId: -1 });
   S.windTarget = sc.wind.base;
   S.gustE = S.gustAmp = 0;
-  S.egg.fill(0); S.eggDwell.fill(0); S.eggHold.fill(0);
   S.cam.pos.set(0, 0, 0); S.cam.yaw = 0; S.cam.pitch = 0; S.cam.fov = IMM_FOV;
   S.glVisible = true;
   el.canvas.style.opacity = 1;
@@ -495,28 +492,6 @@ addEventListener('keydown', (e) => {
   if (e.key === 'Escape') { if (S.mode === 'focus') unfocus(); else if (S.mode === 'immersive') exit(); }
 });
 
-/* ---------------- easter eggs ---------------- */
-// the gaze: an eye tracker's point (monet.gaze(x, y), NDC -1..1), else the pointer while it moves, else the view's
-// centre. Resting on an egg for a moment turns it to its gazed state; it holds a while after the gaze leaves
-const gaze = { ndc: null, force: null };
-const gv = new THREE.Vector3(), ev = new THREE.Vector3();
-function updateEggs(dt) {
-  const B = cur();
-  const eggs = (B && B.data.eggs) || [];
-  if (gaze.force) { gaze.force.forEach((v, i) => { S.egg[i] = v; }); return; }
-  const ndc = gaze.ndc || (cursor.on ? [(cursor.x / innerWidth - 0.5) * 2, -(cursor.y / innerHeight - 0.5) * 2]
-    : !drag && clock - look.t < 6 ? [look.px, look.py] : [0, 0]);
-  gv.set(ndc[0], ndc[1], 0.5).unproject(camera).sub(camera.position).normalize();
-  eggs.forEach((e, i) => {
-    const on = S.mode === 'immersive' && S.reveal > 0.9 && gv.angleTo(ev.set(...e.center).sub(camera.position)) < e.radius;
-    S.eggDwell[i] = on ? S.eggDwell[i] + dt : 0;
-    if (S.eggDwell[i] > 0.35) S.eggHold[i] = 3;
-    else S.eggHold[i] = Math.max(0, S.eggHold[i] - dt);
-    const t = S.eggHold[i] > 0 ? 1 : 0;
-    S.egg[i] += (t - S.egg[i]) * Math.min(1, dt * (t ? 1.5 : 0.7));
-  });
-}
-
 /* ---------------- frame loop ---------------- */
 const vp = new THREE.Vector2();
 function step(dt, draw = true) {
@@ -539,7 +514,6 @@ function step(dt, draw = true) {
     });
   }
   applyCamera();
-  updateEggs(dt);
 
   if (S.glVisible && B && draw) {
     const U = B.cloud.uniforms, sc = SCENES[S.idx];
@@ -554,7 +528,7 @@ function step(dt, draw = true) {
     U.uFocusDim.value = S.focusDim; U.uFocusId.value = S.focusId;
     U.uGustFront.value = S.gustFront % 90; U.uGustAmp.value = S.gustAmp;
     U.uWindDir.value.set(...sc.wind.dir).normalize();
-    for (let i = 0; i < 8; i++) { U.uHot.value[i] = S.hot[i]; U.uEgg.value[i] = S.egg[i]; }
+    for (let i = 0; i < 8; i++) U.uHot.value[i] = S.hot[i];
     B.backdrop.material.uniforms.uOpacity.value = clamp((S.reveal - 0.05) / 0.6, 0, 1);
     B.backdrop.position.copy(camera.position);
     B.cloud.requestSort(camera, S.fr, S.morph, S.reveal);
@@ -600,17 +574,15 @@ const app = {
   },
 };
 app.eye = look;
-app.gaze = gaze;
 window.app = app;
 // hook for gesture input: call once per detected wave, e.g. monet.wave(speed / typicalSpeed)
-// eye tracking: monet.gaze(x, y) with the gaze point in NDC (-1..1, y up) each frame, monet.gaze(null) when lost
-window.monet = { wave: (strength = 1) => gust(strength), tone: (k) => setTone(k), gaze: (x, y) => { gaze.ndc = x == null ? null : [x, y]; } };
+window.monet = { wave: (strength = 1) => gust(strength), tone: (k) => setTone(k) };
 
 /* ---------------- boot ---------------- */
-let imgs = [], layerSets = [], toneRefs = [], eggImgs = [], panoExts = [];
+let imgs = [], layerSets = [], toneRefs = [], panoExts = [];
 function buildOne(i) {
   const sc = SCENES[i];
-  const data = appendEggs(buildScene(sc, imgs[i], Q, layerSets[i], panoExts[i]), sc.eggs, eggImgs[i], Q);
+  const data = buildScene(sc, imgs[i], Q, layerSets[i], panoExts[i]);
   let luts = null, wluts = null;
   if (sc.tones) {
     const t0 = performance.now();
@@ -648,14 +620,13 @@ async function boot() {
     return;
   }
   buildPicker();
-  [imgs, layerSets, toneRefs, eggImgs, panoExts] = await Promise.all([
+  [imgs, layerSets, toneRefs, panoExts] = await Promise.all([
     Promise.all(SCENES.map((sc) => loadImage(sc.image))),
     Promise.all(SCENES.map((sc) => (sc.layered ? loadLayerSet(sc.layered, loadImage) : sc.pano ? loadImage(sc.pano.src) : null))),
     Promise.all(SCENES.map((sc) => Promise.all((sc.tones || []).map(async (t) => {
       const [ref, water, art] = await Promise.all([t.ref, t.water, t.waterArt].map((s) => (s ? loadImage(s) : null)));
       return ref ? { ref, water, art } : null;
     })))),
-    Promise.all(SCENES.map((sc) => loadEggs(sc.eggs))),
     Promise.all(SCENES.map((sc) => (sc.unified && sc.unified.panoExt && !NO_PANO_EXT ? Promise.all([sc.unified.panoExt.src, sc.unified.panoExt.cls].map(loadImage)) : null))),
   ]);
   imgs.forEach((img, i) => { SCENES[i].asp = img.naturalHeight / img.naturalWidth; });

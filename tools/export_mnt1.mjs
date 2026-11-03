@@ -5,7 +5,6 @@
 // A.xyzw B.xyzw C.xyzw D.rgba E.xyzw (8 + N * 80 bytes). Coordinates stay in generator space (the player's
 // shader turns them into its own). A colour mood (<id>_<tier>_tone<k>.bytes) differs only in D.rgb.
 // A.w packs the stroke's edge softness: floor(A.w) / 7 is the softness (0 hard .. 1 soft), fract(A.w) the seed.
-// manifest.json lists each file's easter eggs (centre in generator space, gaze radius in radians).
 import puppeteer from 'puppeteer-core';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -39,8 +38,6 @@ for (const q of tiers) {
     await page.evaluate((i) => { if (!window.app.built[i]) window.app.selectPainting(i); }, i);
     await page.waitForFunction((i) => !!window.app.built[i], { timeout: 300000 }, i);
     const nTones = await page.evaluate((i) => (window.app.built[i].data.tones || [null]).length, i);
-    // easter eggs (cls 14, B = [egg index, state, threshold]): where each sits and how close the gaze must come
-    const eggs = await page.evaluate((i) => (window.app.built[i].data.eggs || []).map((e, k) => ({ index: k, id: e.id, center: e.center, radius: e.radius })), i);
     for (let k = 0; k < nTones; k++) {
       const b64 = await page.evaluate((i, k) => {
         const d = window.app.built[i].data, n = d.count, D = k && d.tones ? d.tones[k] : d.D;
@@ -65,7 +62,7 @@ for (const q of tiers) {
       const bytes = Buffer.from(b64, 'base64');
       fs.writeFileSync(path.join(out, name), bytes);
       const n = bytes.readUInt32LE(4);
-      manifest.push({ file: name, scene: ids[i], tier: q, tone: k, strokes: n, bytes: bytes.length, eggs });
+      manifest.push({ file: name, scene: ids[i], tier: q, tone: k, strokes: n, bytes: bytes.length });
       console.log(`${name}: ${n.toLocaleString()} strokes, ${(bytes.length / 1048576).toFixed(1)} MB`);
     }
   }
