@@ -21,7 +21,7 @@ const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a
 const lumOf = (c) => 0.3 * c[0] + 0.59 * c[1] + 0.11 * c[2];
 const chromaOf = (c) => Math.max(c[0], c[1], c[2]) - Math.min(c[0], c[1], c[2]);
 
-export function buildUnified(scene, img, Q, X = null) {
+export function buildUnified(scene, img, Q, X = null, panoImg = null) {
   const t0 = performance.now();
   const rand = makeRng(scene.id.length * 7919 + 1872);
   const asp = img.naturalHeight / img.naturalWidth;
@@ -483,6 +483,63 @@ export function buildUnified(scene, img, Q, X = null) {
     return { P: [d[0] * R, d[1] * R, d[2] * R], cls: CLS.SKY, x: sx, y: sy, flip: s.flip, img: famImg[FAM_SKY], hot: 0, flex: 0, comp: -1, zen: s.zen, soft: s.soft };
   };
 
+  /* ---------------- a painted panorama for the world beyond the frame ---------------- */
+  // U.panoExt: { az: [[our azimuth°, panorama azimuth°], ...], blend°, strength, water, low: [el0°, el1°] }.
+  // Strokes beyond the frame keep their place and motion from the painting's continuation and take their colour
+  // from the panorama, eased in over blend degrees past the frame's edge; below low[0] it fades out again (down
+  // to low[1]), so the river underfoot stays the painting's. az skips the panorama's own copy of the picture.
+  // A stroke only takes a panorama pixel of its own kind (its class map: sky, river without reflections, bank),
+  // the nearest one up or down its column, else it keeps the painting's colour; the river takes it water x less
+  let PX = null;
+  if (panoImg && U.panoExt) {
+    const [pImg, cImg] = panoImg;
+    const P = U.panoExt, PW = 1024, PH = 512, NP = PW * PH;
+    const pc = document.createElement('canvas');
+    pc.width = PW; pc.height = PH;
+    const pg = pc.getContext('2d', { willReadFrequently: true });
+    pg.drawImage(pImg, 0, 0, PW, PH);
+    const pd = pg.getImageData(0, 0, PW, PH).data, prgb = new Float32Array(NP * 3);
+    for (let i = 0; i < NP; i++) for (let c = 0; c < 3; c++) prgb[i * 3 + c] = pd[i * 4 + c] / 255;
+    pg.drawImage(cImg, 0, 0, PW, PH);
+    const cd = pg.getImageData(0, 0, PW, PH).data;
+    const plv = [4, 2, 1, 0].map((r) => (r ? blurRGB(prgb, PW, PH, r) : prgb));
+    const deg = Math.PI / 180, azm = P.az.map(([a, b]) => [a * deg, b * deg]);
+    const mapAz = (a) => {
+      for (let k = 1; k < azm.length; k++) if (a <= azm[k][0] || k === azm.length - 1) return lerp(azm[k - 1][1], azm[k][1], (a - azm[k - 1][0]) / (azm[k][0] - azm[k - 1][0]));
+      return a;
+    };
+    const elT = Math.atan((vH * asp) / f), elB = -Math.atan(((1 - vH) * asp) / f);
+    PX = {
+      w(d, c) {
+        const a = Math.atan2(d[0], -d[2]), el = Math.asin(clamp(d[1], -1, 1));
+        const out = Math.max(Math.abs(a) - thE, el - elT, elB - el, 0);
+        return smooth(0, P.blend * deg, out) * P.strength * smooth(P.low[1] * deg, P.low[0] * deg, el) * (c === CLS.WATER ? P.water : 1);
+      },
+      at(d, lvl, c) {
+        const a = Math.atan2(d[0], -d[2]), el = Math.asin(clamp(d[1], -1, 1));
+        let u = mapAz(a) / (2 * Math.PI) + 0.5;
+        u -= Math.floor(u);
+        const x = clamp(Math.floor(u * PW), 0, PW - 1), y0 = clamp(Math.floor((0.5 - el / Math.PI) * PH), 0, PH - 1);
+        const ch = c === CLS.SKY ? 0 : c === CLS.WATER ? 1 : 2, L = plv[lvl];
+        // well inside the class (a few pixels past where it begins): the blurred levels mix colours across edges
+        const ok = (y) => y >= 0 && y < PH && cd[(y * PW + x) * 4 + ch] > 200;
+        for (let k = 0; k < 160; k++) {
+          for (const s of k ? [ch === 0 ? -1 : 1, ch === 0 ? 1 : -1] : [0]) {
+            const y = y0 + s * k;
+            if (!ok(y)) continue;
+            let yy = y;
+            if (k) for (let m = 0; m < 8 && ok(yy + s); m++) yy += s;
+            else for (let m = 1; m <= 6; m++) if (!ok(y - m) || !ok(y + m)) { yy = -1; break; }
+            if (yy < 0) continue;
+            const i = (yy * PW + x) * 3;
+            return [L[i], L[i + 1], L[i + 2]];
+          }
+        }
+        return null;
+      },
+    };
+  }
+
   /* ---------------- colour references ---------------- */
   const meanRows = (img, v0, v1, fm) => {
     const m = [0, 0, 0]; let n = 0;
@@ -589,6 +646,10 @@ export function buildUnified(scene, img, Q, X = null) {
     const jit = 1 + (rand() - 0.5) * 0.07;
     let c0 = sampleCol(r, L.lvl);
     if (F) c0 = finish(c0, r, im, li);
+    if (PX && ext) {
+      const w = PX.w(d, c), pc = w > 0 && PX.at(d, L.lvl, c);
+      if (pc) c0 = lerp3(c0, pc, w);
+    }
     const col = [0, 1, 2].map((j) => clamp(c0[j] * jit + (rand() - 0.5) * 0.025, 0, 1));
     let maj = sp * lerp(L.maj[0], L.maj[1], rand()), mn = sp * lerp(L.min[0], L.min[1], rand());
     if (c === CLS.WATER) { maj *= li === 0 ? 0.9 : 1.1; mn *= lerp(0.72, 1.05, r.near || 0); maj *= lerp(1, 0.8, r.near || 0); }

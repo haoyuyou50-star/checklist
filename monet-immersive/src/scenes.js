@@ -59,6 +59,9 @@ const regatta = {
     { id: 'flag', src: 'regatta_flag', az: -38, dist: 11, h: 2.4, on: 'water', refl: true, cloth: 1 },
   ],
   unified: {
+    // beyond the frame the colours come from the art team's panorama (tools/make_pano_ext.py), matched to the
+    // painting's palette; its own copy of the picture (sails, houses: about -45..60 deg) is skipped
+    panoExt: { src: 'assets/regatta/pano_ext.jpg', cls: 'assets/regatta/pano_ext_cls.png', az: [[-180, -172.5], [-30, -45], [30, 60], [180, 187.5]], blend: 15, strength: 0.9, water: 0.5, low: [-24, -40] },
     water: [[0, 0.556], [0.44, 0.557], [0.465, 0.62], [0.5, 0.642], [0.68, 0.64], [1, 0.645]],
     farBank: { top: 0.542, uMax: 0.445 },
     // the plate takes broader strokes so the element cards can be fine within the splat budget

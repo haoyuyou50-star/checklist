@@ -94,7 +94,7 @@ export function appendEggs(data, list, imgs, Q) {
             B.add(P, [k, state, th], ax, mn, c, 0.96, CLS.EGG, 0, flex, delayOf(P), 1, softSeed(0, rand()));
             // its broken image on the water: level dashes under the waterline, thinner further down (flex = -m:
             // the shader keeps it under its object for any eye, as it does the river's reflections)
-            if (e.refl && !flat && v < 0.6 && rand() < 0.55) {
+            if (e.refl && !flat && rand() < 0.55) {
               const yRel = P[1] + h, kk = h / (h + yRel);
               const M = [P[0] * kk + (rand() - 0.5) * maj * 0.6, -h + 0.008, P[2] * kk];
               const q = clamp(yRel / ht, 0, 1);
