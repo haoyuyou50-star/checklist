@@ -1,6 +1,6 @@
 export const CLS = {
   SKY: 0, GRASS: 1, FLOWER: 2, TREE: 3, STATIC: 4, FIGURE: 5, WATER: 6, SAIL: 7,
-  PETAL: 8, MOTE: 9, HALO: 10, GLINT: 11, GULL: 12, HULL: 13,
+  PETAL: 8, MOTE: 9, HALO: 10, GLINT: 11, GULL: 12, HULL: 13, EGG: 14,
 };
 
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -52,6 +52,12 @@ const regatta = {
   cam: { f: 0.866, h: 1.6, vH: 0.55, maxD: 450, dolly: 1.4, sky: 520, parallax: 2.4 },
   grade: { gamma: 0.9, expo: 1.1, wb: [0.94, 1.0, 1.1], sat: 1.18, lift: 0.34, contrast: 1.06, clean: 1 },
   wind: { dir: [1, 0.22], base: 0.5 },
+  // easter eggs beyond the picture (src/eggs.js): a white duck that turns its head, a regatta mark whose pennant
+  // flies out (the art team's ripple sprites read as blue glass on the painted water, so they are left out)
+  eggs: [
+    { id: 'waterbird', src: 'regatta_waterbird', az: 36, dist: 7, w: 1.1, on: 'water', refl: true },
+    { id: 'flag', src: 'regatta_flag', az: -38, dist: 11, h: 2.4, on: 'water', refl: true, cloth: 1 },
+  ],
   unified: {
     water: [[0, 0.556], [0.44, 0.557], [0.465, 0.62], [0.5, 0.642], [0.68, 0.64], [1, 0.645]],
     farBank: { top: 0.542, uMax: 0.445 },
@@ -282,6 +288,11 @@ const bridge = {
     : LAYERED ? { f: 0.45, h: 1.6, vH: 0.42, maxD: 120, dolly: 1.0, sky: 420, parallax: 2.0 } : { f: 0.45, h: 1.6, vH: 0.42, maxD: 120, dolly: 0, sky: 420, parallax: 0, still: true },
   grade: { gamma: 0.98, expo: 1.03, wb: [1, 1, 1.01], sat: 1.04, lift: 0.08, contrast: 1.03, clean: 0 },
   wind: { dir: [1, 0.3], base: 0.5 },
+  // easter eggs (src/eggs.js): a lily bud that opens, a dragonfly on a reed by the near bank
+  eggs: [
+    { id: 'lily_bloom', src: 'bridge_lily_bloom', az: -14, dist: 3.4, w: 0.9, on: 'water' },
+    { id: 'dragonfly', src: 'bridge_dragonfly', az: 70, dist: 3.2, h: 1.0, on: 'ground', fine: 1.7 },
+  ],
   // the gallery picture is the first mood; the others are learnt from reference paintings of the same motif.
   // 盛夏 also has the art team's own warm green pond (the green PSD's plate), taken as it is
   // (the PSD's green pond only fits the PSD's own plate)

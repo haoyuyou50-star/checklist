@@ -98,6 +98,8 @@ if (args.tone !== undefined) {
   }
   await step(Math.max(0.1, 4.2 - t));
 }
+// --eggs 1,0,1: hold the easter eggs' gaze states (1: gazed)
+if (args.eggs !== undefined) await page.evaluate((v) => { window.app.gaze.force = v; }, String(args.eggs).split(',').map(Number));
 // --look "-1,0;1,0" pins the parallax eye offset (x,y in -1..1) for each shot
 const looks = args.look ? String(args.look).split(';').map((s) => s.split(',').map(Number)) : [null];
 for (const y of args.focus ? [] : yaws) for (const lk of looks) {
