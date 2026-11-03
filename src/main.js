@@ -457,8 +457,7 @@ function updateLook(dt) {
   let ty = Math.sin(clock * 0.11 + 2.1) * 0.5;
   const pointer = cursor.on ? [(cursor.x / innerWidth - 0.5) * 2, -(cursor.y / innerHeight - 0.5) * 2] : clock - look.t < 6 ? [look.px, look.py] : null;
   if (pointer) { tx = tx * 0.25 + pointer[0] * 0.85; ty = ty * 0.25 + pointer[1] * 0.85; }
-  // the eye holds still while the gaze rests on an egg: the parallax would otherwise slide it out from under the pointer
-  const k = S.eggDwell.some((d) => d > 0) ? 0 : Math.min(1, dt * 1.6);
+  const k = Math.min(1, dt * 1.6);
   look.x += (clamp(tx, -1, 1) - look.x) * k; look.y += (clamp(ty, -1, 1) - look.y) * k;
 }
 el.canvas.addEventListener('pointerdown', (e) => {
@@ -509,7 +508,8 @@ function updateEggs(dt) {
     : !drag && clock - look.t < 6 ? [look.px, look.py] : [0, 0]);
   gv.set(ndc[0], ndc[1], 0.5).unproject(camera).sub(camera.position).normalize();
   eggs.forEach((e, i) => {
-    const on = S.mode === 'immersive' && S.reveal > 0.9 && gv.angleTo(ev.set(...e.center).sub(camera.position)) < e.radius;    S.eggDwell[i] = on ? S.eggDwell[i] + dt : 0;
+    const on = S.mode === 'immersive' && S.reveal > 0.9 && gv.angleTo(ev.set(...e.center).sub(camera.position)) < e.radius;
+    S.eggDwell[i] = on ? S.eggDwell[i] + dt : 0;
     if (S.eggDwell[i] > 0.35) S.eggHold[i] = 3;
     else S.eggHold[i] = Math.max(0, S.eggHold[i] - dt);
     const t = S.eggHold[i] > 0 ? 1 : 0;
@@ -589,7 +589,6 @@ const app = {
       r.remove();
     },
   },
-  eggPos(i) { const e = cur().data.eggs[i], v = new THREE.Vector3(...e.center).project(camera); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; },
   markerPos(id) { const mk = markerEls.find((m) => m.hs.id === id); return mk ? [mk.x, mk.y] : [innerWidth / 2, innerHeight / 2]; },
   look(dYaw, dPitch, dur) {
     const y0 = S.cam.yaw, p0 = S.cam.pitch, [cx, cy] = [cursor.x, cursor.y];
