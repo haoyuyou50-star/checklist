@@ -27,13 +27,6 @@ async function visitHotspot(app, id, linger) {
   await app.wait(1.9);
 }
 
-async function gazeAt(app, egg) {
-  await app.cursor.moveTo(...app.eggPos(egg), 0.9);
-  // the parallax eye has drifted while the cursor travelled
-  await app.cursor.moveTo(...app.eggPos(egg), 0.3);
-  await app.wait(2.1);
-}
-
 export async function runDemo(app) {
   const W = innerWidth, H = innerHeight;
   await app.wait(2.2);
@@ -42,11 +35,10 @@ export async function runDemo(app) {
   /* ---- 01 Régates ---- */
   await press(app, app.el.enter, () => app.enter(), { move: 1.3, dwell: 0.7 });
   app.cursor.moveTo(W * 0.5, H * 0.62, 2.4);
-  await app.wait(6.2);
+  await app.wait(7.2);
 
   await app.look(-0.75, -0.03, 3.6);
-  // the gaze (here the cursor) rests on the duck: it turns its head
-  await gazeAt(app, 0);
+  await app.wait(0.3);
   await app.look(1.45, 0.03, 4.8);
   await app.wait(0.3);
   await app.look(-0.7, 0.0, 2.8);
@@ -68,12 +60,9 @@ export async function runDemo(app) {
   await app.wait(2.2);
   await press(app, app.el.enter, () => app.enter(), { move: 1.3, dwell: 0.7 });
   app.cursor.moveTo(W * 0.5, H * 0.62, 2.4);
-  await app.wait(6.2);
+  await app.wait(7.2);
 
-  // down to the lily bud by the near bank: under the gaze it opens
-  await app.look(0.25, -0.32, 2.6);
-  await gazeAt(app, 0);
-  await app.look(0.45, 0.27, 2.4);
+  await app.look(0.7, -0.05, 3.6);
   await app.wait(0.3);
   await app.look(-1.3, 0.02, 4.6);
   await app.wait(0.3);
