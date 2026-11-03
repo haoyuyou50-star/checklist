@@ -87,15 +87,31 @@ export function blurMasked(rgb, mask, fallback, W, H, r) {
  * half degree (the passes ask it millions of times). at(az, el) in radians, dir(d) for a unit direction.
  */
 export function makeImportance(focus) {
-  const IW = 720, IH = 360, T = new Float32Array(IW * IH);
+  const IW = 720, IH = 360, T = new Float32Array(IW * IH), sp = focus.spread || 1;
   for (let y = 0; y < IH; y++) for (let x = 0; x < IW; x++) {
     const vaz = (x + 0.5) / 2 - 180, vel = 90 - (y + 0.5) / 2;
     let m = focus.floor;
     for (const [a, e, ra, re, w] of focus.foci) {
       const da = ((((vaz - a) % 360) + 540) % 360) - 180;
-      m = Math.max(m, w * Math.exp(-((da / ra) ** 2 + ((vel - e) / re) ** 2)));
+      m = Math.max(m, w * Math.exp(-((da / (ra * sp)) ** 2 + ((vel - e) / (re * sp)) ** 2)));
     }
     T[y * IW + x] = m;
+  }
+  // the max of the foci leaves creases where two meet: blur them out (radius in degrees, wrapping in azimuth)
+  if (focus.blur) {
+    const r = Math.round(focus.blur * 2), tmp = new Float32Array(IW * IH);
+    for (let pass = 0; pass < 2; pass++) {
+      for (let y = 0; y < IH; y++) for (let x = 0; x < IW; x++) {
+        let s = 0;
+        for (let k = -r; k <= r; k++) s += T[y * IW + (x + k + IW) % IW];
+        tmp[y * IW + x] = s / (2 * r + 1);
+      }
+      for (let y = 0; y < IH; y++) for (let x = 0; x < IW; x++) {
+        let s = 0;
+        for (let k = -r; k <= r; k++) s += tmp[clamp(y + k, 0, IH - 1) * IW + x];
+        T[y * IW + x] = s / (2 * r + 1);
+      }
+    }
   }
   const at = (vaz, vel) => T[clamp(Math.floor((0.5 - vel / Math.PI) * IH), 0, IH - 1) * IW + clamp(Math.floor((vaz / (2 * Math.PI) + 0.5) * IW), 0, IW - 1)];
   return { at, dir: (d) => at(Math.atan2(d[0], -d[2]), Math.asin(clamp(d[1], -1, 1))) };
