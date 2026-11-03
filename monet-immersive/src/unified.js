@@ -782,7 +782,7 @@ export function buildUnified(scene, img, Q, X = null, panoImg = null) {
           const m = acc.map((s) => s / len), lm = lumOf(m), lv = wl0 + (lm - wl0) * RR.value;
           const col = m.map((q) => clamp((lv + (q - lm) * RR.sat) * (1 + (rand() - 0.5) * 0.04), 0, 1));
           const sc = sC * f / -d[2], rad = Math.hypot(u - 0.5, (v - 0.5) * asp) / 0.62;
-          B.add(P, [d[0] * sc, d[1] * sc, d[2] * sc], Rt.map((q) => q * half), mn, col, RR.alpha, CLS.WATER, hot[i], flex[i], clamp(rad * 0.62 + rand() * 0.38, 0, 1), 0, softSeed(0, rand()));
+          B.add(P, [d[0] * sc, d[1] * sc, d[2] * sc], Rt.map((q) => q * half), mn, col, RR.alpha, CLS.WATER, hot[i], flex[i], clamp(rad * 0.62 + rand() * 0.38, 0, 1), 0, softSeed(RR.soft || 0, rand()));
           n++;
         }
         x0 = -1; acc = [0, 0, 0]; accB = [0, 0, 0];

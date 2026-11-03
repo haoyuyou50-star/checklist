@@ -352,7 +352,7 @@ export function makeLayerEmitter(set, Q) {
         const q = sway, bars = spec.reflBars || 0;
         if (rand() < 0.6 * q) return 0;
         // stacked in bars with river between them, as in the painting
-        if (bars && (q * bars + 0.14 * (rand() - 0.5) + 1) % 1 > lerp(0.6, 0.42, q)) return 0;
+        if (bars && (q * bars + 0.2 * (rand() - 0.5) + 1) % 1 > lerp(0.6, 0.44, q)) return 0;
         const k = (h / (h + yRel * 0.95)) * 0.995;
         // a touch nearer the eye than the river's own strokes and dabs, which share its depth
         const zk = bars ? 0.992 : 1;
@@ -360,7 +360,7 @@ export function makeLayerEmitter(set, Q) {
         const th = Math.atan2(w[0], -w[2]), t = [Math.cos(th), 0, Math.sin(th)];
         const len = Math.hypot(axis[0], axis[1], axis[2]) * lerp(2.6, 4.2, rand()) * k;
         const cl = (col[0] + col[1] + col[2]) / 3;
-        const c = [0, 1, 2].map((j) => clamp(lerp(cl + (col[j] - cl) * 1.2, baseWater[j], bars ? 0.05 + 0.25 * q : 0.35 + 0.3 * q) * 0.95, 0, 1));
+        const c = [0, 1, 2].map((j) => clamp(lerp(cl + (col[j] - cl) * 1.2, baseWater[j], bars ? 0.13 + 0.3 * q : 0.35 + 0.3 * q) * 0.95, 0, 1));
         const d = norm(w);
         let cpos = w, delay;
         if (!ext) {
@@ -372,7 +372,7 @@ export function makeLayerEmitter(set, Q) {
           if (inRect(proj(d))) return 0;
           delay = extDelay(w);
         }
-        B.add(w, cpos, [t[0] * len, 0, t[2] * len], minor * k * 0.6, c, alpha * (bars ? lerp(0.95, 0.6, q) : lerp(0.75, 0.45, q)), CLS.WATER, -sway, -1 / k, delay, ext ? 1 : 0.25, rand());
+        B.add(w, cpos, [t[0] * len, 0, t[2] * len], minor * k * 0.6, c, alpha * (bars ? lerp(0.88, 0.5, q) : lerp(0.75, 0.45, q)), CLS.WATER, -sway, -1 / k, delay, ext ? 1 : 0.25, bars ? softSeed(0.35, rand()) : rand());
         return 1;
       };
 
