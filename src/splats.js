@@ -28,6 +28,7 @@ out float vEmit;
 out float vBr;
 out float vPx;
 out float vSoft;
+flat out float vBrush;
 
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float vnoise(vec2 p) {
@@ -346,6 +347,16 @@ void main() {
   vEmit = emit;
   vBr = cls == 0 ? 0.0 : 1.0 - smoothstep(8.0, 40.0, mn);
   vPx = cls == 0 ? mn * 0.3 : mn;
+  // which brush (atlas cell): water is dragged level, sky and canvas laid with a wide flat brush, foliage
+  // dabbed, grass trailed along the blade; a dry brush now and then. The sign mirrors it across the stroke
+  float hb = hash(vec2(seed, 5.3)), fam;
+  if (cls == 6) fam = 1.0;
+  else if (cls == 0) fam = hb < 0.6 ? 3.0 : 1.0;
+  else if (cls == 3) fam = hb < 0.7 ? 0.0 : 4.0;
+  else if (cls == 1) fam = hb < 0.6 ? 2.0 : 4.0;
+  else if (cls == 7 || cls == 13 || cls == 4) fam = hb < 0.6 ? 3.0 : 1.0;
+  else fam = hb < 0.8 ? 0.0 : 4.0;
+  vBrush = (fam * 3.0 + floor(hash(vec2(seed, 8.9)) * 2.999) + 1.0) * (hash(vec2(seed, 2.1)) < 0.5 ? -1.0 : 1.0);
 }
 `;
 
@@ -358,20 +369,37 @@ in float vEmit;
 in float vBr;
 in float vPx;
 in float vSoft;
+flat in float vBrush;
+uniform sampler2D tBrush;
+uniform float uBrush;
 out vec4 fragColor;
 void main() {
   float ang = atan(vUv.y, vUv.x);
-  float r = length(vUv) * (1.0 + 0.07 * sin(ang * 3.0 + vSeed * 41.0) + 0.04 * sin(ang * 7.0 + vSeed * 13.0));
-  if (r > 1.0) discard;
+  float r0 = length(vUv);
+  float r = r0 * (1.0 + 0.07 * sin(ang * 3.0 + vSeed * 41.0) + 0.04 * sin(ang * 7.0 + vSeed * 13.0));
+  // a brush scan once the stroke is a few pixels wide (atlas cell |vBrush| - 1; grey = paint height)
+  float tw = uBrush * smoothstep(2.5, 7.0, vPx) * (1.0 - vEmit);
+  if ((tw < 0.5 ? r : r0) > 1.0) discard;
   // firm paint body with a short anti-aliased rim (about 1.2px wide on the minor axis)
   float rim = clamp(1.4 / max(vPx, 1.0), 0.12, 0.6);
   float body = 1.0 - smoothstep(1.0 - rim, 1.0, r);
   // a soft stroke thins out from its middle and melts into its neighbours (the broad, unfocused passages)
   body = mix(body, 1.0 - smoothstep(0.5, 1.0, r), vSoft);
+  float relief = 0.0;
+  if (tw > 0.0) {
+    float k = abs(vBrush) - 1.0;
+    vec2 cell = vec2(mod(k, 4.0), floor(k / 4.0));
+    vec2 q = vec2(vUv.x, vUv.y * sign(vBrush)) * 0.5 + 0.5;
+    // soft strokes read the brush from a blurrier mip level, so their paint melts too
+    float h = texture(tBrush, (cell + q) / 4.0, vSoft * 2.5).r;
+    float cov = smoothstep(0.05, 0.3 + 0.25 * vSoft, h) * (1.0 - smoothstep(1.0 - rim, 1.0, r0));
+    body = mix(body, cov, tw);
+    relief = (h - 0.62) * tw * (1.0 - vSoft);
+  }
   float a = vColor.a * mix(body, exp(-2.7 * r * r), vEmit);
-  float streak = (sin(vUv.y * 9.0 + vSeed * 37.0) * 0.5 + 0.5) * vBr * (1.0 - vSoft);
+  float streak = (sin(vUv.y * 9.0 + vSeed * 37.0) * 0.5 + 0.5) * vBr * (1.0 - vSoft) * (1.0 - tw);
   if (a < 0.003) discard;
-  vec3 c = vColor.rgb * (1.0 + 0.045 * (streak - 0.5 * vBr) + 0.035 * (1.0 - r));
+  vec3 c = vColor.rgb * (1.0 + 0.045 * (streak - 0.5 * vBr) + 0.035 * (1.0 - r) + 0.4 * relief);
   fragColor = vec4(c * a, a * (1.0 - vEmit));
 }
 `;
@@ -409,6 +437,20 @@ export function gradeColor(c, g) {
   return v.map((x) => Math.min(1, Math.max(0, (x - 0.5) * g.contrast + 0.5)));
 }
 
+// the art team's brush scans (tools/make_brush_atlas.py); ?nobrush draws the plain ellipses for comparison
+const BRUSH_ON = typeof location === 'undefined' || !new URLSearchParams(location.search).has('nobrush');
+let brushTex = null;
+function brushAtlas() {
+  if (brushTex) return brushTex;
+  brushTex = new THREE.TextureLoader().load(new URL('../assets/brushes/atlas.png', import.meta.url).href);
+  brushTex.flipY = false;
+  brushTex.colorSpace = THREE.NoColorSpace;
+  brushTex.minFilter = THREE.LinearMipmapLinearFilter;
+  brushTex.magFilter = THREE.LinearFilter;
+  brushTex.generateMipmaps = true;
+  return brushTex;
+}
+
 let sortWorker = null;
 let seqCounter = 0;
 
@@ -441,6 +483,7 @@ export class SplatCloud {
       uFront: { value: new THREE.Vector3(...data.front) }, uEye0: { value: new THREE.Vector3() },
       uHot: { value: new Array(8).fill(0) },
       uFocusPos: { value: new THREE.Vector3() }, uFocusR: { value: 1 },
+      tBrush: { value: brushAtlas() }, uBrush: { value: BRUSH_ON ? 1 : 0 },
       uGrade: { value: 0 }, uGamma: { value: grade.gamma }, uExpo: { value: grade.expo }, uSat: { value: grade.sat },
       uLift: { value: grade.lift }, uContrast: { value: grade.contrast }, uClean: { value: grade.clean || 0 }, uWB: { value: new THREE.Vector3(...grade.wb) },
     };
