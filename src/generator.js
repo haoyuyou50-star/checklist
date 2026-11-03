@@ -137,7 +137,7 @@ export async function loadImage(src) {
   return img;
 }
 
-export function buildScene(scene, img, Q, layerSet = null) {
+export function buildScene(scene, img, Q, layerSet = null, panoExt = null) {
   if (scene.pano) return buildPano(scene, layerSet, Q);
-  return buildUnified(scene, layerSet ? layerSet.base : img, Q, layerSet ? makeLayerEmitter(layerSet, Q) : null);
+  return buildUnified(scene, layerSet ? layerSet.base : img, Q, layerSet ? makeLayerEmitter(layerSet, Q) : null, panoExt);
 }

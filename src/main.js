@@ -9,6 +9,8 @@ import { WindAudio } from './audio.js';
 
 const params = new URLSearchParams(location.search);
 const CAPTURE = params.has('capture');
+// ?nopanoext: the regatta's world beyond the frame continued from the painting alone (for comparison)
+const NO_PANO_EXT = params.has('nopanoext');
 const DEMO = (params.has('demo') || CAPTURE) && !params.has('nodemo');
 const qName = params.get('q') || (matchMedia('(pointer: coarse)').matches ? 'low' : 'mid');
 const Q = QUALITY[qName] || QUALITY.high;
@@ -605,10 +607,10 @@ window.app = app;
 window.monet = { wave: (strength = 1) => gust(strength), tone: (k) => setTone(k), gaze: (x, y) => { gaze.ndc = x == null ? null : [x, y]; } };
 
 /* ---------------- boot ---------------- */
-let imgs = [], layerSets = [], toneRefs = [], eggImgs = [];
+let imgs = [], layerSets = [], toneRefs = [], eggImgs = [], panoExts = [];
 function buildOne(i) {
   const sc = SCENES[i];
-  const data = appendEggs(buildScene(sc, imgs[i], Q, layerSets[i]), sc.eggs, eggImgs[i], Q);
+  const data = appendEggs(buildScene(sc, imgs[i], Q, layerSets[i], panoExts[i]), sc.eggs, eggImgs[i], Q);
   let luts = null, wluts = null;
   if (sc.tones) {
     const t0 = performance.now();
@@ -646,7 +648,7 @@ async function boot() {
     return;
   }
   buildPicker();
-  [imgs, layerSets, toneRefs, eggImgs] = await Promise.all([
+  [imgs, layerSets, toneRefs, eggImgs, panoExts] = await Promise.all([
     Promise.all(SCENES.map((sc) => loadImage(sc.image))),
     Promise.all(SCENES.map((sc) => (sc.layered ? loadLayerSet(sc.layered, loadImage) : sc.pano ? loadImage(sc.pano.src) : null))),
     Promise.all(SCENES.map((sc) => Promise.all((sc.tones || []).map(async (t) => {
@@ -654,6 +656,7 @@ async function boot() {
       return ref ? { ref, water, art } : null;
     })))),
     Promise.all(SCENES.map((sc) => loadEggs(sc.eggs))),
+    Promise.all(SCENES.map((sc) => (sc.unified && sc.unified.panoExt && !NO_PANO_EXT ? Promise.all([sc.unified.panoExt.src, sc.unified.panoExt.cls].map(loadImage)) : null))),
   ]);
   imgs.forEach((img, i) => { SCENES[i].asp = img.naturalHeight / img.naturalWidth; });
   setGalleryContent(0);
