@@ -347,16 +347,20 @@ export function makeLayerEmitter(set, Q) {
       const reflect = (P, axis, minor, col, alpha, ext, sway) => {
         const yRel = P[1] + h;
         if (yRel < 0.03) return 0;
-        // Monet's sail reflections are short horizontal dabs, broken wider and thinned out the further
+        // Monet's sail reflections are long level dashes, broken wider and thinned out the further
         // they reach from the hull (q: 0 at the waterline, 1 at the masthead's image)
-        const q = sway;
-        if (rand() < 0.7 * q) return 0;
+        const q = sway, bars = spec.reflBars || 0;
+        if (rand() < 0.6 * q) return 0;
+        // stacked in bars with river between them, as in the painting
+        if (bars && (q * bars + 0.14 * (rand() - 0.5) + 1) % 1 > lerp(0.6, 0.42, q)) return 0;
         const k = (h / (h + yRel * 0.95)) * 0.995;
-        const w = [P[0] * k + (rand() - 0.5) * (0.5 + 2.2 * q) * k, -h + 0.01, P[2] * k];
+        // a touch nearer the eye than the river's own strokes and dabs, which share its depth
+        const zk = bars ? 0.992 : 1;
+        const w = [(P[0] * k + (rand() - 0.5) * (0.5 + 2.2 * q) * k) * zk, (-h + 0.01) * zk, P[2] * k * zk];
         const th = Math.atan2(w[0], -w[2]), t = [Math.cos(th), 0, Math.sin(th)];
-        const len = Math.hypot(axis[0], axis[1], axis[2]) * lerp(1.5, 2.6, rand()) * k;
+        const len = Math.hypot(axis[0], axis[1], axis[2]) * lerp(2.6, 4.2, rand()) * k;
         const cl = (col[0] + col[1] + col[2]) / 3;
-        const c = [0, 1, 2].map((j) => clamp(lerp(cl + (col[j] - cl) * 1.2, baseWater[j], 0.35 + 0.3 * q) * 0.95, 0, 1));
+        const c = [0, 1, 2].map((j) => clamp(lerp(cl + (col[j] - cl) * 1.2, baseWater[j], bars ? 0.05 + 0.25 * q : 0.35 + 0.3 * q) * 0.95, 0, 1));
         const d = norm(w);
         let cpos = w, delay;
         if (!ext) {
@@ -368,7 +372,7 @@ export function makeLayerEmitter(set, Q) {
           if (inRect(proj(d))) return 0;
           delay = extDelay(w);
         }
-        B.add(w, cpos, [t[0] * len, 0, t[2] * len], minor * k * 0.9, c, alpha * lerp(0.75, 0.45, q), CLS.WATER, -sway, -1 / k, delay, ext ? 1 : 0.25, rand());
+        B.add(w, cpos, [t[0] * len, 0, t[2] * len], minor * k * 0.6, c, alpha * (bars ? lerp(0.95, 0.6, q) : lerp(0.75, 0.45, q)), CLS.WATER, -sway, -1 / k, delay, ext ? 1 : 0.25, rand());
         return 1;
       };
 
@@ -508,6 +512,8 @@ export function makeLayerEmitter(set, Q) {
               const i = clamp(Math.floor(vv * PH), 0, PH - 1) * PW + clamp(Math.floor(uu * PW), 0, PW - 1);
               c = pCls[i]; z = pZ[i]; fl = pFlex[i];
               if (c === CLS.SKY) continue;
+              // the painted reflections keep their own dashes (unified.reflRuns), unbroken
+              if (spec.dabs.skipRefl && c === CLS.WATER && fl < -1) continue;
             }
             // broken colour: a touch from close by in the picture (on the same layer, so thin things like the
             // bridge rails keep their own colour), nudged warm or cool, a little richer
