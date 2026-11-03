@@ -76,6 +76,26 @@ if (args.focus) {
     await step(2.2);
   }
 }
+// --gaze 0 --yaws -0.63: rest the pointer on easter egg 0 (as an eye would), shoot it after 2.5 s
+// (stepped without screenshots in between: a screenshot advances the page clock)
+if (args.gaze !== undefined) {
+  const g = Number(args.gaze);
+  await page.evaluate((y) => { const S = window.app.S; S.cam.yaw = y; S.vel.yaw = S.vel.pitch = 0; }, yaws[0]);
+  await step(3);
+  if (args.demo) {
+    // the demo's scripted cursor, travelling in from the lower right as in demo.js
+    await page.evaluate((g) => { const a = window.app; a.cursor.show(innerWidth * 0.7, innerHeight * 0.8); a.cursor.moveTo(...a.eggPos(g), 0.9).then(() => a.cursor.moveTo(...a.eggPos(g), 0.3)); }, g);
+    await step(3.7);
+  } else {
+    const [x, y] = await page.evaluate((g) => window.app.eggPos(g), g);
+    await page.mouse.move(x, y);
+    await step(2.5);
+  }
+  console.log('egg state', await page.evaluate(() => window.app.S.egg.slice(0, 3).map((v) => v.toFixed(2)).join(',')));
+  await page.screenshot({ path: path.join(out, `${tag}gaze${g}.jpg`), type: 'jpeg', quality: 90 });
+  await browser.close();
+  process.exit(0);
+}
 // --series 8 --gust [--dt 0.7]: frames dt s apart at the first yaw, to catch things that flicker over time
 if (args.series) {
   await page.evaluate(() => { window.app.eye.force = [0, 0]; });
