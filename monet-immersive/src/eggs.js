@@ -58,7 +58,7 @@ export function appendEggs(data, list, imgs, Q) {
     const upV = flat ? [fwd[0] * depth, 0, fwd[2] * depth] : [0, ht, 0];
     const center = place(0.5, 0.5);
     const cd = Math.hypot(...center);
-    eggs.push({ id: e.id, center, radius: Math.max(0.35 * Math.hypot(w, flat ? depth * Math.sin(Math.atan2(h, e.dist)) : ht), 0.25) * 1.35 / cd });
+    eggs.push({ id: e.id, center, radius: Math.max(0.35 * Math.hypot(w, flat ? depth * Math.sin(Math.atan2(h, e.dist)) : ht), 0.25) * 2.2 / cd });
 
     [0, 1].forEach((state) => {
       const S = state ? readSprite(imgs[k][1]) : sp0;
