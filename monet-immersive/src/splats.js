@@ -15,7 +15,6 @@ uniform vec2 uWindDir;
 uniform vec3 uFront, uEye0;
 uniform float uToneA, uToneB, uToneT;
 uniform float uHot[8];
-uniform float uEgg[8];
 uniform float uGrade, uGamma, uExpo, uSat, uLift, uContrast, uClean;
 uniform vec3 uWB;
 uniform vec3 uFocusPos;
@@ -141,7 +140,7 @@ void main() {
   // reflection (flex = -m): its object's mirror image sits at world * m below the river. Generated
   // reflections are laid out for the origin; painted ones look right from the resting (dollied) eye
   // uEye0. Follow only the eye's offset from that reference, so reflections stay under their objects.
-  if ((cls == 6 || cls == 14) && flex < -1.0 && uUnified > 0.5) {
+  if (cls == 6 && flex < -1.0 && uUnified > 0.5) {
     vec3 mir = world * -flex, e0 = ext > 0.1 ? vec3(0.0) : uEye0;
     vec3 d1 = mir - cameraPosition, d0 = mir - e0;
     vec3 p1 = cameraPosition + d1 * ((cameraPosition.y + uH) / max(-d1.y, 1e-3));
@@ -289,20 +288,6 @@ void main() {
     if (abs(seg) < 1.5) { pos = body + dIn * span * 0.225; axis = dIn * span * 0.225; }
     else { pos = elbow + dOut * span * 0.2; axis = dOut * span * 0.2; }
     alpha *= smoothstep(0.0, 0.3, uReveal);
-  } else if (cls == 14) {                    // easter eggs: the gaze dissolves the idle state into the other
-    float g = uEgg[int(canv.x + 0.5)];
-    float on = smoothstep(canv.z - 0.15, canv.z + 0.15, g * 1.3 - 0.15);
-    alpha *= canv.y > 0.5 ? on : 1.0 - on;
-    sizeMul *= 1.0 + 0.25 * sin(on * 3.14159265);
-    if (flex < -1.0) {                       // its image on the water (kept under it, as the river's are)
-      pos.x += sin(uTime * 1.3 + pos.z * 0.8 + seed * 6.0) * 0.004 * dist;
-    } else {
-      // a flag flies out and snaps in the wind, a duck rides the ripples
-      float flut = sin(uTime * (7.0 + 2.0 * seed) - flex * 6.0);
-      pos += wd3 * flex * (0.12 + 0.25 * w) * (0.6 + 0.4 * flut) * 0.4;
-      pos.y += flex * (0.4 * sin(uTime * 1.1 + world.x) * 0.1 + 0.06 * flut * w);
-      axis = rotAround(axis, normalize(cameraPosition - pos), flex * flut * 0.25 * (0.4 + w));
-    }
   } else if (cls == 11) {                    // glints on water
     float tw = pow(max(sin(uTime * (1.6 + seed * 2.0) + seed * 50.0), 0.0), 10.0);
     alpha *= tw * (0.4 + w);
@@ -496,7 +481,7 @@ export class SplatCloud {
       uOpacity: { value: 1 }, uH: { value: data.h || 2 }, uUnified: { value: data.unified ? 1 : 0 },
       uWindDir: { value: new THREE.Vector2(1, 0) },
       uFront: { value: new THREE.Vector3(...data.front) }, uEye0: { value: new THREE.Vector3() },
-      uHot: { value: new Array(8).fill(0) }, uEgg: { value: new Array(8).fill(0) },
+      uHot: { value: new Array(8).fill(0) },
       uFocusPos: { value: new THREE.Vector3() }, uFocusR: { value: 1 },
       tBrush: { value: brushAtlas() }, uBrush: { value: BRUSH_ON ? 1 : 0 },
       uGrade: { value: 0 }, uGamma: { value: grade.gamma }, uExpo: { value: grade.expo }, uSat: { value: grade.sat },
