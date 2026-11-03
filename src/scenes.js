@@ -84,7 +84,7 @@ const regatta = {
     // and traced: each run of one colour in a painted reflection row (rows step px apart, colour tolerance,
     // shortest run in px) is one stroke, thick x step high, over x its length, richer (sat) and further in value from the river (value);
     // the wave marks low in the picture are not reflections (vMax)
-    reflRuns: { step: 2, tol: 0.12, min: 5, thick: 2.2, over: 1.25, alpha: 0.95, sat: 1.7, value: 1.5, vMax: 0.86 },
+    reflRuns: { step: 2, tol: 0.12, min: 5, thick: 2.2, over: 1.25, alpha: 0.82, sat: 1.35, value: 1.2, vMax: 0.86, soft: 0.3 },
     // the clean plate has no boats: every element comes from its own layer card (see layered)
     boats: [],
     landMinLayer: 1,
