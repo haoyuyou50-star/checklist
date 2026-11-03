@@ -70,13 +70,21 @@ const regatta = {
         [16, -9, 16, 7, 0.8], [-12, -5, 14, 4, 0.6], [12, 2, 22, 6, 0.75],
         [-42, 1, 6, 6, 0.5], [-62, 1, 7, 7, 0.5], [-96, 1, 7, 7, 0.5], [-140, 1, 7, 7, 0.45], [172, 1, 7, 7, 0.45], [132, 1, 7, 7, 0.45], [76, 1, 8, 8, 0.5]],
       floor: 0.18, skyMax: 0.3,
+      // the foci widened and blurred (degrees) so resolved and broad places melt into each other
+      spread: 1.35, blur: 4,
     },
     // value masses of the broad places (steps, how sharp a step is, how far values are drawn to it, share of the
     // mass in their colour), contrast against the surroundings [broad, focus], and each finer pass's share in the
     // broad places
     masses: { steps: 5, edge: 0.25, pull: 0.5, mix: 0.6 },
-    contrast: [0.85, 1.15],
+    contrast: [0.9, 1.1],
     passes: [0.55, 0.25, 0.15],
+    // the painted reflections as long level dashes: length and width multiples, from which pass on
+    reflDash: { len: [2.4, 3.8], min: 0.62, from: 1 },
+    // and traced: each run of one colour in a painted reflection row (rows step px apart, colour tolerance,
+    // shortest run in px) is one stroke, thick x step high, over x its length, richer (sat) and further in value from the river (value);
+    // the wave marks low in the picture are not reflections (vMax)
+    reflRuns: { step: 2, tol: 0.12, min: 5, thick: 2.2, over: 1.25, alpha: 0.95, sat: 1.7, value: 1.5, vMax: 0.86 },
     // the clean plate has no boats: every element comes from its own layer card (see layered)
     boats: [],
     landMinLayer: 1,
@@ -103,9 +111,11 @@ const regatta = {
     fine: 0.5,
     // with the plate's focus: each finer pass's share on elements in the broad places
     focusPasses: [0.6, 0.3, 0.2],
+    // sail reflections stacked in this many cream bars down their length
+    reflBars: 6,
     // broken colour over the finished picture, gathered where the eye is led (minor: share in the broad places)
     // water: how much longer and wider a touch on the river is (long level dashes, not pebbles)
-    dabs: { src: 'assets/regatta/composite.jpg', k: 0.5, minor: 0.08, tint: 0.07, sat: 1.12, jitter: 0.6, water: [2.6, 1.0], leaves: 'any' },
+    dabs: { src: 'assets/regatta/composite.jpg', k: 0.5, minor: 0.08, tint: 0.07, sat: 1.12, jitter: 0.6, water: [2.6, 1.0], leaves: 'any', skipRefl: true },
     // PSD order, bottom to top; depth = card distance as a multiple of the shore under it
     cards: [
       { id: 'sail_r', kind: 'sail', hot: 1, fine: 0.36, box: [0.2777, 0.1637, 0.436, 0.6466] },
@@ -244,13 +254,13 @@ const bridgePano = {
   focus: {
     foci: [[17, 3, 20, 8, 1], [14, -6, 28, 7, 0.85], [6, -17, 30, 9, 0.65], [-38, -2, 16, 14, 0.6], [52, -8, 14, 12, 0.55],
       [-140, -6, 24, 16, 0.6], [130, -6, 22, 16, 0.55], [180, -12, 20, 14, 0.5], [-80, -10, 18, 14, 0.45], [90, -8, 16, 14, 0.45]],
-    floor: 0.2, skyMax: 0.32,
+    floor: 0.2, skyMax: 0.32, spread: 1.12, blur: 4,
   },
   // value masses of the broad places: value steps, how sharp a step is, how far values are drawn to it, and how
   // much of the underpainting's colour comes from the mass where nothing matters
   masses: { steps: 5, edge: 0.25, pull: 0.6, mix: 0.7 },
   // contrast against the surroundings [broad, focus], and how far broad distant garden leans to the air's colour
-  contrast: [0.8, 1.15], air: 0.15,
+  contrast: [0.86, 1.1], air: 0.15,
   // the passes, coarse to fine: size k (relative), stroke shape, and when a stroke is laid (base, + importance,
   // + detail at the pass's scale; from..: the importance over which a pass comes in fully, low: its share below)
   passes: [

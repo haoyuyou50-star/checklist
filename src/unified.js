@@ -653,6 +653,9 @@ export function buildUnified(scene, img, Q, X = null, panoImg = null) {
     const col = [0, 1, 2].map((j) => clamp(c0[j] * jit + (rand() - 0.5) * 0.025, 0, 1));
     let maj = sp * lerp(L.maj[0], L.maj[1], rand()), mn = sp * lerp(L.min[0], L.min[1], rand());
     if (c === CLS.WATER) { maj *= li === 0 ? 0.9 : 1.1; mn *= lerp(0.72, 1.05, r.near || 0); maj *= lerp(1, 0.8, r.near || 0); }
+    // Monet sums up a reflection in long level dashes
+    const RD = U.reflDash;
+    if (RD && c === CLS.WATER && r.flex < -1 && li >= RD.from) { maj *= lerp(RD.len[0], RD.len[1], rand()); mn *= RD.min; }
     if (r.far) maj *= lerp(1, 0.7, r.far);
     if (c === CLS.SKY) { maj *= li === 0 ? 1.55 : 1.35; mn *= 1.08; }
     const so = softOf(li, c, im);
@@ -754,6 +757,52 @@ export function buildUnified(scene, img, Q, X = null, panoImg = null) {
       psi += rowStep; row++;
     }
   });
+
+  /* ---------------- the painted reflections, dash by dash ---------------- */
+  // Monet sums the reflections up in long level dashes. Each horizontal run of one colour in the painted
+  // reflection becomes one stroke of the run's length, laid over the passes
+  if (U.reflRuns) {
+    const RR = U.reflRuns;
+    // the grade lifts and evens out the river: the dashes are drawn richer, and further in value from the clean
+    // water, so they still read after it
+    const wl0 = lumOf(meanRows(baseFine, vH + 0.02, 0.9, FAM_WATER));
+    let n = 0;
+    for (let y = 0; y < H * (RR.vMax || 1); y += RR.step) {
+      let x0 = -1, acc = [0, 0, 0], accB = [0, 0, 0];
+      const flush = (x1) => {
+        const len = x1 - x0;
+        if (x0 >= 0 && len >= RR.min) {
+          const xc = Math.round((x0 + x1 - 1) / 2), i = y * W + xc, u = (xc + 0.5) / W, v = (y + 0.5) / H;
+          const d = norm([(u - 0.5) / f, -(v - vH) * asp / f, -1]), z = depZ[i] * 0.997, t = z / -d[2];
+          const P = [d[0] * t, d[1] * t, d[2] * t], dist = Math.hypot(...P);
+          const Rt = norm(cross(d, up)), half = (len / W / 2) * (z / f) * RR.over;
+          // the shader flattens water strokes towards grazing angles: the run's height is already foreshortened
+          const fz = clamp((h / dist) * 3 + 0.4, 0.4, 1);
+          const mn = (RR.thick * RR.step / H / 2) * asp * (z / f) / fz;
+          const m = acc.map((s) => s / len), lm = lumOf(m), lv = wl0 + (lm - wl0) * RR.value;
+          const col = m.map((q) => clamp((lv + (q - lm) * RR.sat) * (1 + (rand() - 0.5) * 0.04), 0, 1));
+          const sc = sC * f / -d[2], rad = Math.hypot(u - 0.5, (v - 0.5) * asp) / 0.62;
+          B.add(P, [d[0] * sc, d[1] * sc, d[2] * sc], Rt.map((q) => q * half), mn, col, RR.alpha, CLS.WATER, hot[i], flex[i], clamp(rad * 0.62 + rand() * 0.38, 0, 1), 0, softSeed(0, rand()));
+          n++;
+        }
+        x0 = -1; acc = [0, 0, 0]; accB = [0, 0, 0];
+      };
+      for (let x = 0; x < W; x++) {
+        const i = y * W + x, ok = cls[i] === CLS.WATER && flex[i] < -1 && !waterBad((x + 0.5) / W, (y + 0.5) / H);
+        if (!ok) { flush(x); continue; }
+        // runs are told on the lightly blurred plate (paint grain breaks them up), coloured from the raw one
+        const c = [b1[i * 3], b1[i * 3 + 1], b1[i * 3 + 2]];
+        if (x0 >= 0) {
+          const len = x - x0;
+          if (Math.max(...c.map((q, j) => Math.abs(q - accB[j] / len))) > RR.tol) flush(x);
+        }
+        if (x0 < 0) x0 = x;
+        for (let j = 0; j < 3; j++) { acc[j] += rgb[i * 3 + j]; accB[j] += c[j]; }
+      }
+      flush(W);
+    }
+    console.log(`[monet] reflection dashes ${n}`);
+  }
 
   /* ---------------- boats beyond the frame: the painted boats, re-staged ---------------- */
   const reflections = [];
