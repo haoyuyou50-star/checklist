@@ -111,6 +111,28 @@ export function buildPano(scene, img, Q) {
     wM = blur1(m, W, H, Math.max(3, Math.round(W / 400)));
   }
   const isWillow = (i) => wM !== null && wM[i] > P.willow.mask;
+  // the willow hangs as one curtain: each willow pixel's place down its hanging run (0 at the top, 1 at the tip)
+  // and the run's length (m, roughly: its arc at the garden's distance). Every stroke there takes
+  // flex = 2 + 2 * floor(length / 0.25 m) + place, and every pass swings by the same rule, so the layers move
+  // together. The shader takes a tree stroke with flex >= 2 as willow
+  let wFlex = null;
+  if (wM) {
+    wFlex = new Float32Array(N);
+    const gap = Math.max(3, Math.round(W / 300));
+    for (let x = 0; x < W; x++) {
+      const az = ((x + 0.5) / W - 0.5) * 360;
+      let y = 0;
+      while (y < H) {
+        if (!isWillow(y * W + x)) { y++; continue; }
+        let y1 = y, miss = 0;
+        while (y1 + 1 < H && miss <= gap) { y1++; if (isWillow(y1 * W + x)) miss = 0; else miss++; }
+        y1 -= miss;
+        const len = Math.max(0.25, ((y1 - y + 1) / H) * Math.PI * shoreD(az)), lq = Math.round(len / 0.25);
+        for (let k = y; k <= y1; k++) wFlex[k * W + x] = 2 + 2 * lq + Math.min(0.995, (k - y) / Math.max(1, y1 - y));
+        y = y1 + 1;
+      }
+    }
+  }
 
   // the calm pond: its colour smeared level along each row (within the pond), so the open water reads as a few
   // level bands of reflection rather than a mottle of small ones (pondCalm: { r: radius px at 2048, mix })
@@ -162,7 +184,7 @@ export function buildPano(scene, img, Q) {
       else {
         // the garden stands round the pond at the shore's distance, nearer where it comes down to the eye's feet
         t = d[1] < -1e-3 ? Math.min(h / -d[1], S / hz) : S / hz;
-        flex = clamp((el / DEG + 12) / 45, 0.1, 1);
+        flex = wFlex && wFlex[i] >= 2 ? wFlex[i] : clamp((el / DEG + 12) / 45, 0.1, 1);
       }
     }
     // kx, ky: view arc per panorama radian across and up
@@ -253,7 +275,10 @@ export function buildPano(scene, img, Q) {
     const Pw = [r.P[0] * dm, r.P[1] * dm, r.P[2] * dm];
     const dist = d0 * dm;
     const Rt = norm(cross(d, Math.abs(d[1]) > 0.999 ? [0, 0, 1] : up)), Ut = cross(Rt, d);
-    const ang = strokeAngle(r, lily), ca = Math.cos(ang) * maj * dist, sa = -Math.sin(ang) * maj * dist;
+    // under the strands the broad passes hang too: long, upright, narrow
+    const hang = c === CLS.TREE && r.flex >= 2;
+    if (hang) { maj *= P.willow.under[0]; mn *= P.willow.under[1]; }
+    const ang = hang ? Math.PI / 2 + (rand() - 0.5) * 0.12 : strokeAngle(r, lily), ca = Math.cos(ang) * maj * dist, sa = -Math.sin(ang) * maj * dist;
     let axis = [Rt[0] * ca + Ut[0] * sa, Rt[1] * ca + Ut[1] * sa, Rt[2] * ca + Ut[2] * sa];
     // looking down, strokes laid across the line of sight close into rings round the nadir: flat on the pond instead
     if (c === CLS.WATER && rand() < nearW) { const a = rand() * Math.PI; axis = [Math.cos(a) * maj * dist, 0, Math.sin(a) * maj * dist]; }
@@ -392,7 +417,7 @@ export function buildPano(scene, img, Q) {
           cpos = [d[0] * sc, d[1] * sc, d[2] * sc];
           delay = clamp(Math.hypot(p[0] - 0.5, (p[1] - 0.5) * asp) / 0.62 * 0.62 + rand() * 0.38, 0, 1);
         } else delay = extDelay(Pw);
-        B.add(Pw, cpos, dir.map((q) => q * half), mn, col, 0.95, CLS.TREE, 0, 2 + t, delay, inF ? 0 : 1, softSeed(0, rand()));
+        B.add(Pw, cpos, dir.map((q) => q * half), mn, col, 0.95, CLS.TREE, 0, r.flex >= 2 ? r.flex : 2 + 2 * Math.round(2 / 0.25) + Math.min(t, 0.995), delay, inF ? 0 : 1, softSeed(0, rand()));
         counts[5]++;
       });
     });

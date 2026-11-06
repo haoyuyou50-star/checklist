@@ -284,8 +284,9 @@ const bridgePano = {
   dabs: { k: 0.42, p: 0.12, minor: 0.04, tint: 0.06, sat: 1.1, jitter: 0.5, sky: 0.1, water: 0 },
   // hanging willows as whole strands (tree strokes whose brushwork runs up and down from elevation low°, coh: how
   // steadily, mask: share of such brushwork around): seed spacing k, strokes per strand, how many strands cover
-  // a place, step between strokes and overlap (spacings), width, light/dark spread between strands
-  willow: { low: -12, coh: 0.3, mask: 0.45, k: 0.75, len: [8, 18], cover: 1.6, step: 0.9, over: 1.5, width: 0.2, tone: 0.3 },
+  // a place, step between strokes and overlap (spacings), width, light/dark spread between strands; under: how
+  // much longer and narrower the broad passes' strokes hang there
+  willow: { low: -12, coh: 0.3, mask: 0.45, k: 0.75, len: [8, 18], cover: 1.6, step: 0.9, over: 1.5, width: 0.2, tone: 0.3, under: [2.4, 0.55] },
 };
 
 const bridge = {

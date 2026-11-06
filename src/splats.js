@@ -197,17 +197,18 @@ void main() {
     } else {
       axis = rotAround(axis, normalize(-pos), b * 0.4 * (seed - 0.5));
     }
-  } else if (cls == 3 && flex >= 2.0) {      // a willow strand: swings from its top, more towards its tip
-    float t = flex - 2.0;
+  } else if (cls == 3 && flex >= 2.0) {      // willow: the curtain swings from its top, more towards its tips
+    // flex = 2 + 2 * (hanging length in 0.25 m) + place down it (0 top .. 1 tip)
+    float t = fract(flex), hl = max(floor((flex - 2.0) * 0.5 + 0.01), 1.0) * 0.25;
     float wk = gustWake(world);
     // one phase per strand (its strokes share x and z)
     float ph = dot(world.xz, vec2(0.61, 0.37));
     float s = sin(uTime * 0.85 + ph) * 0.6 + sin(uTime * 1.9 + ph * 1.7) * 0.2;
     float bb = s * (0.3 + 0.45 * w) + w * 0.7 + wk * 1.1, amp = 0.1 + 0.012 * dist;
     pos += wd3 * bb * t * t * amp;
-    // each stroke leans by the strand's slope there (d/dt of the swing over the strand's length, about 13 of
-    // these half-lengths), so the chain stays joined
-    axis += wd3 * (-axis.y) * 2.0 * bb * t * amp / (13.0 * length(axis));
+    // each stroke leans by the curtain's slope there (d/dt of the swing over its hanging length), so strokes
+    // above and below stay joined
+    axis += wd3 * (-axis.y) * clamp(2.0 * bb * t * amp / max(hl, 1.5), -0.45, 0.45);
     col += vec3(0.04, 0.045, 0.02) * max(s, 0.0) * t * (0.4 + w);
   } else if (cls == 3) {                     // foliage
     float sway = sin(uTime * 1.25 + pos.x * 0.07 + pos.z * 0.05) * 0.5 + 0.5;
