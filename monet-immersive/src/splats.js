@@ -215,12 +215,14 @@ void main() {
     pos.y += sin(ph) * 0.015 * (1.0 + dist * 0.02);
     vec3 tang = normalize(cross(vec3(0.0, 1.0, 0.0), normalize(pos)) + 1e-4);
     pos += tang * sin(uTime * 0.8 + pos.z * 0.25 + seed * 3.0) * 0.01 * dist * (0.5 + w);
-    axis *= 1.0 + (0.22 + 0.35 * w) * (0.5 + 0.5 * sin(uTime * 0.7 + pos.z * 0.35 + seed * 5.0));
+    // long level dashes (reflections) only shimmer: stretching or turning them reads as rubber lines
+    float lng = smoothstep(2.5, 6.0, length(axis) / max(minor, 1e-5));
+    axis *= 1.0 + (0.22 + 0.35 * w) * (0.5 + 0.5 * sin(uTime * 0.7 + pos.z * 0.35 + seed * 5.0)) * (1.0 - 0.85 * lng);
     col *= 1.0 + 0.1 * sin(uTime * 2.3 + seed * 30.0) * (0.4 + w);
-    // a gust front runs over the water as a dark, choppy band
+    // a gust front runs over the water as a cool, glinting band (darkening it greyed the river)
     float wk = gustWake(pos);
-    col *= 1.0 - 0.1 * wk * (0.6 + 0.4 * sin(uTime * 7.0 + seed * 40.0));
-    axis = rotAround(axis, normalize(cameraPosition - pos), wk * 0.3 * (seed - 0.5));
+    col += vec3(0.025, 0.04, 0.06) * wk * (0.5 + 0.5 * sin(uTime * 7.0 + seed * 40.0));
+    axis = rotAround(axis, normalize(cameraPosition - pos), wk * 0.3 * (seed - 0.5) * (1.0 - lng));
     if (hot < -0.001) {
       pos += wd3 * -hot * (0.25 + 0.55 * w) * (0.25 + 0.006 * dist);
       // a boat's image rocks with it: its mirrored point turns about the waterline, seen on the water

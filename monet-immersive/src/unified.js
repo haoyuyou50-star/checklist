@@ -580,6 +580,26 @@ export function buildUnified(scene, img, Q, X = null, panoImg = null) {
     return c;
   };
 
+  // beyond the frame the colours come from far-off rows, mirrored columns and the panorama, and greys collect
+  // there: sky that turns green or dark, bank gone mauve-grey or black, dark water. Each is drawn back to a clean
+  // colour of its kind (cleanOut: { sky, land, dark } strengths)
+  const waterMean = U.cleanOut ? meanRows(baseFine, vH + 0.02, 0.9, FAM_WATER) : null;
+  const cleanOut = (c, r) => {
+    const CO = U.cleanOut, l = lumOf(c);
+    if (r.cls === CLS.SKY) {
+      const row = skyRowCol[clamp(r.y, 0, H - 1)];
+      const green = c[1] - 0.5 * (c[0] + c[2]), dk = lumOf(row) - l;
+      return lerp3(c, row, CO.sky * Math.max(smooth(-0.01, 0.04, green), smooth(0.01, 0.07, dk)));
+    }
+    if (r.cls === CLS.WATER) return lerp3(c, waterMean, CO.dark * smooth(0.06, 0.2, lumOf(waterMean) - l));
+    // bank: a grey or mauve turns to a fresh green of its own value, and the darkest are lifted
+    const ch = chromaOf(c), lv = Math.max(l, lerp(l, 0.32, CO.dark));
+    const fresh = [lv * 0.82, lv * 1.1, lv * 0.72];
+    // (pale walls and roofs keep their colour)
+    const grey = Math.max(smooth(0.12, 0.03, ch), smooth(-0.02, 0.05, Math.min(c[0], c[2]) - c[1]));
+    return lerp3(c.map((q) => q + (lv - l)), fresh, CO.land * grey * smooth(0.62, 0.48, l));
+  };
+
   /* ---------------- stroke emission ---------------- */
   const B = new Builder(320000);
   const hotAcc = new Map();
@@ -650,6 +670,7 @@ export function buildUnified(scene, img, Q, X = null, panoImg = null) {
       const w = PX.w(d, c), pc = w > 0 && PX.at(d, L.lvl, c);
       if (pc) c0 = lerp3(c0, pc, w);
     }
+    if (U.cleanOut && ext) c0 = cleanOut(c0, r);
     const col = [0, 1, 2].map((j) => clamp(c0[j] * jit + (rand() - 0.5) * 0.025, 0, 1));
     let maj = sp * lerp(L.maj[0], L.maj[1], rand()), mn = sp * lerp(L.min[0], L.min[1], rand());
     if (c === CLS.WATER) { maj *= li === 0 ? 0.9 : 1.1; mn *= lerp(0.72, 1.05, r.near || 0); maj *= lerp(1, 0.8, r.near || 0); }
@@ -857,7 +878,7 @@ export function buildUnified(scene, img, Q, X = null, panoImg = null) {
     B.add(w, w, axis, minor, col, a, CLS.WATER, 0, -m, extDelay(w), 1, rand());
   });
 
-  if (X) X.emit({ B, rand, f, vH, asp, h, groundZ, wl, alpha0, layers, extDelay, proj, inRect, sC, hotAcc, shoreS, baseWater, plate: { W, H, cls, depZ, flex }, imp: IMP && IMP.dir });
+  if (X) X.emit({ B, rand, f, vH, asp, h, groundZ, wl, alpha0, layers, extDelay, proj, inRect, sC, hotAcc, shoreS, baseWater, plate: { W, H, cls, depZ, flex }, imp: IMP && IMP.dir, cleanOut: U.cleanOut && cleanOut });
 
   // sparkle on the river and drifting motes
   for (let k = 0; k < Q.glints; k++) {
