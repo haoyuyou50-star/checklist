@@ -92,6 +92,46 @@ export function buildPano(scene, img, Q) {
     }
   }
 
+  // hanging willow: garden whose brushwork runs steadily up and down (P.willow.coh: how steadily)
+  let wM = null;
+  if (P.willow) {
+    const m = new Float32Array(N);
+    for (let y = 0; y < H; y++) {
+      const el = (0.5 - (y + 0.5) / H) * Math.PI;
+      if (el < P.willow.low * DEG) continue;
+      for (let x = 0; x < W; x++) {
+        const i = y * W + x;
+        if (cls[i] !== CLS.TREE || b2[i * 3 + 1] < b2[i * 3 + 2]) continue;
+        const sxx = Jxx[i], sxy = Jxy[i], syy = Jyy[i];
+        const coh = Math.sqrt((sxx - syy) ** 2 + 4 * sxy * sxy) / (sxx + syy + 1e-6);
+        const ap = 0.5 * Math.atan2(2 * sxy, sxx - syy) + Math.PI / 2;
+        m[i] = coh > P.willow.coh && Math.abs(Math.cos(ap)) < 0.4 ? 1 : 0;
+      }
+    }
+    wM = blur1(m, W, H, Math.max(3, Math.round(W / 400)));
+  }
+  const isWillow = (i) => wM !== null && wM[i] > P.willow.mask;
+
+  // the calm pond: its colour smeared level along each row (within the pond), so the open water reads as a few
+  // level bands of reflection rather than a mottle of small ones (pondCalm: { r: radius px at 2048, mix })
+  let pondH = null;
+  if (P.pondCalm) {
+    const rr = Math.max(2, Math.round((P.pondCalm.r * W) / 2048));
+    pondH = new Float32Array(N * 3);
+    for (let y = 0; y < H; y++) {
+      const row = y * W, acc = [0, 0, 0];
+      let n = 0;
+      const put = (x, s) => { const i = row + ((x % W) + W) % W; if (cls[i] !== CLS.WATER) return; for (let j = 0; j < 3; j++) acc[j] += s * b2[i * 3 + j]; n += s; };
+      for (let k = -rr; k <= rr; k++) put(k, 1);
+      for (let x = 0; x < W; x++) {
+        const i = row + x;
+        for (let j = 0; j < 3; j++) pondH[i * 3 + j] = n > 0 ? acc[j] / n : b2[i * 3 + j];
+        put(x + rr + 1, 1); put(x - rr, -1);
+      }
+    }
+  }
+  const calm = (c, r) => (pondH && r.cls === CLS.WATER ? lerp3(c, sample(pondH, r.i), P.pondCalm.mix) : c);
+
   // the eye stands further back than the panorama was painted from: a zoom out round the front (s times smaller
   // there, larger behind), separable in azimuth and elevation so verticals stay vertical and the horizon level,
   // and conformal along the horizon. turn: the view azimuth where the panorama's azimuth 0 (the bridge) lands
@@ -195,14 +235,16 @@ export function buildPano(scene, img, Q) {
     if (c === CLS.SKY) { const h0 = a - Math.PI * Math.round(a / Math.PI); a = lerp(h0 * 0.4 + (rand() - 0.5) * 0.12, h0, smooth(0.5, 1.1, r.vel)); }
     return a;
   };
-  const counts = [0, 0, 0, 0, 0];
+  const counts = [0, 0, 0, 0, 0, 0];
+  // how soft the minor places' edges get (1: as designed; lower leaves the blur to the headset's foveation)
+  const SM = P.softMul ?? 1;
   // li: pass (4 = broken colour); soft 0..1: edge softness (packed in the seed's integer part for the shader)
   const add = (r, d, sp, col, alpha, majR, minR, li, soft, lily = false) => {
     let maj = sp * lerp(majR[0], majR[1], rand()), mn = sp * lerp(minR[0], minR[1], rand());
     const c = lily ? CLS.STATIC : r.cls, nearW = r.cls === CLS.WATER ? smooth(-0.3, -0.7, d[1]) : 0;
     if (c === CLS.WATER) { maj *= 1.1 * lerp(1, 0.8, nearW); mn *= lerp(0.72, 1.05, nearW); }
     // a lily pad lies on the pond: the further off, the flatter its dash
-    if (lily) { const a = clamp(1 / (Math.sin(-r.vel) * 2.2 + 0.25), 1.15, 2.8); maj = sp * lerp(0.75, 1.05, rand()) * Math.sqrt(a); mn = maj / a; }
+    if (lily) { const a = clamp(1 / (Math.sin(-r.vel) * 2.2 + 0.25), 1.15, 2.8); maj = sp * (P.lilySize ?? 1) * lerp(0.75, 1.05, rand()) * Math.sqrt(a); mn = maj / a; }
     if (c === CLS.SKY) { maj *= li === 0 ? 1.55 : 1.35; mn *= 1.08; }
     // soft strokes spread a little wider so they still close up over their neighbours
     maj *= 1 + 0.25 * soft; mn *= 1 + 0.35 * soft;
@@ -250,8 +292,8 @@ export function buildPano(scene, img, Q) {
   // underpainting: everywhere, large; minor places from their value masses, in soft strokes
   ring((psi) => alpha0 * L[0].k * gOf(psi), (d, sp) => {
     const r = resolve(d), q = 1 - r.imp;
-    const col = finish(sample(b4, r.i), r, P.masses.mix * q);
-    add(r, d, sp, col, 0.97, L[0].maj, L[0].min, 0, r.cls === CLS.SKY ? 0.75 : 0.2 + 0.55 * q);
+    const col = finish(calm(sample(b4, r.i), r), r, P.masses.mix * q);
+    add(r, d, sp, col, 0.97, L[0].maj, L[0].min, 0, r.cls === CLS.SKY ? 0.75 : (0.2 + 0.55 * q) * SM);
   });
   // second pass: most places still, thinning out where nothing much happens
   ring((psi) => alpha0 * L[1].k * gOf(psi), (d, sp) => {
@@ -259,7 +301,7 @@ export function buildPano(scene, img, Q) {
     if (r.cls === CLS.SKY && rand() < 0.35) return;
     if (rand() > clamp(L[1].base + L[1].imp * r.imp + L[1].gain * e, 0, 1)) return;
     const q = 1 - r.imp;
-    add(r, d, sp, finish(sample(b2, r.i), r, P.masses.mix * q * 0.6), 0.97, L[1].maj, L[1].min, 1, r.cls === CLS.SKY ? 0.6 : 0.1 + 0.45 * q);
+    add(r, d, sp, finish(calm(sample(b2, r.i), r), r, P.masses.mix * q * 0.6), 0.97, L[1].maj, L[1].min, 1, r.cls === CLS.SKY ? 0.6 : (0.1 + 0.45 * q) * SM);
   });
   // third pass: only where the picture has detail at this scale, as far as the place matters
   ring((psi) => alpha0 * L[2].k * gOf(psi), (d, sp) => {
@@ -268,8 +310,10 @@ export function buildPano(scene, img, Q) {
     const r = resolve(d), e = E2[r.i];
     if (r.cls === CLS.SKY && rand() > 0.25 * r.imp) return;
     if (rand() * pre > clamp((L[2].base + L[2].gain * e) * lerp(L[2].low, 1, smooth(L[2].from, 0.8, r.imp)), 0, 1)) return;
+    if (isWillow(r.i)) return;
     const lily = isLily(r, e);
-    add(r, d, sp, finish(sample(b1, r.i), r, 0), 0.97, L[2].maj, L[2].min, 2, (1 - r.imp) * 0.3, lily);
+    const c1 = sample(b1, r.i);
+    add(r, d, sp, finish(lily ? c1 : calm(c1, r), r, 0), 0.97, L[2].maj, L[2].min, 2, (1 - r.imp) * 0.3 * SM, lily);
   });
   // finest pass: edges in the focal places, at the picture's own resolution, hard-edged
   // (the fine passes test most directions only to leave them out: a first test on the importance alone, before
@@ -278,9 +322,10 @@ export function buildPano(scene, img, Q) {
     const pre = 0.85 * L[3].p * smooth(L[3].from, 1, impDir(d));
     if (rand() > pre) return;
     const r = resolve(d);
-    if (r.cls === CLS.SKY) return;
+    if (r.cls === CLS.SKY || isWillow(r.i)) return;
     if (rand() * pre > clamp(grad[r.i] * 9 - 0.12, 0, 0.85) * L[3].p * smooth(L[3].from, 1, r.imp)) return;
     const e = E2[r.i], lily = isLily(r, e);
+    if (P.pondCalm && r.cls === CLS.WATER) return;
     add(r, d, sp, finish(fullAt(r.az, r.el), r, 0), 0.96, L[3].maj, L[3].min, 3, 0, lily);
   });
 
@@ -292,6 +337,7 @@ export function buildPano(scene, img, Q) {
     if (rand() > pre) return;
     const r = resolve(d);
     if (r.cls === CLS.SKY && rand() > DB.sky) return;
+    if (isWillow(r.i) || (r.cls === CLS.WATER && rand() > (DB.water ?? 1))) return;
     const e = E2[r.i];
     if (rand() * pre > DB.p * lerp(DB.minor, 1, smooth(0.15, 0.85, r.imp)) * (0.5 + 0.5 * smooth(0, 0.12, e))) return;
     const jr = (DB.jitter * sp) / Math.max(r.kx, 0.2);
@@ -302,6 +348,55 @@ export function buildPano(scene, img, Q) {
     for (let q = 0; q < 3; q++) col[q] = clamp(lm + (col[q] - lm) * DB.sat + tc[q] * Math.abs(tint), 0, 1);
     add(r, d, sp, finish(col, r, 0), 0.95, [1.0, 1.6], [0.6, 0.9], 4, 0, isLily(r, e));
   });
+
+  // willow strands: each hangs from where it starts and runs down the picture's own brushwork as one chain of
+  // thin overlapping strokes, so it reads as one strand and sways as one. The shader takes flex 2..3 on a tree
+  // stroke as a strand: 2 + how far down it (0 at its top, 1 at its tip)
+  if (P.willow) {
+    const WL = P.willow;
+    ring((psi) => alpha0 * WL.k * gOf(psi), (d0, sp) => {
+      let r = resolve(d0);
+      if (!isWillow(r.i)) return;
+      const n = Math.round(lerp(WL.len[0], WL.len[1], rand()));
+      if (rand() > WL.cover / n) return;
+      const pts = [];
+      let d = d0;
+      for (let k = 0; k < n; k++) {
+        if (k > 0) {
+          r = resolve(d);
+          if (r.cls !== CLS.TREE || (wM[r.i] < WL.mask * 0.6)) break;
+        }
+        // down the brushwork (steadily: a strand barely wanders)
+        const Rt = norm(cross(d, up)), Ut = cross(Rt, d);
+        const i = r.i, sxx = Jxx[i], sxy = Jxy[i], syy = Jyy[i];
+        const ap = 0.5 * Math.atan2(2 * sxy, sxx - syy) + Math.PI / 2;
+        let dx = Math.cos(ap) * r.kx, dy = Math.abs(Math.sin(ap)) * r.ky;
+        const l = Math.hypot(dx, dy) || 1;
+        dx = clamp(dx / l, -0.35, 0.35); dy = Math.sqrt(1 - dx * dx);
+        pts.push({ r, d, dir: [Rt[0] * dx - Ut[0] * dy, Rt[1] * dx - Ut[1] * dy, Rt[2] * dx - Ut[2] * dy] });
+        const st = sp * WL.step;
+        d = norm([d[0] + pts[k].dir[0] * st, d[1] + pts[k].dir[1] * st, d[2] + pts[k].dir[2] * st]);
+      }
+      if (pts.length < 3) return;
+      const tone = 1 + (rand() - 0.5) * WL.tone;
+      pts.forEach(({ r, d, dir }, k) => {
+        const t = k / (pts.length - 1);
+        const col = finish(fullAt(r.az, r.el), r, 0).map((x) => clamp(x * tone, 0, 1));
+        const dist = Math.hypot(r.P[0], r.P[1], r.P[2]), dm = 1 - 0.004 * (1 + t);
+        const Pw = r.P.map((q) => q * dm);
+        const half = sp * WL.step * WL.over * 0.5 * dist, mn = sp * WL.width * dist * lerp(1, 0.7, t);
+        const p = proj(d), inF = inRect(p);
+        let cpos = Pw, delay;
+        if (inF) {
+          const sc = sC * f / -d[2];
+          cpos = [d[0] * sc, d[1] * sc, d[2] * sc];
+          delay = clamp(Math.hypot(p[0] - 0.5, (p[1] - 0.5) * asp) / 0.62 * 0.62 + rand() * 0.38, 0, 1);
+        } else delay = extDelay(Pw);
+        B.add(Pw, cpos, dir.map((q) => q * half), mn, col, 0.95, CLS.TREE, 0, 2 + t, delay, inF ? 0 : 1, softSeed(0, rand()));
+        counts[5]++;
+      });
+    });
+  }
 
   // sparkle on the pond and drifting motes
   for (let k = 0; k < Q.glints * 0.6; k++) {
