@@ -80,6 +80,8 @@ const regatta = {
     contrast: [0.9, 1.1],
     passes: [0.55, 0.25, 0.15],
     // the painted reflections as long level dashes: length and width multiples, from which pass on
+    // beyond the frame: greenish or dark sky, grey bank and dark river drawn back to clean colours
+    cleanOut: { sky: 0.85, land: 0.6, dark: 0.5 },
     reflDash: { len: [2.4, 3.8], min: 0.62, from: 1 },
     // and traced: each run of one colour in a painted reflection row (rows step px apart, colour tolerance,
     // shortest run in px) is one stroke, thick x step high, over x its length, richer (sat) and further in value from the river (value);

@@ -237,10 +237,11 @@ export function makeLayerEmitter(set, Q) {
               const ca = Math.cos(a) * maj * dist, sa = -Math.sin(a) * maj * dist;
               const axis = [o.R[0] * ca + o.U[0] * sa, o.R[1] * ca + o.U[1] * sa, o.R[2] * ca + o.U[2] * sa];
               const jit = 1 + (rand() - 0.5) * 0.06;
-              const col = [0, 1, 2].map((j) => clamp(img[i * 3 + j] * jit + (rand() - 0.5) * 0.02, 0, 1));
+              let col = [0, 1, 2].map((j) => clamp(img[i * 3 + j] * jit + (rand() - 0.5) * 0.02, 0, 1));
               const fy = 1 - (y + 0.5) / s.h;
               const lumP = 0.3 * col[0] + 0.59 * col[1] + 0.11 * col[2];
               const c = o.cls(col, lumP, fy, o.hull);
+              if (o.ext && ctx.cleanOut && c === CLS.TREE) col = ctx.cleanOut(col, { cls: c });
               const flex = (c === CLS.SAIL ? clamp((fy - o.hull) / (1 - o.hull), 0, 1) : c === CLS.TREE ? fy : 0) * (o.flexMul ?? 1);
               let cpos = P, delay;
               if (!o.ext) {
