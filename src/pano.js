@@ -67,6 +67,9 @@ export function buildPano(scene, img, Q) {
   // the pond spans elevations [low, top] (degrees) at each azimuth; -99: none
   const wTop = polyline(P.pondTop), wLow = polyline(P.pondLow), shoreD = polyline(P.shore);
   const [sAz, sOff] = P.underfoot;
+  // the water lies a little below the bank (m), so the garden's edge stands over it rather than the pond sitting
+  // on the ground
+  const BK = P.bank, hw = h + (BK ? BK.drop : 0);
   const isPond = (az, el) => {
     const a = az / DEG, e = el / DEG;
     // underfoot every azimuth meets: the shoreline there is a straight line on the ground (as in the sphere)
@@ -152,7 +155,30 @@ export function buildPano(scene, img, Q) {
       }
     }
   }
-  const calm = (c, r) => (pondH && r.cls === CLS.WATER ? lerp3(c, sample(pondH, r.i), P.pondCalm.mix) : c);
+  const calm0 = (c, r) => (pondH && r.cls === CLS.WATER ? lerp3(c, sample(pondH, r.i), P.pondCalm.mix) : c);
+  // the shore: a band of water under the far bank takes the bank's darkened reflection (mirrored about the
+  // waterline), the water under the near bank its shadow, and the bank's lip over the water is shaded
+  // (bank: { band, lip: degrees of water / garden; refl, shade: shares })
+  const shore = (c, r) => {
+    if (!BK) return c;
+    const a = r.az / DEG, e = r.el / DEG, top = wTop(a), low = wLow(a);
+    if (r.cls === CLS.WATER) {
+      if (top > -90 && e < top) {
+        const f = 1 - smooth(0, BK.band, top - e);
+        if (f > 0) {
+          const ym = yOf((2 * top - e) * DEG), im = ym * W + r.x;
+          const m = cls[im] === CLS.TREE ? sample(b4, im) : c;
+          c = lerp3(c, m.map((x) => x * 0.72), BK.refl * f);
+        }
+      }
+      if (low > -90 && e > low) c = c.map((x) => x * (1 - BK.shade * (1 - smooth(0, BK.band * 0.6, e - low))));
+    } else if (r.cls === CLS.TREE) {
+      const k = (top > -90 && e > top ? 1 - smooth(0, BK.lip, e - top) : 0) + (low > -90 && e < low ? 1 - smooth(0, BK.lip, low - e) : 0);
+      if (k > 0) c = c.map((x) => x * (1 - BK.shade * Math.min(k, 1)));
+    }
+    return c;
+  };
+  const calm = (c, r) => shore(calm0(c, r), r);
 
   // the eye stands further back than the panorama was painted from: a zoom out round the front (s times smaller
   // there, larger behind), separable in azimuth and elevation so verticals stay vertical and the horizon level,
@@ -180,7 +206,7 @@ export function buildPano(scene, img, Q) {
     if (c === CLS.SKY) t = R;
     else {
       const S = shoreD(az / DEG) * w.m;
-      if (c === CLS.WATER) { t = d[1] < -1e-3 ? Math.min(h / -d[1], cam.maxD) : cam.maxD; flex = 0.5 + rand() * 0.5; }
+      if (c === CLS.WATER) { t = d[1] < -1e-3 ? Math.min(hw / -d[1], cam.maxD) : cam.maxD; flex = 0.5 + rand() * 0.5; }
       else {
         // the garden stands round the pond at the shore's distance, nearer where it comes down to the eye's feet
         t = d[1] < -1e-3 ? Math.min(h / -d[1], S / hz) : S / hz;
@@ -423,21 +449,110 @@ export function buildPano(scene, img, Q) {
     });
   }
 
+  // lily pads: whole, hard-edged pads lying flat on the water in drifts where the picture's pond has them, a few
+  // in flower. Each pad is one broad touch and a lighter one over it (never a scatter of small ones); flowers are
+  // a small cluster of petals over the pad
+  // (pads: { n per tier, r: radius m [min, max], grow: radius per m away, spacing in radii, evidence: pond detail
+  // that counts as lilies, drift: share of the pond the drifts cover, flower: share in flower, greens, flowers })
+  const PD = P.pads;
+  let nPads = 0;
+  if (PD) {
+    const ev = blur1(E2, W, H, Math.max(3, Math.round(W / 256)));
+    const taken = new Map(), cell = 0.5;
+    const key = (x, z) => `${Math.floor(x / cell)},${Math.floor(z / cell)}`;
+    const target = PD.n[Q.tier] || PD.n.mid;
+    const flat = (Pw, d, axis, mn, col, soft) => {
+      const p = proj(d), inF = inRect(p);
+      let cpos = Pw, delay;
+      if (inF) {
+        const sc = sC * f / -d[2];
+        cpos = [d[0] * sc, d[1] * sc, d[2] * sc];
+        delay = clamp(Math.hypot(p[0] - 0.5, (p[1] - 0.5) * asp) / 0.62 * 0.62 + rand() * 0.38, 0, 1);
+      } else delay = extDelay(Pw);
+      B.add(Pw, cpos, axis, mn, col, 1, CLS.STATIC, 0, 0, delay, inF ? 0 : 1, softSeed(soft, rand()));
+    };
+    for (let tries = 0; tries < target * 40 && nPads < target; tries++) {
+      const th = rand() * Math.PI * 2, rr = 3.5 + Math.pow(rand(), 1.3) * PD.far;
+      const x = rr * Math.sin(th), z = -rr * Math.cos(th);
+      const d = norm([x, -hw, z]), r = resolve(d);
+      if (r.cls !== CLS.WATER) continue;
+      const a = r.az / DEG, e = r.el / DEG, top = wTop(a), low = wLow(a);
+      if ((top > -90 && e > top - BK.band * 0.5) || (low > -90 && e < low + 1)) continue;
+      // drifts: slow noise over the water, and the picture's own lilies
+      const nz = Math.sin(x * 0.31 + z * 0.17) + Math.sin(x * -0.13 + z * 0.41 + 1.7) * 0.8 + Math.sin(x * 0.57 - z * 0.23 + 4.1) * 0.5;
+      const want = smooth(1 - PD.drift * 2.3, 1.3 - PD.drift * 2.3, nz / 2.3 + 0.5) * smooth(PD.evidence * 0.5, PD.evidence, ev[r.i]);
+      if (rand() > want) continue;
+      const dist = Math.hypot(r.P[0], r.P[1], r.P[2]);
+      const R = lerp(PD.r[0], PD.r[1], rand()) * (1 + PD.grow * rr);
+      const sp = R * PD.spacing, k0 = Math.floor((x - sp) / cell), k1 = Math.floor((x + sp) / cell);
+      let clash = false;
+      for (let kx = k0; kx <= k1 && !clash; kx++) for (let kz = Math.floor((z - sp) / cell); kz <= Math.floor((z + sp) / cell) && !clash; kz++) {
+        const o = taken.get(`${kx},${kz}`);
+        if (o && o.some(([ox, oz, oR]) => Math.hypot(ox - x, oz - z) < (oR + R) * PD.spacing * 0.5)) clash = true;
+      }
+      if (clash) continue;
+      const kk = key(x, z);
+      if (!taken.has(kk)) taken.set(kk, []);
+      taken.get(kk).push([x, z, R]);
+      nPads++;
+
+      // lying flat: across the view at full width, foreshortened up the view
+      const Rt = norm(cross(d, up)), sd = Math.max(0.16, -d[1] / Math.hypot(d[0], d[1], d[2]));
+      const ang = (rand() - 0.5) * 0.5, ca = Math.cos(ang), sa = Math.sin(ang);
+      const fh = norm([d[0], 0, d[2]]), ax = [Rt[0] * ca + fh[0] * sa, 0, Rt[2] * ca + fh[2] * sa];
+      const src = sample(b2, r.i), g = PD.greens[Math.floor(rand() * PD.greens.length)];
+      const lv = lumOf(src);
+      const base = lerp3(g.map((q) => q * (0.8 + lv * 0.45)), src, PD.mix).map((q) => clamp(q * (0.92 + rand() * 0.16), 0, 1));
+      const y = -hw + 0.01;
+      const at = (ox, oz) => { const pw = [x + ox, y, z + oz]; return { pw, d: norm(pw) }; };
+      // the pad's shadow on the water, a touch nearer the viewer
+      // (behind the pad in depth, so it only shows as a darker rim round it)
+      const sh = at(0, 0);
+      sh.pw = sh.pw.map((q) => q * 1.012);
+      flat(sh.pw, sh.d, ax.map((q) => q * R * 1.1), R * sd * 1.04, lerp3(base, [0.14, 0.26, 0.28], 0.55), 0.2);
+      // two overlapping touches, so the pad's outline is not a perfect oval
+      const c0 = at(0, 0), o2 = (rand() < 0.5 ? -1 : 1) * R * lerp(0.3, 0.45, rand());
+      flat(c0.pw.map((q, j) => (j === 1 ? y + 0.004 : q)), c0.d, ax.map((q) => q * R), R * sd * 0.9, base, 0.08);
+      const c1 = at(ax[0] * o2 + fh[0] * R * 0.1, ax[2] * o2 + fh[2] * R * 0.1);
+      flat([c1.pw[0], y + 0.005, c1.pw[2]], c1.d, ax.map((q) => q * R * 0.7), R * sd * lerp(0.7, 0.85, rand()), base.map((q) => clamp(q * 0.95, 0, 1)), 0);
+      // a lighter touch over its far half, where it catches the sky
+      const o = (rand() - 0.5) * 0.5 * R, hi = at(Rt[0] * o + d[0] * R * 0.15, Rt[2] * o + d[2] * R * 0.15);
+      flat([hi.pw[0], y + 0.008, hi.pw[2]], hi.d, ax.map((q) => q * R * 0.62), R * sd * 0.5, base.map((q, j) => clamp(q * 1.12 + [0.06, 0.07, 0.05][j], 0, 1)), 0);
+      counts[4] += 4;
+      // far off a flower would be a speck: only the nearer pads flower
+      if (rr < PD.flowerFar && rand() < PD.flower) {
+        const fc = PD.flowers[Math.floor(rand() * PD.flowers.length)], fr = R * lerp(0.4, 0.5, rand());
+        const fo = (rand() - 0.5) * 0.6 * R;
+        for (let q = 0; q < 4; q++) {
+          const pa = (q / 4) * Math.PI + rand() * 0.3, px = Math.cos(pa) * fr * 0.35, pz = Math.sin(pa) * fr * 0.35;
+          const fp = [x + Rt[0] * fo + px, y + 0.05 + fr * 0.25, z + Rt[2] * fo + pz];
+          const pd = norm(fp), pR = norm(cross(pd, up)), pU = cross(pR, pd);
+          const tilt = (q / 3 - 0.5) * 1.6;
+          const pax = [pR[0] * Math.cos(tilt) + pU[0] * Math.sin(tilt) * 0.6, pR[1] * Math.cos(tilt) + pU[1] * Math.sin(tilt) * 0.6, pR[2] * Math.cos(tilt) + pU[2] * Math.sin(tilt) * 0.6];
+          flat(fp, pd, pax.map((v) => v * fr * 0.7), fr * 0.4, fc.map((v) => clamp(v * (0.94 + rand() * 0.1), 0, 1)), 0);
+        }
+        const cp = [x + Rt[0] * fo, y + 0.07 + fr * 0.3, z + Rt[2] * fo];
+        flat(cp, norm(cp), Rt.map((v) => v * fr * 0.3), fr * 0.22, [0.98, 0.84, 0.42], 0);
+        counts[4] += 5;
+      }
+    }
+  }
+
   // sparkle on the pond and drifting motes
   for (let k = 0; k < Q.glints * 0.6; k++) {
     const th = rand() * Math.PI * 2, rr = 2.5 + Math.pow(rand(), 1.4) * 30;
     const x = rr * Math.sin(th), z = -rr * Math.cos(th);
-    const d = norm([x, -h, z]);
+    const d = norm([x, -hw, z]);
     if (resolve(d).cls !== CLS.WATER) continue;
     const s = 0.016 * Math.pow(rr, 0.8);
-    B.add([x, -h + 0.02, z], [x, -h + 0.02, z], [Math.cos(th) * s * 2.5, 0, Math.sin(th) * s * 2.5], s * 0.6, [1, 0.97, 0.86], 0.9, CLS.GLINT, 0, 1, extDelay([x, -h, z]), 1, rand());
+    B.add([x, -hw + 0.02, z], [x, -hw + 0.02, z], [Math.cos(th) * s * 2.5, 0, Math.sin(th) * s * 2.5], s * 0.6, [1, 0.97, 0.86], 0.9, CLS.GLINT, 0, 1, extDelay([x, -hw, z]), 1, rand());
   }
   for (let k = 0; k < Q.motes * 0.45; k++) {
     const x = (rand() - 0.5) * 30, y = -h + 0.25 + Math.pow(rand(), 1.5) * 3.2, z = (rand() - 0.5) * 30;
     const s = 0.016 + rand() * 0.022;
     B.add([x, y, z], [x, y, z], [s, 0, 0], s * 0.85, [1, 0.84, 0.55], 0.55, CLS.MOTE, 0, 0, extDelay([x, y, z]), 1, rand());
   }
-  console.log(`[monet] pano passes ${counts.join('/')} total ${B.n} in ${Math.round(performance.now() - t0)}ms`);
+  console.log(`[monet] pano passes ${counts.join('/')} pads ${nPads} total ${B.n} in ${Math.round(performance.now() - t0)}ms`);
 
   return {
     count: B.n, A: B.A.subarray(0, B.n * 4), B: B.B.subarray(0, B.n * 4), C: B.C.subarray(0, B.n * 4),

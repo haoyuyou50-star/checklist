@@ -264,24 +264,35 @@ const bridgePano = {
   // contrast against the surroundings [broad, focus], and how far broad distant garden leans to the air's colour
   contrast: [0.95, 1.06], air: 0.08,
   // the headset's foveated rendering softens what the eye is not on: the baked soft edges stay light
-  softMul: 0.45,
+  softMul: 0.35,
   // the passes, coarse to fine: size k (relative), stroke shape, and when a stroke is laid (base, + importance,
-  // + detail at the pass's scale; from..: the importance over which a pass comes in fully, low: its share below)
+  // + detail at the pass's scale; from..: the importance over which a pass comes in fully, low: its share below).
+  // No finest pass (p 0) and no broken-colour dabs here: this panorama's fine flecks came out as scattered specks
   passes: [
     { k: 3.6, maj: [1.3, 2.2], min: [0.6, 0.85] },
     { k: 1.9, maj: [1.2, 2.1], min: [0.5, 0.75], base: 0.3, imp: 0.7, gain: 4 },
-    { k: 1.0, maj: [1.1, 2.0], min: [0.45, 0.7], base: 0.35, gain: 8, from: 0.1, low: 0.25 },
-    { k: 0.6, maj: [1.0, 1.8], min: [0.42, 0.66], p: 0.5, from: 0.2 },
+    { k: 1.0, maj: [1.1, 2.0], min: [0.45, 0.7], base: 0.45, gain: 8, from: 0.1, low: 0.5 },
+    { k: 0.6, maj: [1.0, 1.8], min: [0.42, 0.66], p: 0, from: 0.2 },
   ],
-  // pond detail (at the third pass's scale) above which a touch on the water is a lily pad or flower
-  lily: 0.15,
-  // lily pads as touches this many spacings wide (smaller ones read as specks)
-  lilySize: 1.7,
+  // pond detail (at the third pass's scale) above which a touch on the water is a lily pad or flower: off (the
+  // pads below take their place)
+  lily: 9,
+  // lily pads as whole flat pads in drifts (see pano.js): count per tier, radius (m), growth per m away, spacing
+  // (radii), how far out (m), pond detail that counts as lilies, share of the pond in drifts, share in flower
+  // (only nearer than flowerFar m: further off a flower is a speck); mix: share of the picture's own colour there
+  pads: {
+    n: { low: 380, mid: 700, high: 900 }, r: [0.15, 0.27], grow: 0.04, mix: 0.3, spacing: 1.1, far: 26, evidence: 0.09, drift: 0.42, flower: 0.25, flowerFar: 11,
+    greens: [[0.38, 0.6, 0.26], [0.52, 0.66, 0.28], [0.32, 0.55, 0.38], [0.6, 0.68, 0.32]],
+    flowers: [[0.97, 0.66, 0.72], [0.98, 0.93, 0.88], [0.9, 0.46, 0.55], [0.99, 0.8, 0.82]],
+  },
+  // the shore: the water lies drop m below the bank; a band (degrees) of water under the far bank takes its
+  // darkened reflection (refl), the near bank's shadow and the bank's own lip (degrees) are shaded
+  bank: { drop: 0.25, band: 2.5, lip: 1.4, refl: 0.55, shade: 0.22 },
   // the open pond: colour smeared level along the rows (radius px, share); lily pads only at the third pass's scale
   pondCalm: { r: 12, mix: 0.45 },
   // broken colour: size relative to the plate's strokes, share laid, share left in the broad places, warm/cool
   // tint, saturation, how far a touch may borrow its colour (touch sizes), how much of it falls on the sky
-  dabs: { k: 0.42, p: 0.12, minor: 0.04, tint: 0.06, sat: 1.1, jitter: 0.5, sky: 0.1, water: 0 },
+  dabs: { k: 0.42, p: 0, minor: 0.04, tint: 0.06, sat: 1.1, jitter: 0.5, sky: 0.1, water: 0 },
   // hanging willows as whole strands (tree strokes whose brushwork runs up and down from elevation low°, coh: how
   // steadily, mask: share of such brushwork around): seed spacing k, strokes per strand, how many strands cover
   // a place, step between strokes and overlap (spacings), width, light/dark spread between strands; under: how
