@@ -305,6 +305,9 @@ const bridgePano = {
   // the garden's outline against the sky: strokes within reach (px at 2048) of the sky are shortened (share of
   // length, of width) and laid along the outline, so none sticks out into the sky; specks of garden with more
   // than stray of sky round them become sky
+  // the bridge in one piece (see pano.js): its box (degrees), mask level, its detail strokes' length and width
+  // multipliers, share of its averaged colour (all passes)
+  bridge: { az: [-40, 37], el: [-11, 15], mask: 0.3, len: 2.0, wid: 0.55, mix: 0.6 },
   rim: { reach: 18, maj: 0.42, min: 0.75, stray: 0.6 },
   // a treeline at the sides and behind, so there is sky all round (see pano.js)
   crown: { el: 30, amp: 9, from: 35, to: 95, edge: 4 },

@@ -99,6 +99,23 @@ export function buildPano(scene, img, Q) {
   // stray specks of garden left in the sky (mostly sky round them) are sky
   if (skyR) for (let k = 0; k < N; k++) if (cls[k] === CLS.TREE && skyR[k] > P.rim.stray) cls[k] = CLS.SKY;
 
+  // the bridge as one thing: its pale blue-green paint inside its box (bridge: { az, el: [from, to] degrees,
+  // mask }), its colour averaged over its own pixels (so its rails do not change colour stroke to stroke)
+  let brM = null, brC = null;
+  if (P.bridge) {
+    const BRg = P.bridge, m = new Float32Array(N);
+    const px = (az) => Math.floor((az / 360 + 0.5) * W), py = (el) => clamp(Math.floor((0.5 - el / 180) * H), 0, H - 1);
+    for (let y = py(BRg.el[1]); y <= py(BRg.el[0]); y++) for (let x = px(BRg.az[0]); x <= px(BRg.az[1]); x++) {
+      const i = y * W + x, r0 = b1[i * 3], g0 = b1[i * 3 + 1], bl = b1[i * 3 + 2], l = 0.3 * r0 + 0.59 * g0 + 0.11 * bl;
+      if (cls[i] === CLS.TREE && bl > r0 + 0.02 && g0 >= r0 - 0.02 && l > 0.45 && Math.max(r0, g0, bl) - Math.min(r0, g0, bl) < 0.3) m[i] = 1;
+    }
+    brM = blur1(m, W, H, Math.max(2, Math.round(W / 1000)));
+    const rr = Math.max(3, Math.round(W / 340)), wsum = blur1(brM, W, H, rr), ch = [0, 1, 2].map((j) => { const a = new Float32Array(N); for (let i = 0; i < N; i++) a[i] = brM[i] * b2[i * 3 + j]; return blur1(a, W, H, rr); });
+    brC = new Float32Array(N * 3);
+    for (let i = 0; i < N; i++) for (let j = 0; j < 3; j++) brC[i * 3 + j] = wsum[i] > 1e-4 ? ch[j][i] / wsum[i] : b2[i * 3 + j];
+  }
+  const isBridge = (i) => brM !== null && brM[i] > P.bridge.mask;
+
   // hanging willow: garden whose brushwork runs steadily up and down (P.willow.coh: how steadily)
   let wM = null;
   if (P.willow) {
@@ -362,7 +379,18 @@ export function buildPano(scene, img, Q) {
         if (rand() < k && Math.hypot(gx, gy) > 1e-4) { const ap = Math.atan2(gy, gx) + Math.PI / 2; rimA = Math.atan2(Math.sin(ap) * r.ky, Math.cos(ap) * r.kx); }
       }
     }
-    const ang = hang ? Math.PI / 2 + (rand() - 0.5) * 0.12 : rimA !== null ? rimA + (rand() - 0.5) * 0.2 : strokeAngle(r, lily), ca = Math.cos(ang) * maj * dist, sa = -Math.sin(ang) * maj * dist;
+    // the bridge in its own averaged colour; its detail strokes long, narrow and crisp along its rails and posts
+    const br = c === CLS.TREE && !hang && isBridge(r.i);
+    let brA = null;
+    if (br) {
+      col = lerp3(col, sample(brC, r.i), P.bridge.mix);
+    }
+    if (br && li >= 2) {
+      maj *= P.bridge.len; mn *= P.bridge.wid; soft = 0;
+      const i = r.i, sxx = Jxx[i], sxy = Jxy[i], syy = Jyy[i], ap = 0.5 * Math.atan2(2 * sxy, sxx - syy) + Math.PI / 2;
+      brA = Math.atan2(Math.sin(ap) * r.ky, Math.cos(ap) * r.kx);
+    }
+    const ang = brA !== null ? brA : hang ? Math.PI / 2 + (rand() - 0.5) * 0.12 : rimA !== null ? rimA + (rand() - 0.5) * 0.2 : strokeAngle(r, lily), ca = Math.cos(ang) * maj * dist, sa = -Math.sin(ang) * maj * dist;
     let axis = [Rt[0] * ca + Ut[0] * sa, Rt[1] * ca + Ut[1] * sa, Rt[2] * ca + Ut[2] * sa];
     // looking down, strokes laid across the line of sight close into rings round the nadir: flat on the pond instead
     if (c === CLS.WATER && rand() < nearW) { const a = rand() * Math.PI; axis = [Math.cos(a) * maj * dist, 0, Math.sin(a) * maj * dist]; }
