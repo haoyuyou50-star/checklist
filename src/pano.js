@@ -428,11 +428,16 @@ export function buildPano(scene, img, Q) {
         const st = sp * WL.step;
         d = norm([d[0] + pts[k].dir[0] * st, d[1] + pts[k].dir[1] * st, d[2] + pts[k].dir[2] * st]);
       }
-      if (pts.length < 3) return;
+      if (pts.length < 4) return;
       const tone = 1 + (rand() - 0.5) * WL.tone;
+      // the strand's colour from the lightly blurred picture, eased along it: the picture's own flecks, taken a
+      // pixel at a time, made a strand a chain of light and dark dashes
+      let run = null;
       pts.forEach(({ r, d, dir }, k) => {
         const t = k / (pts.length - 1);
-        const col = finish(fullAt(r.az, r.el), r, 0).map((x) => clamp(x * tone, 0, 1));
+        const c1 = lerp3(sample(b1, r.i), sample(b4, r.i), WL.settle);
+        run = run ? lerp3(run, c1, WL.ease) : c1;
+        const col = finish(run, r, 0).map((x) => clamp(x * tone, 0, 1));
         const dist = Math.hypot(r.P[0], r.P[1], r.P[2]), dm = 1 - 0.004 * (1 + t);
         const Pw = r.P.map((q) => q * dm);
         const half = sp * WL.step * WL.over * 0.5 * dist, mn = sp * WL.width * dist * lerp(1, 0.7, t);
