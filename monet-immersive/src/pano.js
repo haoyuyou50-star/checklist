@@ -544,7 +544,7 @@ export function buildPano(scene, img, Q) {
   }
 
   // sparkle on the pond and drifting motes
-  for (let k = 0; k < Q.glints * 0.6; k++) {
+  for (let k = 0; k < Q.glints * 0.6 * (P.glints ?? 1); k++) {
     const th = rand() * Math.PI * 2, rr = 2.5 + Math.pow(rand(), 1.4) * 30;
     const x = rr * Math.sin(th), z = -rr * Math.cos(th);
     const d = norm([x, -hw, z]);
@@ -552,7 +552,7 @@ export function buildPano(scene, img, Q) {
     const s = 0.016 * Math.pow(rr, 0.8);
     B.add([x, -hw + 0.02, z], [x, -hw + 0.02, z], [Math.cos(th) * s * 2.5, 0, Math.sin(th) * s * 2.5], s * 0.6, [1, 0.97, 0.86], 0.9, CLS.GLINT, 0, 1, extDelay([x, -hw, z]), 1, rand());
   }
-  for (let k = 0; k < Q.motes * 0.45; k++) {
+  for (let k = 0; k < Q.motes * 0.45 * (P.motes ?? 1); k++) {
     const x = (rand() - 0.5) * 30, y = -h + 0.25 + Math.pow(rand(), 1.5) * 3.2, z = (rand() - 0.5) * 30;
     const s = 0.016 + rand() * 0.022;
     B.add([x, y, z], [x, y, z], [s, 0, 0], s * 0.85, [1, 0.84, 0.55], 0.55, CLS.MOTE, 0, 0, extDelay([x, y, z]), 1, rand());
