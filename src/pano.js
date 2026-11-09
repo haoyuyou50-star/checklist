@@ -162,10 +162,13 @@ export function buildPano(scene, img, Q) {
   // level bands of reflection rather than a mottle of small ones (pondCalm: { r: radius px at 2048, mix })
   let pondH = null;
   if (P.pondCalm) {
-    const rr = Math.max(2, Math.round((P.pondCalm.r * W) / 2048));
+    const rr0 = Math.max(2, Math.round((P.pondCalm.r * W) / 2048));
     pondH = new Float32Array(N * 3);
     const pSrc = P.pondCalm.broad ? b8 : b2;
+    // nearer the feet the rows close into small rings round them: smeared further there (near: radius multiplier
+    // from 15 to 50 degrees down)
     for (let y = 0; y < H; y++) {
+      const ey = (0.5 - (y + 0.5) / H) * 180, rr = Math.min(Math.floor(W / 2) - 1, Math.round(rr0 * lerp(1, P.pondCalm.near ?? 1, smooth(-15, -50, ey))));
       const row = y * W, acc = [0, 0, 0];
       let n = 0;
       const put = (x, s) => { const i = row + ((x % W) + W) % W; if (cls[i] !== CLS.WATER) return; for (let j = 0; j < 3; j++) acc[j] += s * pSrc[i * 3 + j]; n += s; };
@@ -252,7 +255,14 @@ export function buildPano(scene, img, Q) {
   const crownAt = (vaz) => {
     const a = vaz / DEG, k = smooth(CR.from, CR.to, Math.abs(a));
     const e = CR.el + CR.amp * (Math.sin(a * 0.09 + 1.1) * 0.6 + Math.sin(a * 0.23 + 0.4) * 0.3 + Math.sin(a * 0.61) * 0.1);
-    return (90 - (90 - e) * k) * DEG;
+    let c = 90 - (90 - e) * k;
+    // cuts: [{ az: [from, to], el, fade, amp }] view arcs where the garden stops lower and gives way to sky
+    for (const u of CR.cuts || []) {
+      const w = smooth(u.az[0] - u.fade, u.az[0], a) * (1 - smooth(u.az[1], u.az[1] + u.fade, a));
+      const ce = u.el + (u.amp || 0) * (Math.sin(a * 0.37 + 0.8) * 0.6 + Math.sin(a * 1.1) * 0.4);
+      c = Math.min(c, lerp(90, ce, w));
+    }
+    return c * DEG;
   };
   const skyAbove = (x, el, cr) => {
     const eTop = Math.PI / 2, eBot = (0.5 - (skyFrom[x] + 0.5) / H) * Math.PI;
@@ -352,10 +362,10 @@ export function buildPano(scene, img, Q) {
   // how soft the minor places' edges get (1: as designed; lower leaves the blur to the headset's foveation)
   const SM = P.softMul ?? 1;
   // li: pass (4 = broken colour); soft 0..1: edge softness (packed in the seed's integer part for the shader)
-  const add = (r, d, sp, col, alpha, majR, minR, li, soft, lily = false) => {
+  const add = (r, d, sp, col, alpha, majR, minR, li, soft, lily = false, ang0 = null) => {
     let maj = sp * lerp(majR[0], majR[1], rand()), mn = sp * lerp(minR[0], minR[1], rand());
     const c = lily ? CLS.STATIC : r.cls, nearW = r.cls === CLS.WATER ? smooth(-0.3, -0.7, d[1]) : 0;
-    if (c === CLS.WATER) { maj *= 1.1 * lerp(1, 0.8, nearW) * (P.waterLen ? P.waterLen[0] : 1); mn *= lerp(0.72, 1.05, nearW) * (P.waterLen ? P.waterLen[1] : 1); }
+    if (c === CLS.WATER) { const WN = P.waterNear || [0.8, 1.05]; maj *= 1.1 * lerp(1, WN[0], nearW) * (P.waterLen ? P.waterLen[0] : 1); mn *= lerp(0.72, WN[1], nearW) * (P.waterLen ? P.waterLen[1] : 1); }
     // a lily pad lies on the pond: the further off, the flatter its dash
     if (lily) { const a = clamp(1 / (Math.sin(-r.vel) * 2.2 + 0.25), 1.15, 2.8); maj = sp * (P.lilySize ?? 1) * lerp(0.75, 1.05, rand()) * Math.sqrt(a); mn = maj / a; }
     if (c === CLS.SKY) { maj *= li === 0 ? 1.55 : 1.35; mn *= 1.08; }
@@ -368,7 +378,8 @@ export function buildPano(scene, img, Q) {
     const Rt = norm(cross(d, Math.abs(d[1]) > 0.999 ? [0, 0, 1] : up)), Ut = cross(Rt, d);
     // under the strands the broad passes hang too: long, upright, narrow
     const hang = c === CLS.TREE && r.flex >= 2;
-    if (hang) { maj *= P.willow.under[0]; mn *= P.willow.under[1]; }
+    // (shorter just under the treeline, so the willow's top is not a row of spikes against the sky)
+    if (hang) { maj *= P.willow.under[0] * (1 - 0.55 * r.edge); mn *= P.willow.under[1]; }
     // near the sky a garden stroke is shorter and follows the outline (along the edge of the sky mask)
     let rimA = null;
     if (skyR && c === CLS.TREE && r.edge === 0) {
@@ -385,15 +396,15 @@ export function buildPano(scene, img, Q) {
     if (br) {
       col = lerp3(col, sample(brC, r.i), P.bridge.mix);
     }
-    if (br && li >= 2) {
+    if (br && li >= 2 && ang0 === null) {
       maj *= P.bridge.len; mn *= P.bridge.wid; soft = 0;
       const i = r.i, sxx = Jxx[i], sxy = Jxy[i], syy = Jyy[i], ap = 0.5 * Math.atan2(2 * sxy, sxx - syy) + Math.PI / 2;
       brA = Math.atan2(Math.sin(ap) * r.ky, Math.cos(ap) * r.kx);
     }
-    const ang = brA !== null ? brA : hang ? Math.PI / 2 + (rand() - 0.5) * 0.12 : rimA !== null ? rimA + (rand() - 0.5) * 0.2 : strokeAngle(r, lily), ca = Math.cos(ang) * maj * dist, sa = -Math.sin(ang) * maj * dist;
+    const ang = ang0 !== null ? ang0 : brA !== null ? brA : hang ? Math.PI / 2 + (rand() - 0.5) * 0.12 : rimA !== null ? rimA + (rand() - 0.5) * 0.2 : strokeAngle(r, lily), ca = Math.cos(ang) * maj * dist, sa = -Math.sin(ang) * maj * dist;
     let axis = [Rt[0] * ca + Ut[0] * sa, Rt[1] * ca + Ut[1] * sa, Rt[2] * ca + Ut[2] * sa];
     // looking down, strokes laid across the line of sight close into rings round the nadir: flat on the pond instead
-    if (c === CLS.WATER && rand() < nearW) { const a = rand() * Math.PI; axis = [Math.cos(a) * maj * dist, 0, Math.sin(a) * maj * dist]; }
+    if (c === CLS.WATER && rand() < (P.waterNear ? smooth(-0.78, -0.92, d[1]) : nearW)) { const a = P.waterNear ? (rand() - 0.5) * 0.3 : rand() * Math.PI; axis = [Math.cos(a) * maj * dist, 0, Math.sin(a) * maj * dist]; }
     const p = proj(d), inF = inRect(p);
     let cpos = Pw, delay;
     if (inF) {
@@ -407,15 +418,15 @@ export function buildPano(scene, img, Q) {
   const sample = (img, i) => [img[i * 3], img[i * 3 + 1], img[i * 3 + 2]];
 
   const fA = norm(cross(front, up)), fB = cross(fA, front);
-  const ring = (sp0, each) => {
+  const ring = (sp0, each, jit = 0.9) => {
     let psi = sp0(0) * 0.45;
     while (psi < Math.PI) {
       const sp = sp0(psi), rowStep = sp * 0.866;
       const n = Math.max(1, Math.round((2 * Math.PI * Math.sin(psi)) / sp));
       const off = rand();
       for (let k = 0; k < n; k++) {
-        const ph = ((k + off + (rand() - 0.5) * 0.9) / n) * 2 * Math.PI;
-        const ps = clamp(psi + (rand() - 0.5) * rowStep * 0.9, 0, Math.PI);
+        const ph = ((k + off + (rand() - 0.5) * jit) / n) * 2 * Math.PI;
+        const ps = clamp(psi + (rand() - 0.5) * rowStep * jit, 0, Math.PI);
         const s = Math.sin(ps), c = Math.cos(ps), cph = Math.cos(ph), sph = Math.sin(ph);
         each(norm([front[0] * c + (fA[0] * cph + fB[0] * sph) * s, front[1] * c + (fA[1] * cph + fB[1] * sph) * s, front[2] * c + (fA[2] * cph + fB[2] * sph) * s]), sp, ps);
       }
@@ -437,6 +448,7 @@ export function buildPano(scene, img, Q) {
     const r = resolve(d), e = E1[r.i];
     if (r.cls === CLS.SKY && rand() < 0.35) return;
     if (rand() > clamp(L[1].base + L[1].imp * r.imp + L[1].gain * e, 0, 1)) return;
+    if (P.waterNear && r.cls === CLS.WATER && rand() < 0.6 * smooth(-0.3, -0.7, d[1])) return;
     const q = 1 - r.imp;
     add(r, d, sp, finish(calm(sample(b2, r.i), r), r, P.masses.mix * q * 0.6), 0.97, L[1].maj, L[1].min, 1, r.cls === CLS.SKY ? 0.6 : (0.1 + 0.45 * q) * SM);
   });
@@ -452,6 +464,40 @@ export function buildPano(scene, img, Q) {
     const c1 = sample(b1, r.i);
     add(r, d, sp, finish(lily ? c1 : calm(c1, r), r, 0), 0.97, L[2].maj, L[2].min, 2, (1 - r.imp) * 0.3 * SM, lily);
   });
+  // ripples: a sparse scatter of thin level dashes over the open water, a little lighter or darker than it
+  // (ripples: { k: spacing, p: share laid, maj, min: size, lum: light/dark spread, low: sin of the lowest view
+  // elevation they reach, so none lie underfoot })
+  const RP = P.ripples;
+  if (RP) ring((psi) => alpha0 * RP.k * gOf(psi), (d, sp) => {
+    if (d[1] > 0 || d[1] < RP.low || rand() > RP.p) return;
+    const r = resolve(d);
+    if (r.cls !== CLS.WATER || isLily(r, E2[r.i])) return;
+    const s = rand() < 0.55 ? 1 : -1, col = calm(sample(b2, r.i), r).map((x) => clamp(x * (1 + s * RP.lum * (0.6 + 0.4 * rand())), 0, 1));
+    add(r, d, sp, finish(col, r, 0), 0.92, RP.maj, RP.min, 3, 0.15 * SM);
+  });
+
+  // the bridge in strokes of its own, over everything round it: long and crisp, laid along its rails and deck
+  // (the brushwork's direction there, kept within flat of level) or, where that runs steeply, up its posts,
+  // in its own colour a little lifted, so it stands apart from the willow and the trees behind
+  // (bridge.strokes: { k: spacing, core: mask level, maj, min, flat: degrees, post: post length share, lift })
+  const BS = P.bridge && P.bridge.strokes;
+  if (BS) ring((psi) => alpha0 * BS.k * gOf(psi), (d, sp) => {
+    if (d[2] > 0) return;
+    const r = resolve(d);
+    if (r.cls !== CLS.TREE || r.flex >= 2 || brM[r.i] < BS.core) return;
+    const i = r.i, sxx = Jxx[i], sxy = Jxy[i], syy = Jyy[i];
+    const coh = Math.sqrt((sxx - syy) ** 2 + 4 * sxy * sxy) / (sxx + syy + 1e-6);
+    const ap = 0.5 * Math.atan2(2 * sxy, sxx - syy) + Math.PI / 2;
+    let a = Math.atan2(Math.sin(ap) * r.ky, Math.cos(ap) * r.kx);
+    a -= Math.PI * Math.round(a / Math.PI);
+    const post = coh > 0.3 && Math.abs(a) > 1.2;
+    const fl = BS.flat * DEG;
+    a = post ? Math.PI / 2 + (rand() - 0.5) * 0.06 : clamp(coh > 0.15 ? a : 0, -fl, fl) + (rand() - 0.5) * 0.05;
+    const col = finish(lerp3(sample(b1, i), sample(brC, i), 0.55), r, 0).map((x) => clamp(x * BS.lift, 0, 1));
+    const mj = post ? BS.maj.map((x) => x * BS.post) : BS.maj;
+    add(r, d, sp, col, 0.97, mj, BS.min, 4, 0, false, a);
+  });
+
   // finest pass: edges in the focal places, at the picture's own resolution, hard-edged
   // (the fine passes test most directions only to leave them out: a first test on the importance alone, before
   // the direction is resolved, keeps the build fast; the second test makes up the rest of the chance)
@@ -491,6 +537,10 @@ export function buildPano(scene, img, Q) {
   // stroke as a strand: 2 + how far down it (0 at its top, 1 at its tip)
   if (P.willow) {
     const WL = P.willow;
+    // strands keep apart: a strand is left out where more than clash of it would lie on cells (gap spacings
+    // across, a step down) earlier strands already hang through
+    const taken = new Set();
+    const cellOf = (d, sp) => { const az = Math.atan2(d[0], -d[2]), el = Math.asin(clamp(d[1], -1, 1)); return `${Math.round((az * Math.cos(el)) / (sp * WL.gap))},${Math.round(el / (sp * WL.step))}`; };
     ring((psi) => alpha0 * WL.k * gOf(psi), (d0, sp) => {
       let r = resolve(d0);
       if (!isWillow(r.i)) return;
@@ -518,6 +568,9 @@ export function buildPano(scene, img, Q) {
         d = norm([d[0] + pts[k].dir[0] * st, d[1] + pts[k].dir[1] * st, d[2] + pts[k].dir[2] * st]);
       }
       if (pts.length < 4) return;
+      const cells = pts.map((q) => cellOf(q.d, sp));
+      if (cells.filter((c) => taken.has(c)).length > WL.clash * cells.length) return;
+      cells.forEach((c) => taken.add(c));
       const tone = 1 + (rand() - 0.5) * WL.tone;
       // the strand's colour from the lightly blurred picture, eased along it: the picture's own flecks, taken a
       // pixel at a time, made a strand a chain of light and dark dashes
@@ -540,7 +593,7 @@ export function buildPano(scene, img, Q) {
         B.add(Pw, cpos, dir.map((q) => q * half), mn, col, 0.95, CLS.TREE, 0, r.flex >= 2 ? r.flex : 2 + 2 * Math.round(2 / 0.25) + Math.min(t, 0.995), delay, inF ? 0 : 1, softSeed(0, rand()));
         counts[5]++;
       });
-    });
+    }, WL.jit);
   }
 
   // lily pads: whole pads lying flat on the water in drifts where the picture's pond has them, a few in flower.

@@ -109,5 +109,6 @@ for (const y of args.focus ? [] : yaws) for (const lk of looks) {
   const f = path.join(out, `${tag}y${y}${lk ? `_l${lk.join('_')}` : ''}.jpg`);
   await page.screenshot({ path: f, type: 'jpeg', quality: 90 });
   console.log('shot', f);
+  if (args.cam) console.log('cam', JSON.stringify(await page.evaluate(() => ({ cam: window.app.S.cam, fr: window.app.S.fr }))));
 }
 await browser.close();

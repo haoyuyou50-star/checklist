@@ -296,9 +296,14 @@ const bridgePano = {
   glints: 0, motes: 0,
   // the open pond: colour smeared level along the rows (radius px at 2048, share; broad: from the most blurred
   // picture; skip2: no third-pass strokes on the water), so it reads as a few broad level bands
-  pondCalm: { r: 40, mix: 0.72, broad: true, skip2: true },
+  pondCalm: { r: 40, mix: 0.72, broad: true, skip2: true, near: 5 },
   // open water in long level strokes (length, width multipliers), as the regatta's river
   waterLen: [1.7, 0.85],
+  // underfoot: the water strokes longer and wider (length, width multipliers where the view looks steeply
+  // down), level rather than any way, and fewer of the second pass's; the pond's colour smeared wider there
+  waterNear: [2.2, 1.4],
+  // a sparse scatter of thin level ripples (see pano.js)
+  ripples: { k: 0.8, p: 0.45, maj: [1.3, 2.1], min: [0.2, 0.28], lum: 0.15, low: -0.55 },
   // more sky (see pano.js warp) and the sky in broad shapes
   skyLift: { k: 0.42, side: 0.55, sideFrom: 25, sideTo: 90, from: 4, to: 40 },
   skyCalm: { mix: 0.72, grad: 0.6 },
@@ -307,10 +312,10 @@ const bridgePano = {
   // than stray of sky round them become sky
   // the bridge in one piece (see pano.js): its box (degrees), mask level, its detail strokes' length and width
   // multipliers, share of its averaged colour (all passes)
-  bridge: { az: [-40, 37], el: [-11, 15], mask: 0.3, len: 2.0, wid: 0.55, mix: 0.6 },
+  bridge: { az: [-40, 37], el: [-11, 15], mask: 0.3, len: 2.0, wid: 0.55, mix: 0.6, strokes: { k: 0.55, core: 0.5, maj: [2.6, 4.0], min: [0.34, 0.46], flat: 28, post: 0.6, lift: 1.1 } },
   rim: { reach: 18, maj: 0.42, min: 0.75, stray: 0.6 },
-  // a treeline at the sides and behind, so there is sky all round (see pano.js)
-  crown: { el: 30, amp: 9, from: 35, to: 95, edge: 4 },
+  // a treeline at the sides and behind, so there is sky all round; cuts: lower stretches of it (see pano.js)
+  crown: { el: 30, amp: 9, from: 35, to: 95, edge: 4, cuts: [{ az: [-40, -14], el: 16, fade: 6, amp: 1.5 }] },
   // broken colour: size relative to the plate's strokes, share laid, share left in the broad places, warm/cool
   // tint, saturation, how far a touch may borrow its colour (touch sizes), how much of it falls on the sky
   dabs: { k: 0.42, p: 0, minor: 0.04, tint: 0.06, sat: 1.1, jitter: 0.5, sky: 0.1, water: 0 },
@@ -319,8 +324,9 @@ const bridgePano = {
   // a place, step between strokes and overlap (spacings), width, light/dark spread between strands; under: how
   // much longer and narrower the broad passes' strokes hang there; lean: how far a strand may slant from upright;
   // ease: how fast a strand's colour follows the
-  // picture down it, settle: how far it leans to the broad colour there
-  willow: { low: -12, coh: 0.3, mask: 0.45, k: 1.05, len: [6, 12], cover: 1.3, step: 1.4, over: 2.3, lean: 0.12, width: 0.55, tone: 0.3, ease: 0.22, settle: 0.42, under: [1.9, 0.55] },
+  // picture down it, settle: how far it leans to the broad colour there; gap, clash: how far strands keep apart
+  // (see pano.js), jit: how far their seeds stray from an even grid
+  willow: { low: -12, coh: 0.3, mask: 0.45, k: 1.05, len: [6, 12], cover: 3, gap: 1.5, clash: 0.3, jit: 0.35, step: 1.4, over: 2.3, lean: 0.12, width: 0.8, tone: 0.3, ease: 0.22, settle: 0.42, under: [1.9, 0.55] },
 };
 
 const bridge = {
