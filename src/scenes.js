@@ -294,8 +294,16 @@ const bridgePano = {
   bank: { drop: 0.25, band: 2.5, lip: 1.4, refl: 0.55, shade: 0.22 },
   // no sparkle on the calm pond and no drifting motes of light (both read as specks)
   glints: 0, motes: 0,
-  // the open pond: colour smeared level along the rows (radius px, share); lily pads only at the third pass's scale
-  pondCalm: { r: 12, mix: 0.45 },
+  // the open pond: colour smeared level along the rows (radius px at 2048, share; broad: from the most blurred
+  // picture; skip2: no third-pass strokes on the water), so it reads as a few broad level bands
+  pondCalm: { r: 40, mix: 0.72, broad: true, skip2: true },
+  // open water in long level strokes (length, width multipliers), as the regatta's river
+  waterLen: [1.7, 0.85],
+  // more sky (see pano.js warp) and the sky in broad shapes
+  skyLift: { k: 0.42, side: 0.55, sideFrom: 25, sideTo: 90, from: 4, to: 40 },
+  skyCalm: { mix: 0.6, grad: 0.3 },
+  // a treeline at the sides and behind, so there is sky all round (see pano.js)
+  crown: { el: 30, amp: 9, from: 35, to: 95, edge: 4 },
   // broken colour: size relative to the plate's strokes, share laid, share left in the broad places, warm/cool
   // tint, saturation, how far a touch may borrow its colour (touch sizes), how much of it falls on the sky
   dabs: { k: 0.42, p: 0, minor: 0.04, tint: 0.06, sat: 1.1, jitter: 0.5, sky: 0.1, water: 0 },
