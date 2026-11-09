@@ -1,6 +1,6 @@
 export const CLS = {
   SKY: 0, GRASS: 1, FLOWER: 2, TREE: 3, STATIC: 4, FIGURE: 5, WATER: 6, SAIL: 7,
-  PETAL: 8, MOTE: 9, HALO: 10, GLINT: 11, GULL: 12, HULL: 13,
+  PETAL: 8, MOTE: 9, HALO: 10, GLINT: 11, GULL: 12, HULL: 13, PAD: 14,
 };
 
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -301,7 +301,11 @@ const bridgePano = {
   waterLen: [1.7, 0.85],
   // more sky (see pano.js warp) and the sky in broad shapes
   skyLift: { k: 0.42, side: 0.55, sideFrom: 25, sideTo: 90, from: 4, to: 40 },
-  skyCalm: { mix: 0.6, grad: 0.3 },
+  skyCalm: { mix: 0.72, grad: 0.6 },
+  // the garden's outline against the sky: strokes within reach (px at 2048) of the sky are shortened (share of
+  // length, of width) and laid along the outline, so none sticks out into the sky; specks of garden with more
+  // than stray of sky round them become sky
+  rim: { reach: 18, maj: 0.42, min: 0.75, stray: 0.6 },
   // a treeline at the sides and behind, so there is sky all round (see pano.js)
   crown: { el: 30, amp: 9, from: 35, to: 95, edge: 4 },
   // broken colour: size relative to the plate's strokes, share laid, share left in the broad places, warm/cool
