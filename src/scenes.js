@@ -53,6 +53,8 @@ const regatta = {
   grade: { gamma: 0.9, expo: 1.1, wb: [0.94, 1.0, 1.1], sat: 1.18, lift: 0.34, contrast: 1.06, clean: 1 },
   wind: { dir: [1, 0.22], base: 0.5 },
   unified: {
+    // no drifting motes of light: points of light floating in the view read as specks
+    motes: 0,
     // beyond the frame the colours come from the art team's panorama (tools/make_pano_ext.py), matched to the
     // painting's palette; its own copy of the picture (sails, houses: about -45..60 deg) is skipped
     panoExt: { src: 'assets/regatta/pano_ext.jpg', cls: 'assets/regatta/pano_ext_cls.png', az: [[-180, -172.5], [-30, -45], [30, 60], [180, 187.5]], blend: 15, strength: 0.9, water: 0.5, low: [-24, -40] },
@@ -288,6 +290,8 @@ const bridgePano = {
   // the shore: the water lies drop m below the bank; a band (degrees) of water under the far bank takes its
   // darkened reflection (refl), the near bank's shadow and the bank's own lip (degrees) are shaded
   bank: { drop: 0.25, band: 2.5, lip: 1.4, refl: 0.55, shade: 0.22 },
+  // no sparkle on the calm pond and no drifting motes of light (both read as specks)
+  glints: 0, motes: 0,
   // the open pond: colour smeared level along the rows (radius px, share); lily pads only at the third pass's scale
   pondCalm: { r: 12, mix: 0.45 },
   // broken colour: size relative to the plate's strokes, share laid, share left in the broad places, warm/cool

@@ -887,7 +887,7 @@ export function buildUnified(scene, img, Q, X = null, panoImg = null) {
     const s = 0.016 * Math.pow(r, 0.8);
     B.add([x, -h + 0.02, z], [x, -h + 0.02, z], [Math.cos(th) * s * 2.5, 0, Math.sin(th) * s * 2.5], s * 0.6, [1, 0.97, 0.86], 0.9, CLS.GLINT, 0, 1, extDelay([x, -h, z]), 1, rand());
   }
-  for (let k = 0; k < Q.motes * 0.45; k++) {
+  for (let k = 0; k < Q.motes * 0.45 * (U.motes ?? 1); k++) {
     const x = (rand() - 0.5) * 36, y = -h + 0.25 + Math.pow(rand(), 1.5) * 3.2, z = (rand() - 0.5) * 36;
     const s = 0.016 + rand() * 0.022;
     B.add([x, y, z], [x, y, z], [s, 0, 0], s * 0.85, [1, 0.84, 0.55], 0.55, CLS.MOTE, 0, 0, extDelay([x, y, z]), 1, rand());
