@@ -411,19 +411,22 @@ export function buildPano(scene, img, Q) {
       const n = Math.round(lerp(WL.len[0], WL.len[1], rand()));
       if (rand() > WL.cover / n) return;
       const pts = [];
-      let d = d0;
+      let d = d0, lean = 0;
       for (let k = 0; k < n; k++) {
         if (k > 0) {
           r = resolve(d);
           if (r.cls !== CLS.TREE || (wM[r.i] < WL.mask * 0.6)) break;
         }
-        // down the brushwork (steadily: a strand barely wanders)
+        // straight down, leaning as the brushwork does where the strand starts (and no more). The brushwork's
+        // direction is only known up to a half turn, so following it step by step made the strand zigzag
         const Rt = norm(cross(d, up)), Ut = cross(Rt, d);
-        const i = r.i, sxx = Jxx[i], sxy = Jxy[i], syy = Jyy[i];
-        const ap = 0.5 * Math.atan2(2 * sxy, sxx - syy) + Math.PI / 2;
-        let dx = Math.cos(ap) * r.kx, dy = Math.abs(Math.sin(ap)) * r.ky;
-        const l = Math.hypot(dx, dy) || 1;
-        dx = clamp(dx / l, -0.35, 0.35); dy = Math.sqrt(1 - dx * dx);
+        if (k === 0) {
+          const i = r.i, sxx = Jxx[i], sxy = Jxy[i], syy = Jyy[i];
+          const ap = 0.5 * Math.atan2(2 * sxy, sxx - syy) + Math.PI / 2;
+          const ex = Math.cos(ap) * r.kx, ey = Math.sin(ap) * r.ky, l = Math.hypot(ex, ey) || 1;
+          lean = clamp((ex / l) * Math.sign(ey || 1), -WL.lean, WL.lean);
+        }
+        const dx = lean, dy = Math.sqrt(1 - dx * dx);
         pts.push({ r, d, dir: [Rt[0] * dx - Ut[0] * dy, Rt[1] * dx - Ut[1] * dy, Rt[2] * dx - Ut[2] * dy] });
         const st = sp * WL.step;
         d = norm([d[0] + pts[k].dir[0] * st, d[1] + pts[k].dir[1] * st, d[2] + pts[k].dir[2] * st]);
@@ -454,9 +457,9 @@ export function buildPano(scene, img, Q) {
     });
   }
 
-  // lily pads: whole, hard-edged pads lying flat on the water in drifts where the picture's pond has them, a few
-  // in flower. Each pad is one broad touch and a lighter one over it (never a scatter of small ones); flowers are
-  // a small cluster of petals over the pad
+  // lily pads: whole pads lying flat on the water in drifts where the picture's pond has them, a few in flower.
+  // Each pad is painted as a small picture of its own (a dark rim, level strokes across it from shade to sky,
+  // its slit, a light lip); a flower is two rings of petals and a heart, over its shadow
   // (pads: { n per tier, r: radius m [min, max], grow: radius per m away, spacing in radii, evidence: pond detail
   // that counts as lilies, drift: share of the pond the drifts cover, flower: share in flower, greens, flowers })
   const PD = P.pads;
@@ -501,44 +504,63 @@ export function buildPano(scene, img, Q) {
       taken.get(kk).push([x, z, R]);
       nPads++;
 
-      // lying flat: across the view at full width, foreshortened up the view
-      const Rt = norm(cross(d, up)), sd = Math.max(0.16, -d[1] / Math.hypot(d[0], d[1], d[2]));
-      const ang = (rand() - 0.5) * 0.5, ca = Math.cos(ang), sa = Math.sin(ang);
-      const fh = norm([d[0], 0, d[2]]), ax = [Rt[0] * ca + fh[0] * sa, 0, Rt[2] * ca + fh[2] * sa];
-      const src = sample(b2, r.i), g = PD.greens[Math.floor(rand() * PD.greens.length)];
-      const lv = lumOf(src);
-      const base = lerp3(g.map((q) => q * (0.8 + lv * 0.45)), src, PD.mix).map((q) => clamp(q * (0.92 + rand() * 0.16), 0, 1));
+      // the pad's own frame on the water: ax across the view (turned a little), aw away from the eye. A stroke along
+      // ax keeps its width on screen; anything along aw is foreshortened by sd (how steeply the eye looks down)
+      const Rt = norm(cross(d, up)), sd = Math.max(0.16, -d[1]);
+      const fh = norm([d[0], 0, d[2]]), ang = (rand() - 0.5) * 0.4, ca = Math.cos(ang), sa = Math.sin(ang);
+      const ax = [Rt[0] * ca + fh[0] * sa, 0, Rt[2] * ca + fh[2] * sa], aw = [-Rt[0] * sa + fh[0] * ca, 0, -Rt[2] * sa + fh[2] * ca];
       const y = -hw + 0.01;
-      const at = (ox, oz) => { const pw = [x + ox, y, z + oz]; return { pw, d: norm(pw) }; };
-      // the pad's shadow on the water, a touch nearer the viewer
-      // (behind the pad in depth, so it only shows as a darker rim round it)
-      const sh = at(0, 0);
-      sh.pw = sh.pw.map((q) => q * 1.012);
-      flat(sh.pw, sh.d, ax.map((q) => q * R * 1.1), R * sd * 1.04, lerp3(base, [0.14, 0.26, 0.28], 0.55), 0.2);
-      // two overlapping touches, so the pad's outline is not a perfect oval
-      const c0 = at(0, 0), o2 = (rand() < 0.5 ? -1 : 1) * R * lerp(0.3, 0.45, rand());
-      flat(c0.pw.map((q, j) => (j === 1 ? y + 0.004 : q)), c0.d, ax.map((q) => q * R), R * sd * 0.9, base, 0.08);
-      const c1 = at(ax[0] * o2 + fh[0] * R * 0.1, ax[2] * o2 + fh[2] * R * 0.1);
-      flat([c1.pw[0], y + 0.005, c1.pw[2]], c1.d, ax.map((q) => q * R * 0.7), R * sd * lerp(0.7, 0.85, rand()), base.map((q) => clamp(q * 0.95, 0, 1)), 0);
-      // a lighter touch over its far half, where it catches the sky
-      const o = (rand() - 0.5) * 0.5 * R, hi = at(Rt[0] * o + d[0] * R * 0.15, Rt[2] * o + d[2] * R * 0.15);
-      flat([hi.pw[0], y + 0.008, hi.pw[2]], hi.d, ax.map((q) => q * R * 0.62), R * sd * 0.5, base.map((q, j) => clamp(q * 1.12 + [0.06, 0.07, 0.05][j], 0, 1)), 0);
-      counts[4] += 4;
-      // far off a flower would be a speck: only the nearer pads flower
+      // a touch at (u, v) on the pad (radii), raised yo, laid over what is behind it by depth (radial scale)
+      const put = (u, v, yo, depth, axis, mn, col, soft) => {
+        const pw = [(x + (ax[0] * u + aw[0] * v) * R) * depth, (y + yo) * depth, (z + (ax[2] * u + aw[2] * v) * R) * depth];
+        flat(pw, norm(pw), axis, mn, col.map((q) => clamp(q, 0, 1)), soft);
+        counts[4]++;
+      };
+      const along = (dir, l) => dir.map((q) => q * l);
+      const src = sample(b2, r.i), water = calm(src, r), lv = lumOf(src);
+      const g = PD.greens[Math.floor(rand() * PD.greens.length)].map((q) => q * (0.8 + lv * 0.45) * (0.94 + rand() * 0.12));
+      const base = lerp3(g, src, PD.mix);
+      const dark = lerp3(base, [0.12, 0.25, 0.27], 0.45), sheen = lerp3(base, PD.sky, 0.32), warm = lerp3(base, [0.78, 0.74, 0.36], 0.22);
+      // the dark rim it sits in (behind everything on the pad)
+      put(0, 0, 0, 1.012, along(ax, R * 1.06), R * sd * 1.02, dark, 0.35);
+      // the pad painted as Monet does, in level strokes across it: darker on the near side, catching the sky on
+      // the far side, a warmer one or two among them
+      const NB = PD.strokes;
+      for (let k = 0; k < NB; k++) {
+        const v = lerp(-0.6, 0.6, k / (NB - 1)) + (rand() - 0.5) * 0.12, hwid = Math.sqrt(Math.max(0.08, 1 - v * v));
+        const t = (v + 0.6) / 1.2, tilt = (rand() - 0.5) * 0.12;
+        const dir = [ax[0] * Math.cos(tilt) + aw[0] * Math.sin(tilt), 0, ax[2] * Math.cos(tilt) + aw[2] * Math.sin(tilt)];
+        const c = (rand() < 0.25 ? warm : t < 0.5 ? lerp3(dark, base, 0.55 + t * 0.9) : lerp3(base, sheen, (t - 0.5) * 1.6)).map((q) => q * (0.93 + rand() * 0.14));
+        put((rand() - 0.5) * 0.12 * hwid, v, 0.004, 1 - 0.0004 * (NB - k), along(dir, R * hwid * lerp(0.82, 0.98, rand())), R * sd * lerp(0.2, 0.27, rand()), c, 0.12);
+      }
+      // the slit to its middle, in the water's colour
+      const na = rand() * Math.PI * 2, nd = [ax[0] * Math.cos(na) + aw[0] * Math.sin(na), 0, ax[2] * Math.cos(na) + aw[2] * Math.sin(na)];
+      put(Math.cos(na) * 0.5, Math.sin(na) * 0.5, 0.006, 0.9965, along(nd, R * 0.48), R * lerp(sd, 1, Math.abs(Math.sin(na)) * 0.5) * 0.07, lerp3(water, dark, 0.3), 0);
+      // a thin light lip along its far edge
+      put((rand() - 0.5) * 0.2, 0.7, 0.006, 0.996, along(ax, R * 0.55), R * sd * 0.09, lerp3(sheen, [0.9, 0.93, 0.86], 0.3), 0.15);
+      // only the nearer pads flower (further off a flower would be a speck)
       if (rr < PD.flowerFar && rand() < PD.flower) {
-        const fc = PD.flowers[Math.floor(rand() * PD.flowers.length)], fr = R * lerp(0.4, 0.5, rand());
-        const fo = (rand() - 0.5) * 0.6 * R;
-        for (let q = 0; q < 4; q++) {
-          const pa = (q / 4) * Math.PI + rand() * 0.3, px = Math.cos(pa) * fr * 0.35, pz = Math.sin(pa) * fr * 0.35;
-          const fp = [x + Rt[0] * fo + px, y + 0.05 + fr * 0.25, z + Rt[2] * fo + pz];
-          const pd = norm(fp), pR = norm(cross(pd, up)), pU = cross(pR, pd);
-          const tilt = (q / 3 - 0.5) * 1.6;
-          const pax = [pR[0] * Math.cos(tilt) + pU[0] * Math.sin(tilt) * 0.6, pR[1] * Math.cos(tilt) + pU[1] * Math.sin(tilt) * 0.6, pR[2] * Math.cos(tilt) + pU[2] * Math.sin(tilt) * 0.6];
-          flat(fp, pd, pax.map((v) => v * fr * 0.7), fr * 0.4, fc.map((v) => clamp(v * (0.94 + rand() * 0.1), 0, 1)), 0);
+        const fc = lerp3(PD.flowers[Math.floor(rand() * PD.flowers.length)], src, 0.12), fr = R * lerp(0.36, 0.44, rand());
+        const fu = (rand() - 0.5) * 0.4, fv = -0.1 + (rand() - 0.5) * 0.2, q = fr / R;
+        // its shadow on the pad
+        put(fu, fv - q * 0.2, 0.007, 0.995, along(ax, fr * 0.95), fr * sd * 0.6, lerp3(dark, [0.08, 0.16, 0.16], 0.4), 0.3);
+        // outer petals lying open, lighter towards their tips and on the far side
+        const NP = 8, a0 = rand() * Math.PI;
+        for (let k = 0; k < NP; k++) {
+          const a = a0 + (k / NP) * Math.PI * 2 + (rand() - 0.5) * 0.25, ca2 = Math.cos(a), sa2 = Math.sin(a);
+          const dir = [ax[0] * ca2 + aw[0] * sa2, 0.12, ax[2] * ca2 + aw[2] * sa2];
+          const c = lerp3(fc, [1, 0.97, 0.94], 0.15 + 0.2 * (sa2 * 0.5 + 0.5)).map((v) => v * (0.9 + rand() * 0.1));
+          put(fu + ca2 * q * 0.36, fv + sa2 * q * 0.36, 0.03 + fr * 0.1, 0.993 - 0.0006 * (1 - sa2), along(dir, fr * 0.36), fr * lerp(sd, 1, 0.5) * 0.3, c, 0.2);
         }
-        const cp = [x + Rt[0] * fo, y + 0.07 + fr * 0.3, z + Rt[2] * fo];
-        flat(cp, norm(cp), Rt.map((v) => v * fr * 0.3), fr * 0.22, [0.98, 0.84, 0.42], 0);
-        counts[4] += 5;
+        // the inner cup, more upright and deeper in colour
+        for (let k = 0; k < 5; k++) {
+          const a = a0 + (k / 5) * Math.PI * 2 + 0.3, ca2 = Math.cos(a), sa2 = Math.sin(a);
+          const dir = norm([ax[0] * ca2 * 0.6 + aw[0] * sa2 * 0.6, 0.8, ax[2] * ca2 * 0.6 + aw[2] * sa2 * 0.6]);
+          const c = lerp3(fc, [0.86, 0.42, 0.52], 0.18 + 0.12 * rand());
+          put(fu + ca2 * q * 0.16, fv + sa2 * q * 0.16, 0.05 + fr * 0.32, 0.99 - 0.0006 * (1 - sa2), along(dir, fr * 0.3), fr * 0.2, c, 0.2);
+        }
+        // its golden heart
+        put(fu, fv, 0.06 + fr * 0.4, 0.987, along(ax, fr * 0.12), fr * 0.1, lerp3([0.96, 0.78, 0.38], fc, 0.25), 0.2);
       }
     }
   }
