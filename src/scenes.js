@@ -281,9 +281,11 @@ const bridgePano = {
   lily: 9,
   // lily pads as whole flat pads in drifts (see pano.js): count per tier, radius (m), growth per m away, spacing
   // (radii), how far out (m), pond detail that counts as lilies, share of the pond in drifts, share in flower
-  // (only nearer than flowerFar m: further off a flower is a speck); mix: share of the picture's own colour there
+  // (only nearer than flowerFar m: further off a flower is a speck); mix: share of the picture's own colour there;
+  // strokes: level strokes across a pad; sky: the colour its far side leans to
   pads: {
-    n: { low: 380, mid: 700, high: 900 }, r: [0.15, 0.27], grow: 0.04, mix: 0.3, spacing: 1.1, far: 26, evidence: 0.09, drift: 0.42, flower: 0.25, flowerFar: 11,
+    n: { low: 150, mid: 240, high: 300 }, r: [0.3, 0.48], grow: 0.04, mix: 0.35, spacing: 1.05, far: 26, evidence: 0.09, drift: 0.42, flower: 0.3, flowerFar: 13,
+    strokes: 9, sky: [0.78, 0.86, 0.82],
     greens: [[0.38, 0.6, 0.26], [0.52, 0.66, 0.28], [0.32, 0.55, 0.38], [0.6, 0.68, 0.32]],
     flowers: [[0.97, 0.66, 0.72], [0.98, 0.93, 0.88], [0.9, 0.46, 0.55], [0.99, 0.8, 0.82]],
   },
@@ -300,9 +302,10 @@ const bridgePano = {
   // hanging willows as whole strands (tree strokes whose brushwork runs up and down from elevation low°, coh: how
   // steadily, mask: share of such brushwork around): seed spacing k, strokes per strand, how many strands cover
   // a place, step between strokes and overlap (spacings), width, light/dark spread between strands; under: how
-  // much longer and narrower the broad passes' strokes hang there; ease: how fast a strand's colour follows the
+  // much longer and narrower the broad passes' strokes hang there; lean: how far a strand may slant from upright;
+  // ease: how fast a strand's colour follows the
   // picture down it, settle: how far it leans to the broad colour there
-  willow: { low: -12, coh: 0.3, mask: 0.45, k: 0.85, len: [6, 12], cover: 1.4, step: 1.4, over: 2.3, width: 0.3, tone: 0.3, ease: 0.22, settle: 0.42, under: [1.9, 0.55] },
+  willow: { low: -12, coh: 0.3, mask: 0.45, k: 0.85, len: [6, 12], cover: 1.4, step: 1.4, over: 2.3, lean: 0.12, width: 0.3, tone: 0.3, ease: 0.22, settle: 0.42, under: [1.9, 0.55] },
 };
 
 const bridge = {

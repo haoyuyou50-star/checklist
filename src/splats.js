@@ -209,11 +209,11 @@ void main() {
     float ph = dot(sx, vec2(0.61, 0.37)) + n1 * 2.4, ka = 0.75 + 0.35 * n2, om = 1.0 + 0.18 * n1;
     float s = sin(uTime * 0.85 * om + ph) * 0.6 + sin(uTime * 1.9 * om + ph * 1.7) * 0.2;
     float bb = (s * (0.3 + 0.45 * w) + w * 0.7 + wk * 1.1 * (0.8 + 0.4 * n2)) * ka;
-    // a bend, not a turn: the top barely moves, the hanging end swings out (0.35 t² + 0.65 t³), and a wave runs
-    // down to the tips (more in wind), so the lower part curls while the top stays straight
-    float ws = uTime * 2.4 * om - t * 4.5 + ph * 1.3, wa = (0.05 + 0.12 * (w + wk)) * ka;
+    // a bend, not a turn: the top barely moves and the hanging end swings out (0.35 t² + 0.65 t³). Only in a
+    // gust does a long, gentle wave run down to the tips (in calm air the strands hang straight)
+    float ws = uTime * 2.0 * om - t * 2.2 + ph * 1.3, wa = 0.1 * smoothstep(0.15, 0.8, w + wk) * ka;
     float f = t * t * (0.35 + 0.65 * t), fd = t * (0.7 + 1.95 * t);
-    float g = t * t * sin(ws), gd = 2.0 * t * sin(ws) - 4.5 * t * t * cos(ws);
+    float g = t * t * sin(ws), gd = 2.0 * t * sin(ws) - 2.2 * t * t * cos(ws);
     vec3 side = vec3(-wd3.z, 0.0, wd3.x) * (0.3 * sin(ws * 0.7 + n2 * 3.0));
     float L = max(hl, 1.5), K = 0.085;
     pos += (wd3 * (bb * K * f + wa * g) + side * wa * g) * L;
