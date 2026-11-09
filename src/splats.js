@@ -222,6 +222,17 @@ void main() {
     vec3 sl = wd3 * (bb * K * fd + wa * gd) + side * wa * gd;
     axis += sl * (-axis.y) / max(1.0, length(sl) / 0.6);
     col += vec3(0.04, 0.045, 0.02) * max(s, 0.0) * t * (0.4 + w);
+  } else if (cls == 14) {                    // lily pads and their flowers, riding the water
+    // one slow phase over a pad and its flower (it changes over metres), so they move as one
+    float ph = dot(world.xz, vec2(0.35, 0.21)) + sin(dot(world.xz, vec2(-0.9, 1.3))) * 0.8;
+    float wk = gustWake(world), s = sin(uTime * 0.7 + ph);
+    // the pad drifts a little with the wind and rocks on the ripples
+    pos += wd3 * (0.04 + 0.006 * dist) * (s * 0.5 + w * 0.8 + wk * 1.4);
+    pos.y += (0.006 + 0.0006 * dist) * sin(uTime * 1.3 + ph * 1.7) * (0.6 + w + wk);
+    // a flower (flex: how far it stands up) nods with the wind, more in a gust
+    float nod = sin(uTime * 1.9 + ph * 2.3) * (0.4 + w) + wk * 1.6 + w * 0.5;
+    pos += wd3 * flex * (0.03 + 0.005 * dist) * nod;
+    axis = rotAround(axis, vec3(0.0, 1.0, 0.0), flex * 0.2 * sin(uTime * 1.9 + ph * 2.3));
   } else if (cls == 3) {                     // foliage
     float sway = sin(uTime * 1.25 + pos.x * 0.07 + pos.z * 0.05) * 0.5 + 0.5;
     float wk = gustWake(pos);

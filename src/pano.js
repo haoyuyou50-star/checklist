@@ -86,6 +86,7 @@ export function buildPano(scene, img, Q) {
     for (let x = 0; x < W; x++) { const i = y * W + x; skyM[i] = el > 0.02 && skyLike(b2[i * 3], b2[i * 3 + 1], b2[i * 3 + 2]) ? 1 : 0; }
   }
   const skyS = blur1(skyM, W, H, 3);
+  const skyR = P.rim ? blur1(skyM, W, H, Math.max(3, Math.round((P.rim.reach * W) / 2048))) : null;
   const cls = new Uint8Array(N);
   for (let y = 0; y < H; y++) {
     const el = (0.5 - (y + 0.5) / H) * Math.PI;
@@ -94,6 +95,9 @@ export function buildPano(scene, img, Q) {
       cls[i] = el > 1.2 || skyS[i] > 0.5 ? CLS.SKY : isPond(az, el) ? CLS.WATER : CLS.TREE;
     }
   }
+
+  // stray specks of garden left in the sky (mostly sky round them) are sky
+  if (skyR) for (let k = 0; k < N; k++) if (cls[k] === CLS.TREE && skyR[k] > P.rim.stray) cls[k] = CLS.SKY;
 
   // hanging willow: garden whose brushwork runs steadily up and down (P.willow.coh: how steadily)
   let wM = null;
@@ -348,7 +352,17 @@ export function buildPano(scene, img, Q) {
     // under the strands the broad passes hang too: long, upright, narrow
     const hang = c === CLS.TREE && r.flex >= 2;
     if (hang) { maj *= P.willow.under[0]; mn *= P.willow.under[1]; }
-    const ang = hang ? Math.PI / 2 + (rand() - 0.5) * 0.12 : strokeAngle(r, lily), ca = Math.cos(ang) * maj * dist, sa = -Math.sin(ang) * maj * dist;
+    // near the sky a garden stroke is shorter and follows the outline (along the edge of the sky mask)
+    let rimA = null;
+    if (skyR && c === CLS.TREE && r.edge === 0) {
+      const i = r.i, k = smooth(0.02, 0.35, skyR[i]);
+      if (k > 0) {
+        maj *= 1 - (1 - P.rim.maj) * k; mn *= 1 - (1 - P.rim.min) * k;
+        const gx = skyR[i + 1 < N ? i + 1 : i] - skyR[i > 0 ? i - 1 : i], gy = skyR[Math.min(i + W, N - 1)] - skyR[Math.max(i - W, 0)];
+        if (rand() < k && Math.hypot(gx, gy) > 1e-4) { const ap = Math.atan2(gy, gx) + Math.PI / 2; rimA = Math.atan2(Math.sin(ap) * r.ky, Math.cos(ap) * r.kx); }
+      }
+    }
+    const ang = hang ? Math.PI / 2 + (rand() - 0.5) * 0.12 : rimA !== null ? rimA + (rand() - 0.5) * 0.2 : strokeAngle(r, lily), ca = Math.cos(ang) * maj * dist, sa = -Math.sin(ang) * maj * dist;
     let axis = [Rt[0] * ca + Ut[0] * sa, Rt[1] * ca + Ut[1] * sa, Rt[2] * ca + Ut[2] * sa];
     // looking down, strokes laid across the line of sight close into rings round the nadir: flat on the pond instead
     if (c === CLS.WATER && rand() < nearW) { const a = rand() * Math.PI; axis = [Math.cos(a) * maj * dist, 0, Math.sin(a) * maj * dist]; }
@@ -513,7 +527,9 @@ export function buildPano(scene, img, Q) {
     const taken = new Map(), cell = 0.5;
     const key = (x, z) => `${Math.floor(x / cell)},${Math.floor(z / cell)}`;
     const target = PD.n[Q.tier] || PD.n.mid;
-    const flat = (Pw, d, axis, mn, col, soft) => {
+    // fl: how far the touch stands up off its pad (0: on the water; a flower's petals 1), which is how far it
+    // nods in the wind
+    const flat = (Pw, d, axis, mn, col, soft, fl = 0) => {
       const p = proj(d), inF = inRect(p);
       let cpos = Pw, delay;
       if (inF) {
@@ -521,7 +537,7 @@ export function buildPano(scene, img, Q) {
         cpos = [d[0] * sc, d[1] * sc, d[2] * sc];
         delay = clamp(Math.hypot(p[0] - 0.5, (p[1] - 0.5) * asp) / 0.62 * 0.62 + rand() * 0.38, 0, 1);
       } else delay = extDelay(Pw);
-      B.add(Pw, cpos, axis, mn, col, 1, CLS.STATIC, 0, 0, delay, inF ? 0 : 1, softSeed(soft, rand()));
+      B.add(Pw, cpos, axis, mn, col, 1, CLS.PAD, 0, fl, delay, inF ? 0 : 1, softSeed(soft, rand()));
     };
     for (let tries = 0; tries < target * 40 && nPads < target; tries++) {
       const th = rand() * Math.PI * 2, rr = 3.5 + Math.pow(rand(), 1.3) * PD.far;
@@ -555,9 +571,9 @@ export function buildPano(scene, img, Q) {
       const ax = [Rt[0] * ca + fh[0] * sa, 0, Rt[2] * ca + fh[2] * sa], aw = [-Rt[0] * sa + fh[0] * ca, 0, -Rt[2] * sa + fh[2] * ca];
       const y = -hw + 0.01;
       // a touch at (u, v) on the pad (radii), raised yo, laid over what is behind it by depth (radial scale)
-      const put = (u, v, yo, depth, axis, mn, col, soft) => {
+      const put = (u, v, yo, depth, axis, mn, col, soft, fl = 0) => {
         const pw = [(x + (ax[0] * u + aw[0] * v) * R) * depth, (y + yo) * depth, (z + (ax[2] * u + aw[2] * v) * R) * depth];
-        flat(pw, norm(pw), axis, mn, col.map((q) => clamp(q, 0, 1)), soft);
+        flat(pw, norm(pw), axis, mn, col.map((q) => clamp(q, 0, 1)), soft, fl);
         counts[4]++;
       };
       const along = (dir, l) => dir.map((q) => q * l);
@@ -594,17 +610,17 @@ export function buildPano(scene, img, Q) {
           const a = a0 + (k / NP) * Math.PI * 2 + (rand() - 0.5) * 0.25, ca2 = Math.cos(a), sa2 = Math.sin(a);
           const dir = [ax[0] * ca2 + aw[0] * sa2, 0.12, ax[2] * ca2 + aw[2] * sa2];
           const c = lerp3(fc, [1, 0.97, 0.94], 0.15 + 0.2 * (sa2 * 0.5 + 0.5)).map((v) => v * (0.9 + rand() * 0.1));
-          put(fu + ca2 * q * 0.36, fv + sa2 * q * 0.36, 0.03 + fr * 0.1, 0.993 - 0.0006 * (1 - sa2), along(dir, fr * 0.36), fr * lerp(sd, 1, 0.5) * 0.3, c, 0.2);
+          put(fu + ca2 * q * 0.36, fv + sa2 * q * 0.36, 0.03 + fr * 0.1, 0.993 - 0.0006 * (1 - sa2), along(dir, fr * 0.36), fr * lerp(sd, 1, 0.5) * 0.3, c, 0.2, 0.8);
         }
         // the inner cup, more upright and deeper in colour
         for (let k = 0; k < 5; k++) {
           const a = a0 + (k / 5) * Math.PI * 2 + 0.3, ca2 = Math.cos(a), sa2 = Math.sin(a);
           const dir = norm([ax[0] * ca2 * 0.6 + aw[0] * sa2 * 0.6, 0.8, ax[2] * ca2 * 0.6 + aw[2] * sa2 * 0.6]);
           const c = lerp3(fc, [0.86, 0.42, 0.52], 0.18 + 0.12 * rand());
-          put(fu + ca2 * q * 0.16, fv + sa2 * q * 0.16, 0.05 + fr * 0.32, 0.99 - 0.0006 * (1 - sa2), along(dir, fr * 0.3), fr * 0.2, c, 0.2);
+          put(fu + ca2 * q * 0.16, fv + sa2 * q * 0.16, 0.05 + fr * 0.32, 0.99 - 0.0006 * (1 - sa2), along(dir, fr * 0.3), fr * 0.2, c, 0.2, 1);
         }
         // its golden heart
-        put(fu, fv, 0.06 + fr * 0.4, 0.987, along(ax, fr * 0.12), fr * 0.1, lerp3([0.96, 0.78, 0.38], fc, 0.25), 0.2);
+        put(fu, fv, 0.06 + fr * 0.4, 0.987, along(ax, fr * 0.12), fr * 0.1, lerp3([0.96, 0.78, 0.38], fc, 0.25), 0.2, 1.1);
       }
     }
   }
