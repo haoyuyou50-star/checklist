@@ -201,14 +201,26 @@ void main() {
     // flex = 2 + 2 * (hanging length in 0.25 m) + place down it (0 top .. 1 tip)
     float t = fract(flex), hl = max(floor((flex - 2.0) * 0.5 + 0.01), 1.0) * 0.25;
     float wk = gustWake(world);
-    // one phase per strand (its strokes share x and z)
-    float ph = dot(world.xz, vec2(0.61, 0.37));
-    float s = sin(uTime * 0.85 + ph) * 0.6 + sin(uTime * 1.9 + ph * 1.7) * 0.2;
-    float bb = s * (0.3 + 0.45 * w) + w * 0.7 + wk * 1.1, amp = 0.1 + 0.012 * dist;
-    pos += wd3 * bb * t * t * amp;
-    // each stroke leans by the curtain's slope there (d/dt of the swing over its hanging length), so strokes
-    // above and below stay joined
-    axis += wd3 * (-axis.y) * clamp(2.0 * bb * t * amp / max(hl, 1.5), -0.45, 0.45);
+    // strands a hand apart get their own phase, reach and timing (fine noise over x, z: a strand's strokes,
+    // and the underpainting behind it, share it), so the curtain sways out of step
+    vec2 sx = world.xz;
+    float n1 = sin(dot(sx, vec2(2.3, 1.7))) * 0.6 + sin(dot(sx, vec2(-3.7, 4.1)) + 1.3) * 0.4;
+    float n2 = sin(dot(sx, vec2(5.3, -2.9)) + 0.7) * 0.5 + sin(dot(sx, vec2(1.1, 6.7))) * 0.5;
+    float ph = dot(sx, vec2(0.61, 0.37)) + n1 * 2.4, ka = 0.75 + 0.35 * n2, om = 1.0 + 0.18 * n1;
+    float s = sin(uTime * 0.85 * om + ph) * 0.6 + sin(uTime * 1.9 * om + ph * 1.7) * 0.2;
+    float bb = (s * (0.3 + 0.45 * w) + w * 0.7 + wk * 1.1 * (0.8 + 0.4 * n2)) * ka;
+    // a bend, not a turn: the top barely moves, the hanging end swings out (0.35 t² + 0.65 t³), and a wave runs
+    // down to the tips (more in wind), so the lower part curls while the top stays straight
+    float ws = uTime * 2.4 * om - t * 4.5 + ph * 1.3, wa = (0.05 + 0.12 * (w + wk)) * ka;
+    float f = t * t * (0.35 + 0.65 * t), fd = t * (0.7 + 1.95 * t);
+    float g = t * t * sin(ws), gd = 2.0 * t * sin(ws) - 4.5 * t * t * cos(ws);
+    vec3 side = vec3(-wd3.z, 0.0, wd3.x) * (0.3 * sin(ws * 0.7 + n2 * 3.0));
+    float L = max(hl, 1.5), K = 0.085;
+    pos += (wd3 * (bb * K * f + wa * g) + side * wa * g) * L;
+    // each stroke leans by the strand's slope there (the bend's d/dt over the hanging length), so strokes above
+    // and below stay joined along the curve
+    vec3 sl = wd3 * (bb * K * fd + wa * gd) + side * wa * gd;
+    axis += sl * (-axis.y) / max(1.0, length(sl) / 0.6);
     col += vec3(0.04, 0.045, 0.02) * max(s, 0.0) * t * (0.4 + w);
   } else if (cls == 3) {                     // foliage
     float sway = sin(uTime * 1.25 + pos.x * 0.07 + pos.z * 0.05) * 0.5 + 0.5;

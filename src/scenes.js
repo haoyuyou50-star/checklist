@@ -286,7 +286,7 @@ const bridgePano = {
   // steadily, mask: share of such brushwork around): seed spacing k, strokes per strand, how many strands cover
   // a place, step between strokes and overlap (spacings), width, light/dark spread between strands; under: how
   // much longer and narrower the broad passes' strokes hang there
-  willow: { low: -12, coh: 0.3, mask: 0.45, k: 0.75, len: [8, 18], cover: 1.6, step: 0.9, over: 1.5, width: 0.2, tone: 0.3, under: [2.4, 0.55] },
+  willow: { low: -12, coh: 0.3, mask: 0.45, k: 0.75, len: [8, 18], cover: 1.6, step: 0.9, over: 1.5, width: 0.2, tone: 0.3, under: [1.9, 0.55] },
 };
 
 const bridge = {
