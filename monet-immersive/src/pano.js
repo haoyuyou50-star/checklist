@@ -143,14 +143,15 @@ export function buildPano(scene, img, Q) {
   if (P.pondCalm) {
     const rr = Math.max(2, Math.round((P.pondCalm.r * W) / 2048));
     pondH = new Float32Array(N * 3);
+    const pSrc = P.pondCalm.broad ? b8 : b2;
     for (let y = 0; y < H; y++) {
       const row = y * W, acc = [0, 0, 0];
       let n = 0;
-      const put = (x, s) => { const i = row + ((x % W) + W) % W; if (cls[i] !== CLS.WATER) return; for (let j = 0; j < 3; j++) acc[j] += s * b2[i * 3 + j]; n += s; };
+      const put = (x, s) => { const i = row + ((x % W) + W) % W; if (cls[i] !== CLS.WATER) return; for (let j = 0; j < 3; j++) acc[j] += s * pSrc[i * 3 + j]; n += s; };
       for (let k = -rr; k <= rr; k++) put(k, 1);
       for (let x = 0; x < W; x++) {
         const i = row + x;
-        for (let j = 0; j < 3; j++) pondH[i * 3 + j] = n > 0 ? acc[j] / n : b2[i * 3 + j];
+        for (let j = 0; j < 3; j++) pondH[i * 3 + j] = n > 0 ? acc[j] / n : pSrc[i * 3 + j];
         put(x + rr + 1, 1); put(x - rr, -1);
       }
     }
@@ -178,7 +179,16 @@ export function buildPano(scene, img, Q) {
     }
     return c;
   };
-  const calm = (c, r) => shore(calm0(c, r), r);
+  // the sky in a few broad shapes: towards the much blurred picture and a little towards a plain gradient from the
+  // horizon's colour up (skyCalm: { mix, grad })
+  const skyCalm = (c, r) => {
+    if (!P.skyCalm || r.cls !== CLS.SKY) return c;
+    const g = lerp3(horizCol, zenCol, smooth(0.05, 1.2, r.el));
+    return lerp3(c, lerp3(sample(b8, r.i), g, P.skyCalm.grad), P.skyCalm.mix);
+  };
+  // the canopy just under the treeline melts a little into the sky over it
+  const crownEdge = (c, r) => (r.edge > 0 ? lerp3(c, sample(b8, Math.min(skyFrom[r.x], H - 1) * W + r.x), r.edge * 0.45) : c);
+  const calm = (c, r) => crownEdge(skyCalm(shore(calm0(c, r), r), r), r);
 
   // the eye stands further back than the panorama was painted from: a zoom out round the front (s times smaller
   // there, larger behind), separable in azimuth and elevation so verticals stay vertical and the horizon level,
@@ -186,10 +196,20 @@ export function buildPano(scene, img, Q) {
   const zs = P.zoom.s, t2 = (a) => Math.tan(clamp(a, -Math.PI + 1e-6, Math.PI - 1e-6) / 2);
   const G = (a) => 2 * Math.atan(zs * t2(a)), dG = (a) => { const t = t2(a); return (zs * (1 + t * t)) / (1 + zs * zs * t * t); };
   const azOff = -G(P.zoom.turn * DEG);
+  const SL = P.skyLift;
   const warp = (az, el) => {
     const m = dG(az), te = Math.tan(clamp(el, -1.5707, 1.5707));
     const ae = G(az) + azOff;
-    return { az: Math.atan2(Math.sin(ae), Math.cos(ae)), el: Math.atan(m * te), kx: 1 / m, ky: (1 + m * m * te * te) / (m * (1 + te * te)), m };
+    let ev = Math.atan(m * te), ky = (1 + m * m * te * te) / (m * (1 + te * te));
+    // more sky: above the horizon the garden is drawn lower (the panorama sampled higher), by more away from
+    // the front, where the zoom stretches the garden up (skyLift: { k, from, to: degrees; side: extra from sideFrom to sideTo degrees off the front })
+    if (SL && ev > 0) {
+      const k = SL.k + SL.side * smooth(SL.sideFrom, SL.sideTo, Math.abs(az / DEG)), e = ev / DEG;
+      const sm = smooth(SL.from, SL.to, e), ds = (smooth(SL.from, SL.to, e + 0.5) - smooth(SL.from, SL.to, e - 0.5)) / DEG;
+      ky /= 1 + k * sm + k * ev * ds;
+      ev = Math.min(ev * (1 + k * sm), Math.PI / 2 - 1e-4);
+    }
+    return { az: Math.atan2(Math.sin(ae), Math.cos(ae)), el: ev, kx: 1 / m, ky, m };
   };
 
   // importance (0: left broad, 1: the focus) by view direction; the sky never comes forward much
@@ -198,9 +218,33 @@ export function buildPano(scene, img, Q) {
 
   const xOf = (az) => { const x = Math.floor((az / (2 * Math.PI) + 0.5) * W); return ((x % W) + W) % W; };
   const yOf = (el) => clamp(Math.floor((0.5 - el / Math.PI) * H), 0, H - 1);
+  // a treeline to the sides and behind (crown: { el: degrees, amp: its rise and fall, from, to: degrees off the
+  // front over which it comes in, edge: degrees under it where the canopy fades a little to the sky }). The
+  // panorama's garden stands as high as 65 degrees there; above the line the eye sees the panorama's own sky, its
+  // band in that column squeezed into the space above the line (so its clouds stay)
+  const CR = P.crown;
+  let skyFrom = null;
+  if (CR) {
+    skyFrom = new Int32Array(W);
+    for (let x = 0; x < W; x++) { let y = 0; while (y < H / 2 && cls[y * W + x] === CLS.SKY) y++; skyFrom[x] = Math.max(1, y - 2); }
+  }
+  const crownAt = (vaz) => {
+    const a = vaz / DEG, k = smooth(CR.from, CR.to, Math.abs(a));
+    const e = CR.el + CR.amp * (Math.sin(a * 0.09 + 1.1) * 0.6 + Math.sin(a * 0.23 + 0.4) * 0.3 + Math.sin(a * 0.61) * 0.1);
+    return (90 - (90 - e) * k) * DEG;
+  };
+  const skyAbove = (x, el, cr) => {
+    const eTop = Math.PI / 2, eBot = (0.5 - (skyFrom[x] + 0.5) / H) * Math.PI;
+    return eBot + ((el - cr) / (eTop - cr)) * (eTop - eBot);
+  };
   const resolve = (d) => {
-    const vaz = Math.atan2(d[0], -d[2]), vel = Math.asin(clamp(d[1], -1, 1)), w = warp(vaz, vel), az = w.az, el = w.el;
-    const x = xOf(az), y = yOf(el), i = y * W + x, c = cls[i];
+    const vaz = Math.atan2(d[0], -d[2]), vel = Math.asin(clamp(d[1], -1, 1)), w = warp(vaz, vel), az = w.az;
+    let el = w.el, x = xOf(az), y = yOf(el), i = y * W + x, c = cls[i], edge = 0;
+    if (CR && c !== CLS.WATER && vel > 0) {
+      const cr = crownAt(vaz);
+      if (vel > cr) { el = skyAbove(x, vel, cr); y = yOf(el); i = y * W + x; c = CLS.SKY; }
+      else if (c === CLS.TREE) edge = 1 - smooth(0, CR.edge * DEG, cr - vel);
+    }
     const hz = Math.hypot(d[0], d[2]) || 1e-6;
     let t, flex = 0;
     if (c === CLS.SKY) t = R;
@@ -214,7 +258,7 @@ export function buildPano(scene, img, Q) {
       }
     }
     // kx, ky: view arc per panorama radian across and up
-    return { P: [d[0] * t, d[1] * t, d[2] * t], cls: c, i, x, y, az, el, vel, kx: w.kx * Math.cos(vel), ky: w.ky, flex, imp: imp(vaz, vel, c) };
+    return { P: [d[0] * t, d[1] * t, d[2] * t], cls: c, i, x, y, az, el, vel, kx: w.kx * Math.cos(vel), ky: w.ky, flex, imp: imp(vaz, vel, c), edge };
   };
 
   /* ---------------- colour ---------------- */
@@ -290,7 +334,7 @@ export function buildPano(scene, img, Q) {
   const add = (r, d, sp, col, alpha, majR, minR, li, soft, lily = false) => {
     let maj = sp * lerp(majR[0], majR[1], rand()), mn = sp * lerp(minR[0], minR[1], rand());
     const c = lily ? CLS.STATIC : r.cls, nearW = r.cls === CLS.WATER ? smooth(-0.3, -0.7, d[1]) : 0;
-    if (c === CLS.WATER) { maj *= 1.1 * lerp(1, 0.8, nearW); mn *= lerp(0.72, 1.05, nearW); }
+    if (c === CLS.WATER) { maj *= 1.1 * lerp(1, 0.8, nearW) * (P.waterLen ? P.waterLen[0] : 1); mn *= lerp(0.72, 1.05, nearW) * (P.waterLen ? P.waterLen[1] : 1); }
     // a lily pad lies on the pond: the further off, the flatter its dash
     if (lily) { const a = clamp(1 / (Math.sin(-r.vel) * 2.2 + 0.25), 1.15, 2.8); maj = sp * (P.lilySize ?? 1) * lerp(0.75, 1.05, rand()) * Math.sqrt(a); mn = maj / a; }
     if (c === CLS.SKY) { maj *= li === 0 ? 1.55 : 1.35; mn *= 1.08; }
@@ -361,7 +405,7 @@ export function buildPano(scene, img, Q) {
     const r = resolve(d), e = E2[r.i];
     if (r.cls === CLS.SKY && rand() > 0.25 * r.imp) return;
     if (rand() * pre > clamp((L[2].base + L[2].gain * e) * lerp(L[2].low, 1, smooth(L[2].from, 0.8, r.imp)), 0, 1)) return;
-    if (isWillow(r.i)) return;
+    if (isWillow(r.i) || (P.pondCalm && P.pondCalm.skip2 && r.cls === CLS.WATER)) return;
     const lily = isLily(r, e);
     const c1 = sample(b1, r.i);
     add(r, d, sp, finish(lily ? c1 : calm(c1, r), r, 0), 0.97, L[2].maj, L[2].min, 2, (1 - r.imp) * 0.3 * SM, lily);
