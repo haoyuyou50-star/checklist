@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>二十条</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: #12110f;
+    color: #f3efe6;
+    font-family: "Songti SC", "Noto Serif SC", "Source Han Serif SC", serif;
+  }
+  header { max-width: 880px; margin: 0 auto; padding: 48px 20px 12px; }
+  h1 { font-weight: 500; font-size: 2rem; letter-spacing: 0.12em; margin: 0 0 8px; }
+  header p { margin: 0; color: #b7b1a4; font-family: "PingFang SC", "Noto Sans SC", sans-serif; font-size: 0.95rem; }
+  main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 28px 20px 80px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 28px 18px;
+  }
+  figure { margin: 0; }
+  video {
+    width: 100%;
+    aspect-ratio: 9 / 16;
+    background: #1c1b18;
+    border-radius: 8px;
+    display: block;
+  }
+  figcaption { margin-top: 10px; }
+  figcaption strong { display: block; font-weight: 500; letter-spacing: 0.08em; }
+  figcaption span {
+    display: block;
+    margin-top: 4px;
+    color: #b7b1a4;
+    font-family: "PingFang SC", "Noto Sans SC", sans-serif;
+    font-size: 0.86rem;
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>二十条</h1>
+  <p>每条十秒。画面和声音都由代码生成。点一下才出声。</p>
+</header>
+<main id="list"></main>
+<script>
+const pieces = [
+  ["01-kongshan", "空山", "墨从纸的上端慢慢沉下来"],
+  ["02-goucheng", "构成", "三种形状终于对齐格子"],
+  ["03-raodong", "扰动", "线条先安静，再失衡，再安静"],
+  ["04-shenhai", "深海", "光是活的，而且很慢"],
+  ["05-jinshan", "金缮", "裂开的地方变成金"],
+  ["06-bafang", "八方", "一朵星从圆心画到边"],
+  ["07-fengji", "风迹", "色带沿着同一阵风"],
+  ["08-shengwen", "生纹", "纹路从一点里长出来"],
+  ["09-weimu", "帷幕", "夜空被拉开几道绿与品红"],
+  ["10-zhouri", "周日", "河岸是一点一点亮起来的"],
+  ["11-xuansi", "悬丝", "颜色挂在线上，轻轻摆"],
+  ["12-qinghua", "青花", "蓝从瓶口流到瓶足"],
+  ["13-moli", "墨流", "每一圈都还记得那一滴"],
+  ["14-mengfeisi", "孟菲斯", "硬边、圆点、一块水磨石"],
+  ["15-feitian", "飞天", "石青和石绿从壁上飘过去"],
+  ["16-seyu", "色域", "两种颜色互相看着"],
+  ["17-juan", "绢", "光在褶皱里走路"],
+  ["18-raoji", "绕极", "所有的星绕着同一点"],
+  ["19-taose", "套色", "三块颜色没有对准"],
+  ["20-yuanxiang", "圆相", "一笔，留一口，再盖印"]
+];
+const list = document.getElementById("list");
+for (const [slug, title, poem] of pieces) {
+  const fig = document.createElement("figure");
+  const id = slug.slice(0, 2);
+  fig.innerHTML = `
+    <video controls preload="none" playsinline poster="stills/${slug}-thumb.jpg">
+      <source src="renders/${slug}.mp4" type="video/mp4" />
+    </video>
+    <figcaption><strong>${id} ${title}</strong><span>${poem}</span></figcaption>`;
+  list.appendChild(fig);
+}
+list.addEventListener("play", (event) => {
+  for (const video of list.querySelectorAll("video")) {
+    if (video !== event.target) video.pause();
+  }
+}, true);
+</script>
+</body>
+</html>
